@@ -1,0 +1,77 @@
+{
+	"schemaVersion": 1,
+	"id": "spb-revamped",
+	"version": "${version}",
+	"name": "Backrooms FF Continued",
+	"description": "Backrooms: Found Footage, continued for Minecraft 26.2 with macOS support. Based on SP-Backrooms Revamped by SpacePotato & Herr Chaos.",
+	"authors": [
+		"ARBird"
+	],
+	"contact": {
+		"YouTube": "https://www.youtube.com/@SpacePotatoee"
+	},
+	"license": "LGPL-3.0-only",
+	"icon": "assets/spb-revamped/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.sp.SPBRevamped"
+		],
+		"client": [
+			"com.sp.SPBRevampedClient"
+		],
+		"fabric-datagen": [
+			"com.sp.SPBRevampedDataGenerator"
+		],
+		"cardinal-components": [
+			"com.sp.cca_stuff.InitializeComponents"
+		],
+		"modmenu": [
+			"com.sp.init.ModMenuMenu"
+		],
+		"voicechat": [
+			"com.sp.sounds.voicechat.BackroomsVoicechatPlugin"
+		]
+	},
+	"custom": {
+		"cardinal-components": [
+			"spb-revamped:player",
+			"spb-revamped:events",
+			"spb-revamped:skw",
+			"spb-revamped:smi"
+		],
+		"modmenu": {
+			"links": {
+				"My Youtube": "https://www.youtube.com/@SpacePotatoee",
+				"Join the Discord!": "https://discord.gg/z3sfGTdjEn"
+			},
+			"update_checker": false
+		}
+	},
+	"mixins": [
+		"spb-revamped.mixins.json"
+	],
+	"accessWidener": "spb-revamped.accesswidener",
+	"depends": {
+		"fabricloader": ">=0.15.11",
+		"minecraft": "~1.20.1",
+		"java": ">=17",
+		"fabric-api": "*",
+		"fabric-key-binding-api-v1": "*",
+		"voicechat": ">=1.20.1-2.4.32",
+		"geckolib": ">=4.4.9"
+	},
+	"suggests": {
+		"mod-menu": "*"
+	},
+	"breaks": {
+		"sodium": "*",
+		"create": "*",
+		"iris": "*",
+		"optifine": "*",
+		"lithium": "*",
+		"phosphor": "*",
+		"indium": "*",
+		"modern_industrialization": "*"
+	}
+}

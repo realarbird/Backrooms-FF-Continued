@@ -1,0 +1,170 @@
+{
+  "intro.backrooms": "The Backrooms",
+  "intro.credit": "A Mod By ",
+
+  "itemgroup.spbrevamped": "Backrooms",
+
+  "flashlight.hint": "Press %s to toggle your flashlight",
+  "noclip.hint": "Suffocate yourself in sand or gravel to noclip into the backrooms",
+
+  "block.spb-revamped.void_block": "Void Block",
+  "block.spb-revamped.ceiling_light": "Ceiling Light",
+  "block.spb-revamped.emergency_light": "Emergency Light",
+
+  "block.spb-revamped.wall_block": "Wallpaper Block",
+  "block.spb-revamped.wall_block_2": "Manilla Wallpaper Block",
+  "block.spb-revamped.ceiling_tile": "Ceiling Tile",
+  "block.spb-revamped.ghost_ceiling_tile": "Ghost Ceiling Tile",
+  "block.spb-revamped.carpet_block": "Carpet Block",
+  "block.spb-revamped.rug1": "Rug 1",
+  "block.spb-revamped.rug2": "Rug 2",
+
+
+  "block.spb-revamped.wooden_crate": "Wooden Crate",
+  "container.spb-revamped.wooden_crate": "Wooden Crate",
+
+
+  "block.spb-revamped.fluorescent_light": "Fluorescent Light",
+  "block.spb-revamped.pool_sky": "Sky Block",
+  "block.spb-revamped.thin_fluorescent_light": "Thin Fluorescent Light",
+  "block.spb-revamped.bottom_trim": "Bottom Trim",
+  "block.spb-revamped.chain_fence": "Chain Fence",
+  "block.spb-revamped.new_stairs": "Stairwell Stairs",
+
+
+  "block.spb-revamped.concrete1": "Concrete 1",
+  "block.spb-revamped.concrete2": "Concrete 2",
+  "block.spb-revamped.concrete5": "Concrete 5",
+  "block.spb-revamped.concrete6": "Concrete 6",
+  "block.spb-revamped.concrete7": "Concrete 7",
+  "block.spb-revamped.concrete9": "Concrete 9",
+  "block.spb-revamped.concrete9slab": "Concrete 9 Slab",
+  "block.spb-revamped.concrete10": "Concrete 10",
+  "block.spb-revamped.concrete11": "Concrete 11",
+  "block.spb-revamped.concrete12": "Concrete 12",
+  "block.spb-revamped.bricks": "Brick Wall",
+
+
+  "block.spb-revamped.thin_pipe": "Thin Pipe",
+  "block.spb-revamped.thin_pipe_corner": "Thin Pipe Corner",
+  "block.spb-revamped.pipe": "Pipe",
+  "block.spb-revamped.pipe_middle": "Middle Pipe",
+  "block.spb-revamped.pipe_corner": "Corner Pipe",
+  "block.spb-revamped.big_pipe": "Big Pipe",
+  "block.spb-revamped.big_pipe_middle": "Big Middle Pipe",
+  "block.spb-revamped.small_pipe_set": "Small Pipes",
+
+
+  "block.spb-revamped.wall_text_1": "Wall Number 1",
+  "block.spb-revamped.wall_text_2": "Wall Number 2",
+  "block.spb-revamped.wall_text_3": "Wall Number 3",
+  "block.spb-revamped.wall_text_4": "Wall Number 4",
+  "block.spb-revamped.wall_text_5": "Wall Number 5",
+  "block.spb-revamped.wall_text_6": "Wall Number 6",
+  "block.spb-revamped.wall_text_7": "Wall Number 7",
+  "block.spb-revamped.wall_text_8": "Wall Number 8",
+  "block.spb-revamped.wall_text_99": "Wall Number 99",
+
+
+  "block.spb-revamped.arrow1": "Arrow 1",
+  "block.spb-revamped.arrow2": "Arrow 2",
+  "block.spb-revamped.arrow3": "Arrow 3",
+  "block.spb-revamped.arrow4": "Arrow 4",
+
+  "block.spb-revamped.pool_tiles": "Pool Tiles",
+  "block.spb-revamped.pool_tile_wall": "Pool Tile Vertical Slab",
+  "block.spb-revamped.slope": "Pool Tile Slope",
+
+
+  "block.spb-revamped.wall_small_1": "Wall Drawing Hand",
+  "block.spb-revamped.wall_small_2": "Wall Drawing Face",
+  "block.spb-revamped.wall_drawing_door": "Wall Drawing Door",
+  "block.spb-revamped.wall_drawing_window": "Wall Drawing Window",
+
+
+  "item.spb-revamped.backshroom": "Backshrooms",
+  "item.spb-revamped.backshroom.tooltip": "If you've got nothing else to eat",
+
+  "item.spb-revamped.canned_food": "Canned Food",
+  "item.spb-revamped.canned_food.tooltip": "Could be rotten",
+
+
+  "spb-revamped.options.fullscreen.resolution": "Vhs Resolution",
+
+
+  "spb-revamped.midnightconfig.category.video": "Video Settings",
+  "spb-revamped.midnightconfig.category.shaders": "Shader Settings",
+  "spb-revamped.midnightconfig.category.server": "Server Settings",
+  "spb-revamped.midnightconfig.enableVanillaLighting": "Enable Vanilla Lighting",
+  "spb-revamped.midnightconfig.enableRealCamera": "Enable Realistic Camera",
+  "spb-revamped.midnightconfig.forceBackrooms": "Force Inside Backrooms",
+  "spb-revamped.midnightconfig.enableCameraRoll": "Enable Camera Roll",
+  "spb-revamped.midnightconfig.enableSmoothCamera": "Enable Smooth Camera",
+  "spb-revamped.midnightconfig.cameraSmoothing": "Camera Smoothing Multiplier",
+  "spb-revamped.midnightconfig.showHands": "Show Main Hand",
+  "spb-revamped.midnightconfig.useDefaultGUI": "Use Minecraft's Default GUI",
+  "spb-revamped.midnightconfig.enableHint": "Enable the hint on world join",
+  "spb-revamped.midnightconfig.VhsAspectRatioComment": "If your monitor supports it, enable this and you will see different options in Minecraft's video settings for the fullscreen resolution. It gives a more \"VHS\" feel",
+  "spb-revamped.midnightconfig.enableVHSAspectRatio": "Enable Only Vhs Aspect Ratios",
+
+  "spb-revamped.midnightconfig.enableVhsEffect": "Enable Vhs Shader in The Overworld",
+  "spb-revamped.midnightconfig.enableVhsEffectInTheBackrooms": "Enable Vhs Shader in The Backrooms",
+  "spb-revamped.midnightconfig.enableVhsEffectInTheBackrooms.tooltip": "This is not recommended to disable as it will heavily impact game feel and the atmosphere. It's also broken. \nONLY USE THIS IF YOUR PC CAN'T HANDLE THE MOD AT ALL",
+  "spb-revamped.midnightconfig.VHSDistortionMultiplier": "VHS Distortion Multiplier",
+  "spb-revamped.midnightconfig.lookRollMultiplier": "Look Roll Multiplier",
+  "spb-revamped.midnightconfig.strafeRollMultiplier": "Strafe Roll Multiplier",
+  "spb-revamped.midnightconfig.lightRenderDistance": "Light Render Distance (In Blocks)",
+
+  "spb-revamped.midnightconfig.enableShadows": "Enable Shadows",
+  "spb-revamped.midnightconfig.enableVolumetricLight": "Enable Volumetric Light",
+  "spb-revamped.midnightconfig.enablePuddles": "Enable Puddles",
+  "spb-revamped.midnightconfig.enableLevel1Fog": "Enable Level 1 Fog",
+  "spb-revamped.midnightconfig.renderWaterReflections": "Enable Water Reflections",
+  "spb-revamped.midnightconfig.renderBlockReflections": "Enable Block Reflections (Only For Poolrooms Tiles)",
+  "spb-revamped.midnightconfig.motionBlur": "Enable Motion Blur",
+  "spb-revamped.midnightconfig.motionBlurStrength": "Motion Blur Strength",
+
+  "spb-revamped.midnightconfig.grassQuality": "Grass Quality",
+  "spb-revamped.midnightconfig.enum.GrassQuality.LOW": "LOW",
+  "spb-revamped.midnightconfig.enum.GrassQuality.MEDIUM": "MEDIUM",
+  "spb-revamped.midnightconfig.enum.GrassQuality.HIGH": "HIGH",
+  "spb-revamped.midnightconfig.enum.GrassQuality.ULTRA": "ULTRA",
+
+  "spb-revamped.midnightconfig.birdQuality": "Bird Quality",
+  "spb-revamped.midnightconfig.enum.BirdQuality.LOW": "LOW",
+  "spb-revamped.midnightconfig.enum.BirdQuality.MEDIUM": "MEDIUM",
+  "spb-revamped.midnightconfig.enum.BirdQuality.HIGH": "HIGH",
+  "spb-revamped.midnightconfig.enum.BirdQuality.ULTRA": "ULTRA",
+  "spb-revamped.midnightconfig.enum.BirdQuality.DISABLED": "DISABLED",
+
+  "spb-revamped.midnightconfig.exitSpawnRadius": "Exit Spawn Radius (In Blocks)",
+
+  "death.attack.acid": "%1$s burned in Acid!",
+  "death.attack.smiler": "%1$s was killed by a Smiler!",
+  "death.attack.skin_walker": "%1$s was killed by a Skin Walker!",
+
+  "spb-revamped.keybinds": "SPB-Revamped",
+  "key.spb-revamped.toggle_flashlight": "Toggle Flashlight",
+  "key.spb-revamped.toggle_event": "Toggle Event",
+
+
+  "skinwalker.flavor-text.move1": "You can't move anything. ",
+  "skinwalker.flavor-text.move2": "This isn't your body anymore",
+
+  "skinwalker.flavor-text.inventory": "That isn't your inventory anymore",
+
+  "skinwalker.flavor-text.leave": "There Is No Escape",
+
+  "skinwalker.flavor-text.chat": "No one can hear you scream",
+
+  "skinwalker.flavor-text.taunt1": "Go ahead",
+  "skinwalker.flavor-text.taunt2": "Try to call out to your friends (T)",
+  "skinwalker.flavor-text.taunt3": "If it isn't already obvious your skin has been stolen. ",
+  "skinwalker.flavor-text.taunt4": "Don't be a jerk. Don't DM any of the other players",
+
+
+
+
+  "spb-revamped.flashlight.wet1": "Your flashlight got wet. ",
+  "spb-revamped.flashlight.wet2": "It no longer works"
+}
