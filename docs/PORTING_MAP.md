@@ -254,3 +254,40 @@ These need individual rework, not a 1:1 rename:
 - Blocks/items register with `.setId(ResourceKey)` before construction; items also need `assets/<ns>/items/<id>.json`.
 - `ServerPlayer.level()` returns `ServerLevel`; `GameProfile` is a record (`id()`/`name()`).
 - Permissions: `CommandSourceStack` predicates (e.g. `::isPlayer`), not `hasPermission(int)`.
+
+## Discovered during porting (verified by porting agents — TRUST THESE)
+### Registries / keys
+- `ResourceKey.location()` is named **`.identifier()`** here (+ `.registry()`); construct via `ResourceKey.create(Registries.X, Identifier)`.
+- Yarn `RegistryKeys.WORLD` (the `Registry<Level>`/dimension key) → **`Registries.DIMENSION`** (not a "WORLD" key).
+- DamageSource lookup: `world.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(key)`.
+
+### Fabric API helpers REMOVED in 26.2 (use vanilla)
+- `FabricItemSettings` → `Item.Properties`; `FabricBlockSettings` → `BlockBehaviour.Properties` (`.ofFullCopy(...)`); `FabricEntityTypeBuilder` → `EntityType.Builder.of(...).build(ResourceKey)`; `FabricItemGroup` → `FabricCreativeModeTab.builder()`.
+- Fabric `GameRuleRegistry`/`GameRuleFactory` → `GameRuleBuilder.forBoolean(false).category(GameRuleCategory.PLAYER).buildAndRegister(Identifier)`; field type `GameRules.Key<...>` → **`GameRule<Boolean>`** (`net.minecraft.world.level.gamerules.{GameRule,GameRuleCategory}`).
+- STILL present: `FabricBlockEntityTypeBuilder`, `FabricDefaultAttributeRegistry`, `FabricBlockEntityTypeBuilder`.
+
+### Blocks / items
+- Blocks/items: `.setId(ResourceKey)` before construction; register via `Registry.register(BuiltInRegistries.X, id, obj)`.
+- `BlockBehaviour.Properties` renames: `.hardness(f)`→`.destroyTime(f)`, `.noBlockBreakParticles()`→`.noTerrainParticles()`, `.solid()`→`.forceSolidOn()`, `.collidable(false)`→`.noCollision()`, `.nonOpaque()`→`.noOcclusion()`, `.sounds(x)`→`.sound(x)`.
+- `Blocks.WHITE_WOOL` → `Blocks.WOOL.white()` (colored variants are a `ColorCollection<Block>`: `.white()`/`.pick(DyeColor)`).
+- `FoodComponent` → `FoodProperties` holds NO effects now: `Builder` = `.nutrition(int).saturationModifier(float)`; effects via a `Consumable` component: `Consumables.defaultFood().onConsume(new ApplyStatusEffectsConsumeEffect(MobEffectInstance, prob))`, attach with `Item.Properties.food(props, consumable)`.
+- Creative tab: `FabricCreativeModeTab.builder().title(Component).displayItems((params, output) -> output.accept(item))`.
+
+### Sounds / attributes / models
+- `SoundEvent.of(id)` → **`SoundEvent.createVariableRangeEvent(id)`**.
+- `AttributeModifier` ctor: **`(Identifier, double, Operation)`** (no UUID/String); `Operation.MULTIPLY_TOTAL` → **`ADD_MULTIPLIED_TOTAL`**.
+- `EntityModelLayer(Identifier, String)` → `ModelLayerLocation(Identifier, String)`.
+
+### Networking (Phase 7 — full rewrite, not rename)
+- `PacketByteBufs` / `ServerPlayNetworking.send(player, Identifier, buf)` channel API is **GONE**. 26.2: `ServerPlayNetworking.send(ServerPlayer, CustomPacketPayload)` only; packets = `CustomPacketPayload` + `StreamCodec` registered via `PayloadTypeRegistry`.
+- `ServerPlayer.networkHandler` field → **`.connection`**; `.sendPacket(...)` → `.send(...)`.
+- `ClientboundSoundPacket(Holder<SoundEvent>, SoundSource, x, y, z, vol, pitch, seed)`; `RegistryEntry.of(x)` → `Holder.direct(x)`.
+
+### Events / client
+- `ServerEntityWorldChangeEvents` → **`ServerEntityLevelChangeEvents`** (`AFTER_PLAYER_CHANGE_WORLD` → `AFTER_PLAYER_CHANGE_LEVEL`).
+- `KeyBinding`→`KeyMapping`; `InputUtil`→`com.mojang.blaze3d.platform.InputConstants`; keybind category is a registered **`KeyMapping.Category`** (`Category.register(Identifier)`), not a String. `getBoundKeyLocalizedText()`→`getTranslatedKeyMessage()`.
+- `Text.copyContentOnly()`→`.plainCopy()`; `.formatted(...)`→`.withStyle(...)`.
+- `MinecraftClient.getSession().getUsername()` → `Minecraft.getUser().getName()`.
+
+### GeckoLib 5 (Phase 4)
+- Package relocated **`software.bernie.geckolib` → `com.geckolib`**. `GeckoLibUtil.addCustomBakedModelFactory(...)` and `GeckoLib.initialize()` are GONE in 5.5.2.
