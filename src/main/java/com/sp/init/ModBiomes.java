@@ -1,11 +1,11 @@
 package com.sp.init;
 
 import com.sp.SPBRevamped;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.biome.Biome;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.biome.Biome;
 
 public class ModBiomes {
-    public static final RegistryKey<Biome> BASE_BACKROOMS_BIOME = RegistryKey.of(RegistryKeys.BIOME, new Identifier(SPBRevamped.MOD_ID, "base_backrooms_biome"));
+    public static final ResourceKey<Biome> BASE_BACKROOMS_BIOME = ResourceKey.create(Registries.BIOME, Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "base_backrooms_biome"));
 }

@@ -5,12 +5,12 @@ import com.sp.world.levels.BackroomsLevel;
 import com.sp.world.levels.WorldRepresentingBackroomsLevel;
 import com.sp.world.levels.custom.*;
 import com.sp.world.levels.custom.vanilla_representing.OverworldRepresentingBackroomsLevel;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-import net.minecraft.world.dimension.DimensionType;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,13 +18,13 @@ import java.util.Map;
 import java.util.Optional;
 
 public class BackroomsLevels {
-    public static final RegistryKey<DimensionType> LEVEL0_DIM_TYPE = RegistryKey.of(RegistryKeys.DIMENSION_TYPE, new Identifier(SPBRevamped.MOD_ID, "level0_type"));
-    public static final RegistryKey<World> LEVEL0_WORLD_KEY = RegistryKey.of(RegistryKeys.WORLD, new Identifier(SPBRevamped.MOD_ID, "level0"));
-    public static final RegistryKey<World> LEVEL1_WORLD_KEY = RegistryKey.of(RegistryKeys.WORLD, new Identifier(SPBRevamped.MOD_ID, "level1"));
-    public static final RegistryKey<World> LEVEL2_WORLD_KEY = RegistryKey.of(RegistryKeys.WORLD, new Identifier(SPBRevamped.MOD_ID, "level2"));
-    public static final RegistryKey<World> POOLROOMS_WORLD_KEY = RegistryKey.of(RegistryKeys.WORLD, new Identifier(SPBRevamped.MOD_ID, "poolrooms"));
-    public static final RegistryKey<World> INFINITE_FIELD_WORLD_KEY = RegistryKey.of(RegistryKeys.WORLD, new Identifier(SPBRevamped.MOD_ID, "infinite_field"));
-    public static final RegistryKey<World> LEVEL324_WORLD_KEY = RegistryKey.of(RegistryKeys.WORLD, new Identifier(SPBRevamped.MOD_ID, "level324"));
+    public static final ResourceKey<DimensionType> LEVEL0_DIM_TYPE = ResourceKey.create(Registries.DIMENSION_TYPE, Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level0_type"));
+    public static final ResourceKey<Level> LEVEL0_WORLD_KEY = ResourceKey.create(Registries.DIMENSION, Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level0"));
+    public static final ResourceKey<Level> LEVEL1_WORLD_KEY = ResourceKey.create(Registries.DIMENSION, Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level1"));
+    public static final ResourceKey<Level> LEVEL2_WORLD_KEY = ResourceKey.create(Registries.DIMENSION, Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level2"));
+    public static final ResourceKey<Level> POOLROOMS_WORLD_KEY = ResourceKey.create(Registries.DIMENSION, Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "poolrooms"));
+    public static final ResourceKey<Level> INFINITE_FIELD_WORLD_KEY = ResourceKey.create(Registries.DIMENSION, Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "infinite_field"));
+    public static final ResourceKey<Level> LEVEL324_WORLD_KEY = ResourceKey.create(Registries.DIMENSION, Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level324"));
 
     public static final BackroomsLevel LEVEL0_BACKROOMS_LEVEL = new Level0BackroomsLevel();
     public static final BackroomsLevel LEVEL1_BACKROOMS_LEVEL = new Level1BackroomsLevel();
@@ -50,13 +50,13 @@ public class BackroomsLevels {
         }
     }
 
-    public static boolean isInBackroomsLevel(World world, BackroomsLevel level) {
+    public static boolean isInBackroomsLevel(Level world, BackroomsLevel level) {
         return getLevel(world).map(backroomsLevel -> backroomsLevel.equals(level)).orElse(false);
     }
 
-    public static Optional<BackroomsLevel> getLevel(World world) {
+    public static Optional<BackroomsLevel> getLevel(Level world) {
         for (BackroomsLevel backroomsLevel : BACKROOMS_LEVELS) {
-            if (backroomsLevel.getWorldKey().equals(world.getRegistryKey())) {
+            if (backroomsLevel.getWorldKey().equals(world.dimension())) {
                 return Optional.of(backroomsLevel);
             }
         }
@@ -64,11 +64,11 @@ public class BackroomsLevels {
         return Optional.empty();
     }
 
-    public static boolean isInBackrooms(RegistryKey<World> world){
+    public static boolean isInBackrooms(ResourceKey<Level> world){
         return BACKROOMS_LEVELS.stream().anyMatch(level -> level.getWorldKey().equals(world) && !(level instanceof WorldRepresentingBackroomsLevel));
     }
 
-    public static Vec3d getCurrentLevelsOrigin(RegistryKey<World> world) {
+    public static Vec3 getCurrentLevelsOrigin(ResourceKey<Level> world) {
         for (BackroomsLevel backroomsLevel : BACKROOMS_LEVELS) {
             if (backroomsLevel.getWorldKey().equals(world)) {
                 return backroomsLevel.getSpawnPos();
@@ -78,7 +78,7 @@ public class BackroomsLevels {
         return null;
     }
 
-    public static Map<String, RegistryKey<World>> definitions = Map.of(
+    public static Map<String, ResourceKey<Level>> definitions = Map.of(
             "LEVEL0",         LEVEL0_WORLD_KEY,
             "LEVEL1",         LEVEL1_WORLD_KEY,
             "LEVEL2",         LEVEL2_WORLD_KEY,
