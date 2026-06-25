@@ -1,23 +1,22 @@
 package com.sp.util;
 
 
-import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Vector2d;
 import org.joml.Vector4d;
 
 public class CollisionHelper {
-    public static double getCollisionOffset(Entity player, Vec3d adjustedMovement) {
-        return Math.max(0, (getY(player.getPos()) - player.getY() + adjustedMovement.getY()));
+    public static double getCollisionOffset(Entity player, Vec3 adjustedMovement) {
+        return Math.max(0, (getY(player.position()) - player.getY() + adjustedMovement.y));
     }
 
-    public static boolean doesCollide(Entity player, Vec3d adjustedMovement) {
+    public static boolean doesCollide(Entity player, Vec3 adjustedMovement) {
         return getCollisionOffset(player, adjustedMovement) > 0;
     }
 
-    public static double getY(Vec3d pos) {
-        return ((perlinNoise(new Vec3d(pos.getX(), 0.0, pos.getZ()).multiply(0.05))) * 10) + 31;
+    public static double getY(Vec3 pos) {
+        return ((perlinNoise(new Vec3(pos.x, 0.0, pos.z).scale(0.05))) * 10) + 31;
     }
 
     private static Vector4d mod289(Vector4d x) {
@@ -37,7 +36,7 @@ public class CollisionHelper {
         return mod289(temp);
     }
 
-    public static float perlinNoise(Vec3d p) {
+    public static float perlinNoise(Vec3 p) {
         org.joml.Vector3d a = new org.joml.Vector3d(
             Math.floor(p.x),
             Math.floor(p.y),
