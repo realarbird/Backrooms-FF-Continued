@@ -1,83 +1,91 @@
 package com.sp.block.custom;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.HorizontalFacingBlock;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.DirectionProperty;
-import net.minecraft.state.property.IntProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
+import com.mojang.serialization.MapCodec;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.level.BlockGetter;
 
 @SuppressWarnings("deprecation")
-public class BottomTrim extends HorizontalFacingBlock {
-    public static final DirectionProperty FACING = Properties.HORIZONTAL_FACING;
-    public static final IntProperty SIDES = IntProperty.of("sides", 1, 4);
+public class BottomTrim extends HorizontalDirectionalBlock {
+    public static final MapCodec<BottomTrim> CODEC = simpleCodec(BottomTrim::new);
+    public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
+    public static final IntegerProperty SIDES = IntegerProperty.create("sides", 1, 4);
 
-    private static final VoxelShape SHAPE_SOUTH = Block.createCuboidShape(0.0, 3.0, 0.0, 16.0, 12.0, 1.0);
-    private static final VoxelShape SHAPE_NORTH = Block.createCuboidShape(0.0, 3.0, 15.0, 16.0, 12.0, 16.0);
-    private static final VoxelShape SHAPE_WEST = Block.createCuboidShape(15.0, 3.0, 0.0, 16.0, 12.0, 16.0);
-    private static final VoxelShape SHAPE_EAST = Block.createCuboidShape(0.0, 3.0, 0.0, 1.0, 12.0, 16.0);
+    private static final VoxelShape SHAPE_SOUTH = Block.box(0.0, 3.0, 0.0, 16.0, 12.0, 1.0);
+    private static final VoxelShape SHAPE_NORTH = Block.box(0.0, 3.0, 15.0, 16.0, 12.0, 16.0);
+    private static final VoxelShape SHAPE_WEST = Block.box(15.0, 3.0, 0.0, 16.0, 12.0, 16.0);
+    private static final VoxelShape SHAPE_EAST = Block.box(0.0, 3.0, 0.0, 1.0, 12.0, 16.0);
 
 
-    public BottomTrim(Settings settings) {
+    public BottomTrim(Properties settings) {
         super(settings);
     }
 
     @Override
-    public BlockState getPlacementState(ItemPlacementContext ctx) {
-        BlockState blockState = ctx.getWorld().getBlockState(ctx.getBlockPos());
-        if (blockState.isOf(this)) {
-            return blockState.with(SIDES, Math.min(4, blockState.get(SIDES) + 1)).with(FACING, blockState.get(FACING));
+    protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
+        return CODEC;
+    }
+
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+        BlockState blockState = ctx.getLevel().getBlockState(ctx.getClickedPos());
+        if (blockState.is(this)) {
+            return blockState.setValue(SIDES, Math.min(4, blockState.getValue(SIDES) + 1)).setValue(FACING, blockState.getValue(FACING));
         } else {
-            return this.getDefaultState().with(FACING, ctx.getHorizontalPlayerFacing().getOpposite());
+            return this.defaultBlockState().setValue(FACING, ctx.getHorizontalDirection().getOpposite());
         }
     }
 
     @Override
-    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-        switch (state.get(FACING)) {
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        switch (state.getValue(FACING)) {
             case UP:
             case DOWN:
             case SOUTH:
             default: {
-                return Block.createCuboidShape(0.0, 0.0, 0.0, 16.0, 2.0, 1.0);
+                return Block.box(0.0, 0.0, 0.0, 16.0, 2.0, 1.0);
             }
             case NORTH: {
-                return Block.createCuboidShape(0.0, 0.0, 15.0, 16.0, 2.0, 16.0);
+                return Block.box(0.0, 0.0, 15.0, 16.0, 2.0, 16.0);
             }
             case WEST : {
-                return Block.createCuboidShape(15.0, 0.0, 0.0, 16.0, 2.0, 16.0);
+                return Block.box(15.0, 0.0, 0.0, 16.0, 2.0, 16.0);
             }
             case EAST : {
-                return Block.createCuboidShape(0.0, 0.0, 0.0, 1.0, 2.0, 16.0);
+                return Block.box(0.0, 0.0, 0.0, 1.0, 2.0, 16.0);
             }
         }
     }
 
     @Override
-    public boolean canReplace(BlockState state, ItemPlacementContext context) {
-        return !context.shouldCancelInteraction() && context.getStack().isOf(this.asItem()) && state.get(SIDES) < 4 || super.canReplace(state, context);
+    public boolean canBeReplaced(BlockState state, BlockPlaceContext context) {
+        return !context.isSecondaryUseActive() && context.getItemInHand().is(this.asItem()) && state.getValue(SIDES) < 4 || super.canBeReplaced(state, context);
     }
 
     @Override
-    public BlockState mirror(BlockState state, BlockMirror mirror) {
-        return state.rotate(mirror.getRotation(state.get(FACING)));
+    public BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
     @Override
-    public BlockState rotate(BlockState state, BlockRotation rotation) {
-        return state.with(FACING, rotation.rotate(state.get(FACING)));
+    public BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING);
         builder.add(SIDES);
     }

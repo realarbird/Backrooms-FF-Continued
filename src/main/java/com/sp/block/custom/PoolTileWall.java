@@ -1,100 +1,107 @@
 package com.sp.block.custom;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.HorizontalFacingBlock;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.IntProperty;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.util.shape.VoxelShapes;
-import net.minecraft.world.BlockView;
+import com.mojang.serialization.MapCodec;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.level.BlockGetter;
 
 @SuppressWarnings("deprecation")
-public class PoolTileWall extends HorizontalFacingBlock {
-    public static final IntProperty TYPE = IntProperty.of("type", 0, 1);
+public class PoolTileWall extends HorizontalDirectionalBlock {
+    public static final MapCodec<PoolTileWall> CODEC = simpleCodec(PoolTileWall::new);
+    public static final IntegerProperty TYPE = IntegerProperty.create("type", 0, 1);
 
-    public PoolTileWall(Settings settings) {
+    public PoolTileWall(Properties settings) {
         super(settings);
     }
 
     @Override
-    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-        switch (state.get(FACING)) {
+    protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
+        return CODEC;
+    }
+
+    @Override
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        switch (state.getValue(FACING)) {
             case UP:
             case DOWN:
             case SOUTH:
             default: {
-                switch (state.get(TYPE)){
-                    case 1: return VoxelShapes.union(
-                            Block.createCuboidShape(0.0, 0.0, 0.0, 16.0, 16.0, 6.4),
-                            Block.createCuboidShape(0.0, 0.0, 0.0, 6.4, 16.0, 16.0)
+                switch (state.getValue(TYPE)){
+                    case 1: return Shapes.or(
+                            Block.box(0.0, 0.0, 0.0, 16.0, 16.0, 6.4),
+                            Block.box(0.0, 0.0, 0.0, 6.4, 16.0, 16.0)
                     );
-                    default: return Block.createCuboidShape(0.0, 0.0, 0.0, 16.0, 16.0, 6.4);
+                    default: return Block.box(0.0, 0.0, 0.0, 16.0, 16.0, 6.4);
                 }
             }
             case NORTH: {
-                switch (state.get(TYPE)){
-                    case 1: return VoxelShapes.union(
-                            Block.createCuboidShape(0.0, 0.0, 9.6, 16.0, 16.0, 16.0),
-                            Block.createCuboidShape(9.6, 0.0, 0.0, 16.0, 16.0, 16.0)
+                switch (state.getValue(TYPE)){
+                    case 1: return Shapes.or(
+                            Block.box(0.0, 0.0, 9.6, 16.0, 16.0, 16.0),
+                            Block.box(9.6, 0.0, 0.0, 16.0, 16.0, 16.0)
                     );
-                    default: return Block.createCuboidShape(0.0, 0.0, 9.6, 16.0, 16.0, 16.0);
+                    default: return Block.box(0.0, 0.0, 9.6, 16.0, 16.0, 16.0);
                 }
 
             }
             case WEST : {
-                switch (state.get(TYPE)){
-                    case 1: return VoxelShapes.union(
-                            Block.createCuboidShape(9.6, 0.0, 0.0, 16.0, 16.0, 16.0),
-                            Block.createCuboidShape(0.0, 0.0, 0.0, 16.0, 16.0, 6.4)
+                switch (state.getValue(TYPE)){
+                    case 1: return Shapes.or(
+                            Block.box(9.6, 0.0, 0.0, 16.0, 16.0, 16.0),
+                            Block.box(0.0, 0.0, 0.0, 16.0, 16.0, 6.4)
                     );
-                    default: return Block.createCuboidShape(9.6, 0.0, 0.0, 16.0, 16.0, 16.0);
+                    default: return Block.box(9.6, 0.0, 0.0, 16.0, 16.0, 16.0);
                 }
             }
             case EAST : {
-                switch (state.get(TYPE)){
-                    case 1: return VoxelShapes.union(
-                            Block.createCuboidShape(0.0, 0.0, 0.0, 6.4, 16.0, 16.0),
-                            Block.createCuboidShape(0.0, 0.0, 9.6, 16.0, 16.0, 16.0)
+                switch (state.getValue(TYPE)){
+                    case 1: return Shapes.or(
+                            Block.box(0.0, 0.0, 0.0, 6.4, 16.0, 16.0),
+                            Block.box(0.0, 0.0, 9.6, 16.0, 16.0, 16.0)
                     );
-                    default: return Block.createCuboidShape(0.0, 0.0, 0.0, 6.4, 16.0, 16.0);
+                    default: return Block.box(0.0, 0.0, 0.0, 6.4, 16.0, 16.0);
                 }
             }
         }
     }
 
     @Override
-    public BlockState getPlacementState(ItemPlacementContext ctx) {
-        BlockState blockState = ctx.getWorld().getBlockState(ctx.getBlockPos());
-        if (blockState.isOf(this)) {
-            return blockState.with(TYPE, Math.min(1, blockState.get(TYPE) + 1)).with(FACING, blockState.get(FACING));
+    public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+        BlockState blockState = ctx.getLevel().getBlockState(ctx.getClickedPos());
+        if (blockState.is(this)) {
+            return blockState.setValue(TYPE, Math.min(1, blockState.getValue(TYPE) + 1)).setValue(FACING, blockState.getValue(FACING));
         } else {
-            return this.getDefaultState().with(FACING, ctx.getHorizontalPlayerFacing().getOpposite());
+            return this.defaultBlockState().setValue(FACING, ctx.getHorizontalDirection().getOpposite());
         }
     }
 
     @Override
-    public boolean canReplace(BlockState state, ItemPlacementContext context) {
-        return !context.shouldCancelInteraction() && context.getStack().isOf(this.asItem()) && state.get(TYPE) < 1 || super.canReplace(state, context);
+    public boolean canBeReplaced(BlockState state, BlockPlaceContext context) {
+        return !context.isSecondaryUseActive() && context.getItemInHand().is(this.asItem()) && state.getValue(TYPE) < 1 || super.canBeReplaced(state, context);
     }
 
     @Override
-    public BlockState rotate(BlockState state, BlockRotation rotation) {
-        return state.with(FACING, rotation.rotate(state.get(FACING)));
+    public BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
     }
 
     @Override
-    public BlockState mirror(BlockState state, BlockMirror mirror) {
-        return state.rotate(mirror.getRotation(state.get(FACING)));
+    public BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING, TYPE);
     }
 }
