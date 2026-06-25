@@ -1,7 +1,6 @@
 package com.sp.util;
 
-import foundry.veil.api.client.util.Easings;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.Mth;
 
 
 public class Timer {
@@ -38,7 +37,7 @@ public class Timer {
 
     public float getCurrentTime(){
         if(started){
-            currentTime = MathHelper.clamp((float) (System.currentTimeMillis() - this.startTime) / duration, 0.0f, 1.0f);
+            currentTime = Mth.clamp((float) (System.currentTimeMillis() - this.startTime) / duration, 0.0f, 1.0f);
 
             if(currentTime >= 1.0){
 //                this.started = false;
