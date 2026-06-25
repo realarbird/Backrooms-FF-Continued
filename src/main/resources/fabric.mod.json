@@ -53,13 +53,13 @@
 	],
 	"accessWidener": "spb-revamped.accesswidener",
 	"depends": {
-		"fabricloader": ">=0.15.11",
-		"minecraft": "~1.20.1",
-		"java": ">=17",
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25",
 		"fabric-api": "*",
 		"fabric-key-binding-api-v1": "*",
-		"voicechat": ">=1.20.1-2.4.32",
-		"geckolib": ">=4.4.9"
+		"voicechat": ">=2.6.20",
+		"geckolib": ">=5.5.2"
 	},
 	"suggests": {
 		"mod-menu": "*"
