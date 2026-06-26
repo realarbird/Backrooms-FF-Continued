@@ -1,8 +1,0 @@
-{
-  "vertex": "spb-revamped:grass/grass",
-  "fragment": "spb-revamped:grass/grass",
-  "definitions": [
-    "INFINITE_FIELD",
-    "LEVEL324"
-  ]
-}
