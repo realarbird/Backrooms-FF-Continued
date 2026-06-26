@@ -1,10 +1,10 @@
 package com.sp.mixininterfaces;
 
-import net.minecraft.client.option.SimpleOption;
+import net.minecraft.client.OptionInstance;
 
 public interface VideoModeOptionAccessor {
 
-    SimpleOption<Integer> getNormalVideoMode();
-    SimpleOption<Integer> getVHSVVideoMode();
+    OptionInstance<Integer> getNormalVideoMode();
+    OptionInstance<Integer> getVHSVVideoMode();
 
 }
