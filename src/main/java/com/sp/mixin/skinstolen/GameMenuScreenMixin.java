@@ -3,38 +3,40 @@ package com.sp.mixin.skinstolen;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.entity.client.SkinWalkerCapturedFlavorText;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.GameMenuScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-@Mixin(GameMenuScreen.class)
+@Mixin(PauseScreen.class)
 public abstract class GameMenuScreenMixin extends Screen {
 
-    protected GameMenuScreenMixin(Text title) {
+    protected GameMenuScreenMixin(Component title) {
         super(title);
     }
 
-    //You can't escape
-    @Redirect(method = "initWidgets", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/widget/ButtonWidget;builder(Lnet/minecraft/text/Text;Lnet/minecraft/client/gui/widget/ButtonWidget$PressAction;)Lnet/minecraft/client/gui/widget/ButtonWidget$Builder;", ordinal = 1))
-    private ButtonWidget.Builder noEscape(Text message, ButtonWidget.PressAction onPress){
-        MinecraftClient client1 = MinecraftClient.getInstance();
+    // You can't escape. GameMenuScreen.initWidgets -> PauseScreen.createPauseMenu; ButtonWidget -> Button.
+    // The "leave"/disconnect button is the 3rd Button.builder call (ordinal 2): returnToGame=0,
+    // options=1, disconnect=2 (the others use SpriteIconButton.builder and don't count).
+    @Redirect(method = "createPauseMenu", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/Button;builder(Lnet/minecraft/network/chat/Component;Lnet/minecraft/client/gui/components/Button$OnPress;)Lnet/minecraft/client/gui/components/Button$Builder;", ordinal = 2))
+    private Button.Builder noEscape(Component message, Button.OnPress onPress){
+        Minecraft client1 = Minecraft.getInstance();
         if(client1.player != null) {
             PlayerComponent component = InitializeComponents.PLAYER.get(client1.player);
 
             if (component.hasBeenCaptured()) {
-                return new ButtonWidget.Builder(Text.translatable("skinwalker.flavor-text.leave").formatted(Formatting.RED), button -> {
+                return new Button.Builder(Component.translatable("skinwalker.flavor-text.leave").withStyle(ChatFormatting.RED), button -> {
                     button.active = true;
                     SkinWalkerCapturedFlavorText.triedToLeave = true;
                 });
             }
         }
 
-        return new ButtonWidget.Builder(message, onPress);
+        return new Button.Builder(message, onPress);
     }
 }
