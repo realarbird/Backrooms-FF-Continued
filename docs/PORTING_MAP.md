@@ -111,7 +111,7 @@ is named **`Identifier`** (`net.minecraft.resources.Identifier`).
 | world.Heightmap | world.level.levelgen.Heightmap |
 | world.GameMode | world.level.GameType |
 | world.GameRules | world.level.**gamerules.GameRules** |
-| world.TeleportTarget | world.level.portal.TeleportTransition (verify shape) |
+| world.TeleportTarget | world.level.portal.TeleportTransition — ctor `(ServerLevel, Vec3 pos, Vec3 delta, float yRot, float xRot, PostTeleportTransition)`; use `TeleportTransition.DO_NOTHING`. Teleport via `entity.teleport(transition)`; `FabricDimensions` is GONE. |
 | world.dimension.DimensionType | world.level.dimension.DimensionType |
 | world.biome.Biome | world.level.biome.Biome |
 | world.biome.source.BiomeSource | world.level.biome.BiomeSource |
@@ -188,8 +188,8 @@ is named **`Identifier`** (`net.minecraft.resources.Identifier`).
 | server.network.ServerPlayNetworkHandler | server.network.ServerGamePacketListenerImpl |
 | server.command.ServerCommandSource | commands.CommandSourceStack |
 | server.command.CommandManager | commands.Commands |
-| command.CommandRegistryAccess | commands.CommandBuildContext (verify) |
-| command.argument.EntityArgumentType | commands.arguments.EntityArgument (verify) |
+| command.CommandRegistryAccess | commands.CommandBuildContext (verified) |
+| command.argument.EntityArgumentType | commands.arguments.EntityArgument (verified) |
 | server.dedicated.MinecraftDedicatedServer | server.dedicated.DedicatedServer |
 | server.dedicated.ServerPropertiesHandler | server.dedicated.DedicatedServerProperties |
 | server.dedicated.AbstractPropertiesHandler | server.dedicated.Settings |
@@ -203,6 +203,9 @@ is named **`Identifier`** (`net.minecraft.resources.Identifier`).
 **Networking note:** 26.2 custom packets use `CustomPacketPayload` + `StreamCodec` registered via
 `PayloadTypeRegistry` / `ClientPlayNetworking`/`ServerPlayNetworking.send(payload)`. The old
 `PacketByteBuf`-channel API (`ClientPlayNetworking.send(Identifier, buf)`) is gone — Phase 7 rewrite.
+**See the verified "Networking — CustomPacketPayload / StreamCodec (Phase 7)" section below for the exact API.**
+
+**Command note (verified):** registration callback sig is `register(CommandDispatcher<CommandSourceStack>, CommandBuildContext, Commands.CommandSelection)`. `Commands.literal/argument`; `EntityArgument.players()`/`getPlayers(ctx, name)`; `source.getWorld()`→`source.getLevel()` (returns `ServerLevel`); `getEntityOrThrow()`→`getEntityOrException()`. **Permissions: `hasPermissionLevel(int)` is GONE** → `.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))` (the `Commands.LEVEL_*` constants are `PermissionCheck`; `Commands.hasPermission(...)` returns a `PermissionProviderCheck` which implements `Predicate<CommandSourceStack>`). Op level 2 == `LEVEL_GAMEMASTERS`. `FabricDimensions.teleport(...)` is GONE → `entity.teleport(new TeleportTransition(ServerLevel, Vec3 pos, Vec3 delta, float yRot, float xRot, TeleportTransition.DO_NOTHING))`.
 
 ## Client — stable (verified)
 | Yarn | Mojmap (26.2, verified) |
@@ -354,3 +357,23 @@ These need individual rework, not a 1:1 rename:
 - `entity.refreshPositionAndAngles(x,y,z,yaw,pitch)` → **`entity.snapTo(double,double,double,float,float)`** (also `snapTo(Vec3)`, `snapTo(BlockPos,float,float)`); `world.spawnEntity(e)` → **`world.addFreshEntity(e)`** (LevelWriter); `Vec3d.rotateY(f)`→**`Vec3.yRot(float)`**; `BlockState.blocksMovement()`→**`.blocksMotion()`**; `entity.getPos()`→`position()`; `Entity.fallDistance` is now a **`double`** field.
 - Sound packet: `PlaySoundS2CPacket(RegistryEntry.of(snd), SoundCategory.X, x,y,z, vol,pitch, seed)` → **`new ClientboundSoundPacket(Holder.direct(snd), SoundSource.X, double x, double y, double z, float vol, float pitch, long seed)`**; send via `((ServerPlayer)player).connection.send(packet)` (`networkHandler.sendPacket`→`connection.send`; `connection.send` is on `ServerCommonPacketListenerImpl`). `SoundEvent`→`net.minecraft.sounds.SoundEvent`; `SoundCategory`→`net.minecraft.sounds.SoundSource`.
 - `ServerPlayer` respawn API reworked: `getSpawnPointPosition()`/`getSpawnAngle()`/`isSpawnForced()` and `Player.findRespawnPosition(...)` are GONE → `getRespawnConfig()`/`RespawnConfig` + `findRespawnPositionAndUseSpawnBlock(...)`/`TeleportTransition`. World spawn: `world.getSpawnPos()` → **`serverLevel.getRespawnData().pos()`** (`LevelData.RespawnData`). `server.getWorld(key)`→**`server.getLevel(ResourceKey<Level>)`**. (InfiniteGrass respawn lookup left as `// PORT: phase6`.)
+
+### Cardinal Components 8 (verified vs cardinal-components-{base,entity,level}-8.0.0 — TRUST THESE)
+- Packages are **`org.ladysnake.cca.api.v3.*`** (NOT the old `dev.onyxstudios.cca.*`). `ComponentProvider` is now **`org.ladysnake.cca.api.v3.component.ComponentProvider`**.
+- `ComponentKey<C>` via `ComponentRegistry.getOrCreate(Identifier, C.class)` — UNCHANGED. Registration: entity comps in `EntityComponentInitializer#registerEntityComponentFactories` (`registry.registerForPlayers(KEY, X::new, RespawnCopyStrategy.ALWAYS_COPY)`, `registry.registerFor(Entity.class, KEY, X::new)`); level comps in **`org.ladysnake.cca.api.v8.level.LevelComponentInitializer#registerLevelComponentFactories`** (`registry.register(KEY, X::new)`) — note the level packages are `...api.v8.level.*` while the rest stay `...api.v3.*`.
+- **NBT is `ValueInput`/`ValueOutput`, NOT NbtCompound:** override **`void readData(net.minecraft.world.level.storage.ValueInput)`** / **`void writeData(net.minecraft.world.level.storage.ValueOutput)`** (the v3 `readFromNbt`/`writeToNbt(NbtCompound)` are gone). Read: `tag.getIntOr(k,def)`, `tag.getBooleanOr(k,def)`, `tag.read(k, CODEC).orElse(def)`, `tag.child(k).ifPresent(...)`. Write: `tag.putInt/putBoolean(k,v)`, `tag.store(k, CODEC, v)`, `tag.storeNullable(k, CODEC, v)`, `tag.child(k)` (returns a child `ValueOutput`). UUID via `net.minecraft.core.UUIDUtil.CODEC`; bridge a legacy `CompoundTag` payload via `tag.read(k, CompoundTag.CODEC)` / `tag.store(k, CompoundTag.CODEC, ct)`. Item lists: `ContainerHelper.saveAllItems(tag.child(k), NonNullList)` / `loadAllItems(child, NonNullList)`.
+- Interfaces: `AutoSyncedComponent` (`org.ladysnake.cca.api.v3.component.sync`); ticking `ServerTickingComponent#serverTick()`, `ClientTickingComponent#clientTick()`, `CommonTickingComponent` (`org.ladysnake.cca.api.v3.component.tick`).
+- Sync: `KEY.sync(holder)` (full sync) and `KEY.syncWith(ServerPlayer, ComponentProvider provider)` (per-player; cast the player holder: `KEY.syncWith((ServerPlayer)player, (ComponentProvider)player)`). `KEY.get(Object)` / `KEY.getNullable(Object)` / `KEY.maybeGet(Object)` accept any holder (player/entity/level).
+
+### Networking — CustomPacketPayload / StreamCodec (Phase 7 — VERIFIED, full rewrite)
+- The `PacketByteBuf`-channel API is **GONE**: `PacketByteBufs`, `ClientPlayNetworking.send(Identifier,buf)`, `ServerPlayNetworking.send(player,Identifier,buf)`, and the old 5-arg `(server,player,handler,buf,responseSender)` / `(client,handler,buf,responseSender)` receiver signatures no longer exist.
+- **Each packet = a `record X(...) implements net.minecraft.network.protocol.common.custom.CustomPacketPayload`** with:
+  - `static final CustomPacketPayload.Type<X> TYPE = new CustomPacketPayload.Type<>(Identifier)` (ctor takes only an Identifier);
+  - `static final StreamCodec<RegistryFriendlyByteBuf, X> CODEC` built with **`StreamCodec.composite(codec1, X::field1, ..., X::new)`** (composite arities 1–12; field codecs from `net.minecraft.network.codec.ByteBufCodecs.{BOOL,INT,VAR_INT,FLOAT,DOUBLE,STRING_UTF8,...}`; empty payload → `StreamCodec.unit(new X())`);
+  - **`@Override public Type<? extends CustomPacketPayload> type()`** (the override is named `type()`, NOT `getType()`).
+- Holder<SoundEvent> over the wire: use **`SoundEvent.STREAM_CODEC`** (`StreamCodec<RegistryFriendlyByteBuf, Holder<SoundEvent>>`); generic registry holder is `ByteBufCodecs.holderRegistry(Registries.SOUND_EVENT)`.
+- **Register payload TYPES (both sides, common init):** `PayloadTypeRegistry.playC2S().register(X.TYPE, X.CODEC)` / `PayloadTypeRegistry.playS2C().register(X.TYPE, X.CODEC)` (also `serverboundConfiguration()`/`clientboundConfiguration()`). C2S types use `RegistryFriendlyByteBuf`.
+- **Send:** `ServerPlayNetworking.send(ServerPlayer, CustomPacketPayload)` (S2C) / `ClientPlayNetworking.send(CustomPacketPayload)` (C2S).
+- **Receive:** `ServerPlayNetworking.registerGlobalReceiver(X.TYPE, (payload, context) -> ...)` with `ServerPlayNetworking.Context` (`context.server()`, `context.player()` → `ServerPlayer`, `context.responseSender()`); `ClientPlayNetworking.registerGlobalReceiver(X.TYPE, (payload, context) -> ...)` with `ClientPlayNetworking.Context` (`context.client()` → `Minecraft`, `context.player()` → `LocalPlayer`). Thread-confine work via `context.server().execute(...)` / `context.client().execute(...)`.
+- Client sound playback: `PositionedSoundInstance.master(snd, pitch, vol)` → **`SimpleSoundInstance.forUI(SoundEvent, float pitch, float volume)`** (`net.minecraft.client.resources.sounds.SimpleSoundInstance`); play via `Minecraft.getSoundManager().play(SoundInstance)`. `buf.readRegistryEntry(...)`/`SoundEvent.fromBuf` are gone (use the codec).
+- `Level.getEntityById(int)` → **`Level.getEntity(int)`** (also `getEntity(UUID)`/`getEntityInAnyDimension(UUID)`); client `MinecraftClient` receiver → `Minecraft`.
