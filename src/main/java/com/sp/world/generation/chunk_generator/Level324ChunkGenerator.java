@@ -1,56 +1,55 @@
 package com.sp.world.generation.chunk_generator;
 
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sp.SPBRevamped;
 import com.sp.init.ModBlocks;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.structure.StructurePlacementData;
-import net.minecraft.structure.StructureTemplate;
-import net.minecraft.structure.StructureTemplateManager;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.StructureWorldAccess;
-import net.minecraft.world.biome.source.BiomeSource;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.gen.StructureAccessor;
-import net.minecraft.world.gen.chunk.Blender;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
-import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
-import net.minecraft.world.gen.noise.NoiseConfig;
+import net.minecraft.core.Holder;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.StructureManager;
+import net.minecraft.world.level.levelgen.blending.Blender;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
+import net.minecraft.world.level.levelgen.RandomState;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 public class Level324ChunkGenerator extends BackroomsChunkGenerator {
-    public static final Codec<Level324ChunkGenerator> CODEC = RecordCodecBuilder.create(
+    public static final MapCodec<Level324ChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(
             instance -> instance.group(
                             BiomeSource.CODEC.fieldOf("biome_source").forGetter(generator -> generator.biomeSource),
-                            ChunkGeneratorSettings.REGISTRY_CODEC.fieldOf("settings").forGetter(generator -> generator.settings)
+                            NoiseGeneratorSettings.CODEC.fieldOf("settings").forGetter(generator -> generator.settings)
                     )
                     .apply(instance, instance.stable(Level324ChunkGenerator::new))
     );
 
-    private final RegistryEntry<ChunkGeneratorSettings> settings;
+    private final Holder<NoiseGeneratorSettings> settings;
 
-    private final Random random;
+    private final RandomSource random;
 
-    public Level324ChunkGenerator(BiomeSource biomeSource, RegistryEntry<ChunkGeneratorSettings> settings) {
+    public Level324ChunkGenerator(BiomeSource biomeSource, Holder<NoiseGeneratorSettings> settings) {
         super(biomeSource, 10);
         this.settings = settings;
-        this.random = Random.create();
+        this.random = RandomSource.create();
     }
 
     @Override
-    public void generate(StructureWorldAccess world, Chunk chunk) {
-        int x = chunk.getPos().getStartX();
-        int z = chunk.getPos().getStartZ();
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
-        StructureTemplateManager structureTemplateManager = world.getServer().getStructureTemplateManager();
+    public void generate(WorldGenLevel world, ChunkAccess chunk) {
+        int x = chunk.getPos().getMinBlockX();
+        int z = chunk.getPos().getMinBlockZ();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        StructureTemplateManager structureTemplateManager = world.getServer().getStructureManager();
 
         for (int i = 0; i < 16; i++) {
             for (int j = 0; j < 16; j++) {
@@ -58,27 +57,27 @@ public class Level324ChunkGenerator extends BackroomsChunkGenerator {
                     if (i == 8 && j == 7) {
                         BlockPos placementPos = mutable.set(x + i, 4, z + j);
 
-                        StructurePlacementData structurePlacementData = new StructurePlacementData();
-                        structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
+                        StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();
+                        structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
 
-                        Optional<StructureTemplate> optional = structureTemplateManager.getTemplate(new Identifier(SPBRevamped.MOD_ID, "level324/hanging_lamp" + (random.nextBetween(0, 5) == 0 ? "_on" : "_off")));
+                        Optional<StructureTemplate> optional = structureTemplateManager.get(Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level324/hanging_lamp" + (random.nextIntBetweenInclusive(0, 5) == 0 ? "_on" : "_off")));
 
-                        optional.ifPresent(structureTemplate -> structureTemplate.place(
+                        optional.ifPresent(structureTemplate -> structureTemplate.placeInWorld(
                                 world,
                                 placementPos,
                                 placementPos,
                                 structurePlacementData, random, 2));
                     }
 
-                    if ((chunk.getPos().getStartX() + i) % 1000 == 9) {
-                        if ((chunk.getPos().getStartZ() + j) % 21 == 0) {
+                    if ((chunk.getPos().getMinBlockX() + i) % 1000 == 9) {
+                        if ((chunk.getPos().getMinBlockZ() + j) % 21 == 0) {
                             BlockPos placementPos = mutable.set(x + i, 65, z + j);
-                            StructurePlacementData structurePlacementData = new StructurePlacementData();
-                            structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
+                            StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();
+                            structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
 
-                            Optional<StructureTemplate> optional = structureTemplateManager.getTemplate(new Identifier(SPBRevamped.MOD_ID, "inf_grass/utility_pole"));
+                            Optional<StructureTemplate> optional = structureTemplateManager.get(Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "inf_grass/utility_pole"));
 
-                            optional.ifPresent(structureTemplate -> structureTemplate.place(
+                            optional.ifPresent(structureTemplate -> structureTemplate.placeInWorld(
                                     world,
                                     placementPos,
                                     placementPos,
@@ -88,16 +87,16 @@ public class Level324ChunkGenerator extends BackroomsChunkGenerator {
                     }
                 }
 
-                if ((chunk.getPos().getStartX() + i) == 8) {
-                    if ((chunk.getPos().getStartZ() + j) == 0) {
+                if ((chunk.getPos().getMinBlockX() + i) == 8) {
+                    if ((chunk.getPos().getMinBlockZ() + j) == 0) {
 
                         BlockPos placementPos = mutable.set(x + i, -2, z + j);
-                        StructurePlacementData structurePlacementData = new StructurePlacementData();
-                        structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
+                        StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();
+                        structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
 
-                        Optional<StructureTemplate> optional = structureTemplateManager.getTemplate(new Identifier(SPBRevamped.MOD_ID, "level324/gas_station"));
+                        Optional<StructureTemplate> optional = structureTemplateManager.get(Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level324/gas_station"));
 
-                        optional.ifPresent(structureTemplate -> structureTemplate.place(
+                        optional.ifPresent(structureTemplate -> structureTemplate.placeInWorld(
                                 world,
                                 placementPos,
                                 placementPos,
@@ -108,22 +107,23 @@ public class Level324ChunkGenerator extends BackroomsChunkGenerator {
         }
     }
 
-    public CompletableFuture<Chunk> populateNoise(Executor executor, Blender blender, NoiseConfig noiseConfig, StructureAccessor structureAccessor, Chunk chunk) {
-        int x = chunk.getPos().getStartX();
-        int z = chunk.getPos().getStartZ();
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+    @Override
+    public CompletableFuture<ChunkAccess> fillFromNoise(Blender blender, RandomState randomState, StructureManager structureManager, ChunkAccess chunk) {
+        int x = chunk.getPos().getMinBlockX();
+        int z = chunk.getPos().getMinBlockZ();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
 
         for (int i = 0; i < 16; i++) {
             for (int j = 0; j < 16; j++) {
                 if (!((z + j > -1 && z + j < 27) && (x + i > 7 && x + i < 55))) {
-                    chunk.setBlockState(mutable.set(i, 0, j), ModBlocks.CONCRETE_BLOCK_11.getDefaultState(), false);
+                    chunk.setBlockState(mutable.set(i, 0, j), ModBlocks.CONCRETE_BLOCK_11.defaultBlockState());
 
-                    chunk.setBlockState(mutable.set(i, 63, j), ModBlocks.CONCRETE_BLOCK_11.getDefaultState(), false);
+                    chunk.setBlockState(mutable.set(i, 63, j), ModBlocks.CONCRETE_BLOCK_11.defaultBlockState());
 
                     if ((i + Math.abs(x * 16)) % 1000 < 8/* || (j + Math.abs(chunk.getPos().z * 16)) % 1000 < 8*/) {
-                        chunk.setBlockState(mutable.set(i, 64, j), ModBlocks.ROAD.getDefaultState(), false);
+                        chunk.setBlockState(mutable.set(i, 64, j), ModBlocks.ROAD.defaultBlockState());
                     } else {
-                        chunk.setBlockState(mutable.set(i, 64, j), ModBlocks.RED_DIRT.getDefaultState(), false);
+                        chunk.setBlockState(mutable.set(i, 64, j), ModBlocks.RED_DIRT.defaultBlockState());
                     }
                 }
             }
@@ -132,13 +132,13 @@ public class Level324ChunkGenerator extends BackroomsChunkGenerator {
         for (int i = 0; i < 2; i++) {
             for (int j = 0; j < 2; j++) {
                 for (int k = 1; k < 63; k++) {
-                    chunk.setBlockState(mutable.set(i, k, j), ModBlocks.CONCRETE_BLOCK_11.getDefaultState(), false);
+                    chunk.setBlockState(mutable.set(i, k, j), ModBlocks.CONCRETE_BLOCK_11.defaultBlockState());
                 }
             }
 
             for (int j = 14; j < 16; j++) {
                 for (int k = 1; k < 63; k++) {
-                    chunk.setBlockState(mutable.set(i, k, j), ModBlocks.CONCRETE_BLOCK_11.getDefaultState(), false);
+                    chunk.setBlockState(mutable.set(i, k, j), ModBlocks.CONCRETE_BLOCK_11.defaultBlockState());
                 }
             }
         }
@@ -146,13 +146,13 @@ public class Level324ChunkGenerator extends BackroomsChunkGenerator {
         for (int i = 14; i < 16; i++) {
             for (int j = 0; j < 2; j++) {
                 for (int k = 1; k < 63; k++) {
-                    chunk.setBlockState(mutable.set(i, k, j), ModBlocks.CONCRETE_BLOCK_11.getDefaultState(), false);
+                    chunk.setBlockState(mutable.set(i, k, j), ModBlocks.CONCRETE_BLOCK_11.defaultBlockState());
                 }
             }
 
             for (int j = 14; j < 16; j++) {
                 for (int k = 1; k < 63; k++) {
-                    chunk.setBlockState(mutable.set(i, k, j), ModBlocks.CONCRETE_BLOCK_11.getDefaultState(), false);
+                    chunk.setBlockState(mutable.set(i, k, j), ModBlocks.CONCRETE_BLOCK_11.defaultBlockState());
                 }
             }
         }
@@ -162,7 +162,7 @@ public class Level324ChunkGenerator extends BackroomsChunkGenerator {
     }
 
     @Override
-    protected Codec<? extends ChunkGenerator> getCodec() {
+    protected MapCodec<? extends ChunkGenerator> codec() {
         return CODEC;
     }
 }

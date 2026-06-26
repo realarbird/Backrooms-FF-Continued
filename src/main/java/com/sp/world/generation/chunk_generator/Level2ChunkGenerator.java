@@ -1,73 +1,73 @@
 package com.sp.world.generation.chunk_generator;
 
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sp.SPBRevamped;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.core.Holder;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.structure.StructurePlacementData;
-import net.minecraft.structure.StructureTemplate;
-import net.minecraft.structure.StructureTemplateManager;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.noise.PerlinNoiseSampler;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.StructureWorldAccess;
-import net.minecraft.world.biome.source.BiomeSource;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
-import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.levelgen.synth.ImprovedNoise;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 
 import java.util.Optional;
 
 public final class Level2ChunkGenerator extends BackroomsChunkGenerator {
-    public static final Codec<Level2ChunkGenerator> CODEC = RecordCodecBuilder.create(
+    public static final MapCodec<Level2ChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(
             instance -> instance.group(
                             BiomeSource.CODEC.fieldOf("biome_source").forGetter(generator -> generator.biomeSource),
-                            ChunkGeneratorSettings.REGISTRY_CODEC.fieldOf("settings").forGetter(generator -> generator.settings)
+                            NoiseGeneratorSettings.CODEC.fieldOf("settings").forGetter(generator -> generator.settings)
                     )
                     .apply(instance, instance.stable(Level2ChunkGenerator::new))
     );
-    private final RegistryEntry<ChunkGeneratorSettings> settings;
-    Random random = Random.create();
-    PerlinNoiseSampler noiseSampler = new PerlinNoiseSampler(random);
+    private final Holder<NoiseGeneratorSettings> settings;
+    RandomSource random = RandomSource.create();
+    ImprovedNoise noiseSampler = new ImprovedNoise(random);
 
-    public Level2ChunkGenerator(BiomeSource biomeSource, RegistryEntry<ChunkGeneratorSettings> settings) {
+    public Level2ChunkGenerator(BiomeSource biomeSource, Holder<NoiseGeneratorSettings> settings) {
         super(biomeSource);
         this.settings = settings;
     }
 
     @Override
-    public void generate(StructureWorldAccess world, Chunk chunk) {
-        int x = chunk.getPos().getStartX();
-        int z = chunk.getPos().getStartZ();
+    public void generate(WorldGenLevel world, ChunkAccess chunk) {
+        int x = chunk.getPos().getMinBlockX();
+        int z = chunk.getPos().getMinBlockZ();
 
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         MinecraftServer server = world.getServer();
 
-        StructureTemplateManager structureTemplateManager = world.getServer().getStructureTemplateManager();
+        StructureTemplateManager structureTemplateManager = world.getServer().getStructureManager();
         Optional<StructureTemplate> optional;
 
         Identifier roomIdentifier;
-        StructurePlacementData structurePlacementData = new StructurePlacementData();
-        structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
+        StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();
+        structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
 
 
 
         if(chunk.getPos().x == 0 && chunk.getPos().z == 0 ){
-            roomIdentifier = new Identifier(SPBRevamped.MOD_ID, "level2/stairwell2_2");
-            optional = structureTemplateManager.getTemplate(roomIdentifier);
+            roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level2/stairwell2_2");
+            optional = structureTemplateManager.get(roomIdentifier);
 
-            optional.ifPresent(structureTemplate -> structureTemplate.place(
+            optional.ifPresent(structureTemplate -> structureTemplate.placeInWorld(
                     world,
                     mutable.set(x - 1, 19, z),
                     mutable.set(x - 1, 19, z),
                     structurePlacementData, random, 2));
 
         } else if (((float)chunk.getPos().x) == 0){
-            double noise1 = noiseSampler.sample((x) * 0.02, 0, (z) * 0.02);
+            double noise1 = noiseSampler.noise((x) * 0.02, 0, (z) * 0.02);
             if (server != null) {
 
                 if (noise1 > 0.0) {
@@ -77,9 +77,9 @@ public final class Level2ChunkGenerator extends BackroomsChunkGenerator {
                     roomIdentifier = this.getRoom(true);
                 }
 
-                optional = structureTemplateManager.getTemplate(roomIdentifier);
+                optional = structureTemplateManager.get(roomIdentifier);
 
-                optional.ifPresent(structureTemplate -> structureTemplate.place(
+                optional.ifPresent(structureTemplate -> structureTemplate.placeInWorld(
                         world,
                         mutable.set(x - 1, 19, z),
                         mutable.set(x - 1, 19, z),
@@ -90,20 +90,20 @@ public final class Level2ChunkGenerator extends BackroomsChunkGenerator {
 
 
     public Identifier getRoom(boolean dark){
-        Random random = Random.create();
-        int roomNumber = random.nextBetween(1,18);
+        RandomSource random = RandomSource.create();
+        int roomNumber = random.nextIntBetweenInclusive(1,18);
         Identifier identifier;
 
         if(dark){
-            identifier = new Identifier(SPBRevamped.MOD_ID, "level2/dark_room" + roomNumber);
+            identifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level2/dark_room" + roomNumber);
         }else{
-            identifier = new Identifier(SPBRevamped.MOD_ID, "level2/room" + roomNumber);
+            identifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level2/room" + roomNumber);
         }
         return identifier;
     }
 
 
-    protected Codec<? extends ChunkGenerator> getCodec() {
+    protected MapCodec<? extends ChunkGenerator> codec() {
         return CODEC;
     }
 

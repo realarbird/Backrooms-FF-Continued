@@ -2,17 +2,17 @@ package com.sp.world.generation.maze_generator;
 
 import com.sp.SPBRevamped;
 import com.sp.world.generation.maze_generator.cells.MazeCell;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.structure.StructurePlacementData;
-import net.minecraft.structure.StructureTemplate;
-import net.minecraft.structure.StructureTemplateManager;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.StructureWorldAccess;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.WorldGenLevel;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,8 +46,8 @@ public class Level1MazeGenerator extends MazeGenerator {
     }
 
     @Override
-    public void setup(StructureWorldAccess world, boolean sky, boolean megaRooms, boolean spawnRandomRooms) {
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+    public void setup(WorldGenLevel world, boolean sky, boolean megaRooms, boolean spawnRandomRooms) {
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
 
         if(spawnRandomRooms) {
             this.spawnRandomRooms(world, this.originX, this.originY);
@@ -129,8 +129,8 @@ public class Level1MazeGenerator extends MazeGenerator {
 
 
 
-    public MazeCell checkNeighbors(MazeCell[][] grid, int y, int x, StructureWorldAccess world){
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+    public MazeCell checkNeighbors(MazeCell[][] grid, int y, int x, WorldGenLevel world){
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         MazeCell North = null;
         MazeCell West = null;
         MazeCell South = null;
@@ -158,23 +158,23 @@ public class Level1MazeGenerator extends MazeGenerator {
             neighbors.add(East);
         }
 
-        if (world.getBlockState(mutable.set(currentCell.getWorldXPos(), 19, currentCell.getWorldYPos() + this.size)) == Blocks.LIME_WOOL.getDefaultState()) {
+        if (world.getBlockState(mutable.set(currentCell.getWorldXPos(), 19, currentCell.getWorldYPos() + this.size)) == Blocks.WOOL.lime().defaultBlockState()) {
             currentCell.removeNorthWall();
         }
-        if (world.getBlockState(mutable.set(currentCell.getWorldXPos(), 19, currentCell.getWorldYPos() - this.size)) == Blocks.LIME_WOOL.getDefaultState()) {
+        if (world.getBlockState(mutable.set(currentCell.getWorldXPos(), 19, currentCell.getWorldYPos() - this.size)) == Blocks.WOOL.lime().defaultBlockState()) {
             currentCell.removeSouthWall();
         }
-        if (world.getBlockState(mutable.set(currentCell.getWorldXPos() + this.size, 19, currentCell.getWorldYPos())) == Blocks.LIME_WOOL.getDefaultState()) {
+        if (world.getBlockState(mutable.set(currentCell.getWorldXPos() + this.size, 19, currentCell.getWorldYPos())) == Blocks.WOOL.lime().defaultBlockState()) {
             currentCell.removeWestWall();
         }
-        if (world.getBlockState(mutable.set(currentCell.getWorldXPos() - this.size, 19, currentCell.getWorldYPos())) == Blocks.LIME_WOOL.getDefaultState() ||
-                world.getBlockState(mutable.set(currentCell.getWorldXPos() - this.size, 26, currentCell.getWorldYPos())) == Blocks.YELLOW_WOOL.getDefaultState()) {
+        if (world.getBlockState(mutable.set(currentCell.getWorldXPos() - this.size, 19, currentCell.getWorldYPos())) == Blocks.WOOL.lime().defaultBlockState() ||
+                world.getBlockState(mutable.set(currentCell.getWorldXPos() - this.size, 26, currentCell.getWorldYPos())) == Blocks.WOOL.yellow().defaultBlockState()) {
             currentCell.removeEastWall();
         }
 
         if (!neighbors.isEmpty()) {
-            Random random = Random.create();
-            int r = random.nextBetween(0, neighbors.size() - 1);
+            RandomSource random = RandomSource.create();
+            int r = random.nextIntBetweenInclusive(0, neighbors.size() - 1);
             return neighbors.get(r);
         }
         else{
@@ -208,40 +208,40 @@ public class Level1MazeGenerator extends MazeGenerator {
         }
     }
 
-    public void spawnRandomRooms(StructureWorldAccess world, int x, int z) {
+    public void spawnRandomRooms(WorldGenLevel world, int x, int z) {
         if (world.getServer() != null) {
             boolean place = true;
-            Random random = Random.create();
-            BlockPos.Mutable mutable = new BlockPos.Mutable();
+            RandomSource random = RandomSource.create();
+            BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
             StructureTemplateManager structureTemplateManager = world.getServer().getStructureTemplateManager();
             Optional<StructureTemplate> optional;
 
-            Identifier roomIdentifier = new Identifier(SPBRevamped.MOD_ID, "level1/pillars");
+            Identifier roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level1/pillars");
 
-            if (random.nextBetween(0, 8) == 0) {
-                roomIdentifier = new Identifier(SPBRevamped.MOD_ID, "level1/storage");
+            if (random.nextIntBetweenInclusive(0, 8) == 0) {
+                roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level1/storage");
             }
 
-            StructurePlacementData structurePlacementData = new StructurePlacementData().setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
-            optional = structureTemplateManager.getTemplate(roomIdentifier);
+            StructurePlaceSettings structurePlacementData = new StructurePlaceSettings().setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
+            optional = structureTemplateManager.get(roomIdentifier);
 
-            int randomPosX = random.nextBetween(1, 6);
-            int randomPosZ = random.nextBetween(1, 6);
+            int randomPosX = random.nextIntBetweenInclusive(1, 6);
+            int randomPosZ = random.nextIntBetweenInclusive(1, 6);
 
             int XOffset = x + (randomPosX * this.size);
             int ZOffset = z + (randomPosZ * this.size);
 
             for (int i = 0; i < 3; i++) {
                 for (int j = 0; j < 3; j++) {
-                    if (world.getBlockState(mutable.set(XOffset + this.size * i, 20, ZOffset + this.size * j)) != Blocks.AIR.getDefaultState() ||
-                            world.getBlockState(mutable.set(XOffset + this.size * i, 26, ZOffset + this.size * j)) == Blocks.YELLOW_WOOL.getDefaultState()) {
+                    if (world.getBlockState(mutable.set(XOffset + this.size * i, 20, ZOffset + this.size * j)) != Blocks.AIR.defaultBlockState() ||
+                            world.getBlockState(mutable.set(XOffset + this.size * i, 26, ZOffset + this.size * j)) == Blocks.WOOL.yellow().defaultBlockState()) {
                         place = false;
                     }
                 }
             }
 
             if (place) {
-                optional.ifPresent(structureTemplate -> structureTemplate.place(
+                optional.ifPresent(structureTemplate -> structureTemplate.placeInWorld(
                         world,
                         mutable.set(XOffset, 19, ZOffset),
                         mutable.set(XOffset, 19, ZOffset),

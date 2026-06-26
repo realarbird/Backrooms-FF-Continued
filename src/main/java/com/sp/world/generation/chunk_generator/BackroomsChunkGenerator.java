@@ -2,27 +2,25 @@ package com.sp.world.generation.chunk_generator;
 
 import com.sp.compat.modmenu.ConfigStuff;
 import com.sp.mixininterfaces.NewServerProperties;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.server.dedicated.MinecraftDedicatedServer;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.ChunkRegion;
-import net.minecraft.world.HeightLimitView;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.StructureWorldAccess;
-import net.minecraft.world.biome.source.BiomeAccess;
-import net.minecraft.world.biome.source.BiomeSource;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.gen.GenerationStep;
-import net.minecraft.world.gen.StructureAccessor;
-import net.minecraft.world.gen.chunk.Blender;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
-import net.minecraft.world.gen.chunk.VerticalBlockSample;
-import net.minecraft.world.gen.noise.NoiseConfig;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.server.dedicated.DedicatedServer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.WorldGenRegion;
+import net.minecraft.world.level.LevelHeightAccessor;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.biome.BiomeManager;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.NoiseColumn;
+import net.minecraft.world.level.StructureManager;
+import net.minecraft.world.level.levelgen.blending.Blender;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.RandomState;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 public abstract class BackroomsChunkGenerator extends ChunkGenerator {
     private final int placementRadius;
@@ -36,11 +34,11 @@ public abstract class BackroomsChunkGenerator extends ChunkGenerator {
         this.placementRadius = placementRadius;
     }
 
-    public abstract void generate(StructureWorldAccess world, Chunk chunk);
+    public abstract void generate(WorldGenLevel world, ChunkAccess chunk);
 
-    protected int getExitSpawnRadius(StructureWorldAccess world){
-        if(world.getServer().isDedicated()) {
-            return ((NewServerProperties) ((MinecraftDedicatedServer)world.getServer()).getProperties()).getExitSpawnRadius();
+    protected int getExitSpawnRadius(WorldGenLevel world){
+        if(world.getServer().isDedicatedServer()) {
+            return ((NewServerProperties) ((DedicatedServer)world.getServer()).getProperties()).getExitSpawnRadius();
         } else {
             return ConfigStuff.exitSpawnRadius;
         }
@@ -59,7 +57,7 @@ public abstract class BackroomsChunkGenerator extends ChunkGenerator {
      * We Don't need to use any of these methods
      */
     @Override
-    public CompletableFuture<Chunk> populateNoise(Executor executor, Blender blender, NoiseConfig noiseConfig, StructureAccessor structureAccessor, Chunk chunk) {
+    public CompletableFuture<ChunkAccess> fillFromNoise(Blender blender, RandomState randomState, StructureManager structureManager, ChunkAccess chunk) {
         return CompletableFuture.completedFuture(chunk);
     }
 
@@ -69,45 +67,45 @@ public abstract class BackroomsChunkGenerator extends ChunkGenerator {
     }
 
     @Override
-    public int getMinimumY() {
+    public int getMinY() {
         return 0;
     }
 
     @Override
-    public int getHeight(int x, int z, Heightmap.Type heightmap, HeightLimitView world, NoiseConfig noiseConfig) {
-        return this.getWorldHeight();
+    public int getBaseHeight(int x, int z, Heightmap.Types heightmap, LevelHeightAccessor world, RandomState randomState) {
+        return this.getGenDepth();
     }
 
     @Override
-    public VerticalBlockSample getColumnSample(int x, int z, HeightLimitView world, NoiseConfig noiseConfig) {
+    public NoiseColumn getBaseColumn(int x, int z, LevelHeightAccessor world, RandomState randomState) {
         BlockState[] states = new BlockState[world.getHeight()];
 
         for (int i = 0; i < states.length; i++) {
-            states[i] = Blocks.AIR.getDefaultState();
+            states[i] = Blocks.AIR.defaultBlockState();
         }
 
-        return new VerticalBlockSample(0, states);
+        return new NoiseColumn(0, states);
     }
 
     @Override
-    public void getDebugHudText(List<String> text, NoiseConfig noiseConfig, BlockPos pos) {
+    public void addDebugScreenInfo(List<String> text, RandomState randomState, BlockPos pos) {
     }
 
     @Override
-    public int getWorldHeight() {
+    public int getGenDepth() {
         return 384;
     }
 
     @Override
-    public void carve(ChunkRegion chunkRegion, long seed, NoiseConfig noiseConfig, BiomeAccess biomeAccess, StructureAccessor structureAccessor, Chunk chunk, GenerationStep.Carver carverStep) {
+    public void applyCarvers(WorldGenRegion chunkRegion, long seed, RandomState randomState, BiomeManager biomeManager, StructureManager structureManager, ChunkAccess chunk) {
     }
 
     @Override
-    public void buildSurface(ChunkRegion region, StructureAccessor structures, NoiseConfig noiseConfig, Chunk chunk) {
+    public void buildSurface(WorldGenRegion region, StructureManager structures, RandomState randomState, ChunkAccess chunk) {
 
     }
     @Override
-    public void populateEntities(ChunkRegion region) {
+    public void spawnOriginalMobs(WorldGenRegion region) {
 
     }
 }

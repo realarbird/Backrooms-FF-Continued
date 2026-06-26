@@ -1,16 +1,16 @@
 package com.sp.world.generation.maze_generator;
 
 import com.sp.world.generation.maze_generator.cells.MazeCell;
-import net.minecraft.block.BlockState;
-import net.minecraft.world.StructureWorldAccess;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.WorldGenLevel;
 
 public abstract class MazeGenerator {
     // UNDER CONSTRUCTION -SP
-    public void generate(StructureWorldAccess world) {
+    public void generate(WorldGenLevel world) {
 
     }
 
-    public abstract void setup(StructureWorldAccess world, boolean sky, boolean megaRooms, boolean spawnRandomRooms);
+    public abstract void setup(WorldGenLevel world, boolean sky, boolean megaRooms, boolean spawnRandomRooms);
 
     public abstract void removeWalls(MazeCell currentCell, MazeCell neighbor);
 

@@ -1,11 +1,11 @@
 package com.sp.world.generation.maze_generator;
 
 import com.sp.world.generation.maze_generator.cells.MazeCell;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.StructureWorldAccess;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.WorldGenLevel;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,8 +38,8 @@ public class Level0MazeGenerator extends MazeGenerator {
     }
 
     @Override
-    public void setup(StructureWorldAccess world, boolean sky, boolean megaRooms, boolean spawnRandomRooms) {
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+    public void setup(WorldGenLevel world, boolean sky, boolean megaRooms, boolean spawnRandomRooms) {
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
 
         for (int y = 0; y < this.rows; y++) {
             for (int x = 0; x < this.cols; x++) {
@@ -111,8 +111,8 @@ public class Level0MazeGenerator extends MazeGenerator {
 
     }
 
-    public MazeCell checkNeighbors(MazeCell[][] grid, int y, int x, StructureWorldAccess world){
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+    public MazeCell checkNeighbors(MazeCell[][] grid, int y, int x, WorldGenLevel world){
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         MazeCell North = null;
         MazeCell West = null;
         MazeCell South = null;
@@ -143,26 +143,26 @@ public class Level0MazeGenerator extends MazeGenerator {
             neighbors.add(East);
         }
 
-        if (world.getBlockState(mutable.set(currentCell.getWorldXPos(), 19, currentCell.getWorldYPos() + this.size)) == Blocks.LIME_WOOL.getDefaultState() ||
-                world.getBlockState(mutable.set(currentCell.getWorldXPos(), 4, currentCell.getWorldYPos() + this.size)) == Blocks.LIME_WOOL.getDefaultState())
+        if (world.getBlockState(mutable.set(currentCell.getWorldXPos(), 19, currentCell.getWorldYPos() + this.size)) == Blocks.WOOL.lime().defaultBlockState() ||
+                world.getBlockState(mutable.set(currentCell.getWorldXPos(), 4, currentCell.getWorldYPos() + this.size)) == Blocks.WOOL.lime().defaultBlockState())
         {
             currentCell.removeNorthWall();
         }
-        if (world.getBlockState(mutable.set(currentCell.getWorldXPos(), 19, currentCell.getWorldYPos() - this.size)) == Blocks.LIME_WOOL.getDefaultState())
+        if (world.getBlockState(mutable.set(currentCell.getWorldXPos(), 19, currentCell.getWorldYPos() - this.size)) == Blocks.WOOL.lime().defaultBlockState())
         {
             currentCell.removeSouthWall();
         }
-        if (world.getBlockState(mutable.set(currentCell.getWorldXPos() + this.size, 19, currentCell.getWorldYPos())) == Blocks.LIME_WOOL.getDefaultState() ||
-                world.getBlockState(mutable.set(currentCell.getWorldXPos() + this.size, 4, currentCell.getWorldYPos())) == Blocks.LIME_WOOL.getDefaultState()){
+        if (world.getBlockState(mutable.set(currentCell.getWorldXPos() + this.size, 19, currentCell.getWorldYPos())) == Blocks.WOOL.lime().defaultBlockState() ||
+                world.getBlockState(mutable.set(currentCell.getWorldXPos() + this.size, 4, currentCell.getWorldYPos())) == Blocks.WOOL.lime().defaultBlockState()){
             currentCell.removeWestWall();
         }
-        if (world.getBlockState(mutable.set(currentCell.getWorldXPos() - this.size, 19, currentCell.getWorldYPos())) == Blocks.LIME_WOOL.getDefaultState()){
+        if (world.getBlockState(mutable.set(currentCell.getWorldXPos() - this.size, 19, currentCell.getWorldYPos())) == Blocks.WOOL.lime().defaultBlockState()){
             currentCell.removeEastWall();
         }
 
         if (!neighbors.isEmpty()){
-            Random random = Random.create();
-            int r = random.nextBetween(0, neighbors.size() - 1);
+            RandomSource random = RandomSource.create();
+            int r = random.nextIntBetweenInclusive(0, neighbors.size() - 1);
             return neighbors.get(r);
         }
         else{

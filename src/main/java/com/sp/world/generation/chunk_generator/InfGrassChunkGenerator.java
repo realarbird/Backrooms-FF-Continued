@@ -1,86 +1,84 @@
 package com.sp.world.generation.chunk_generator;
 
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sp.SPBRevamped;
 import com.sp.init.ModBlocks;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.Holder;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.structure.StructurePlacementData;
-import net.minecraft.structure.StructureTemplate;
-import net.minecraft.structure.StructureTemplateManager;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.ChunkRegion;
-import net.minecraft.world.HeightLimitView;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.StructureWorldAccess;
-import net.minecraft.world.biome.source.BiomeAccess;
-import net.minecraft.world.biome.source.BiomeSource;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.gen.GenerationStep;
-import net.minecraft.world.gen.StructureAccessor;
-import net.minecraft.world.gen.chunk.Blender;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
-import net.minecraft.world.gen.chunk.ChunkGeneratorSettings;
-import net.minecraft.world.gen.chunk.VerticalBlockSample;
-import net.minecraft.world.gen.noise.NoiseConfig;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.util.RandomSource;
+import net.minecraft.server.level.WorldGenRegion;
+import net.minecraft.world.level.LevelHeightAccessor;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.biome.BiomeManager;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.StructureManager;
+import net.minecraft.world.level.levelgen.blending.Blender;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
+import net.minecraft.world.level.NoiseColumn;
+import net.minecraft.world.level.levelgen.RandomState;
 import org.joml.SimplexNoise;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
-    public static final Codec<InfGrassChunkGenerator> CODEC = RecordCodecBuilder.create(
+    public static final MapCodec<InfGrassChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(
             instance -> instance.group(
                             BiomeSource.CODEC.fieldOf("biome_source").forGetter(generator -> generator.biomeSource),
-                            ChunkGeneratorSettings.REGISTRY_CODEC.fieldOf("settings").forGetter(generator -> generator.settings)
+                            NoiseGeneratorSettings.CODEC.fieldOf("settings").forGetter(generator -> generator.settings)
                     )
                     .apply(instance, instance.stable(InfGrassChunkGenerator::new))
     );
-    private final RegistryEntry<ChunkGeneratorSettings> settings;
-    Random random = Random.create();
+    private final Holder<NoiseGeneratorSettings> settings;
+    RandomSource random = RandomSource.create();
 
-    public InfGrassChunkGenerator(BiomeSource biomeSource, RegistryEntry<ChunkGeneratorSettings> settings) {
+    public InfGrassChunkGenerator(BiomeSource biomeSource, Holder<NoiseGeneratorSettings> settings) {
         super(biomeSource, 2);
         this.settings = settings;
     }
 
-    public void generate(StructureWorldAccess world, Chunk chunk) {
-        int x = chunk.getPos().getStartX();
-        int z = chunk.getPos().getStartZ();
+    public void generate(WorldGenLevel world, ChunkAccess chunk) {
+        int x = chunk.getPos().getMinBlockX();
+        int z = chunk.getPos().getMinBlockZ();
 
 
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         MinecraftServer server = world.getServer();
 
-        StructureTemplateManager structureTemplateManager = world.getServer().getStructureTemplateManager();
+        StructureTemplateManager structureTemplateManager = world.getServer().getStructureManager();
         Optional<StructureTemplate> optional;
 
         Identifier roomIdentifier;
-        StructurePlacementData structurePlacementData = new StructurePlacementData();
-        structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
+        StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();
+        structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
 
 
         float sampler = SimplexNoise.noise(x, 0);
         if (sampler >= 0.6) {
             if (server != null) {
-                roomIdentifier = new Identifier(SPBRevamped.MOD_ID, "inf_grass/utility_pole");
+                roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "inf_grass/utility_pole");
 
-                optional = structureTemplateManager.getTemplate(roomIdentifier);
+                optional = structureTemplateManager.get(roomIdentifier);
 
                 for (int j = 0; j < 16; j++) {
                     if ((z + j) % 21 == 0) {
                         int finalJ = j;
-                        optional.ifPresent(structureTemplate -> structureTemplate.place(
+                        optional.ifPresent(structureTemplate -> structureTemplate.placeInWorld(
                                 world,
                                 mutable.set(x, 31, z + finalJ + sampler * 10),
                                 mutable.set(x, 31, z + finalJ + sampler * 10),
@@ -93,11 +91,11 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
         } else {
             float rand = random.nextFloat();
             if (rand < 0.01f) {
-                roomIdentifier = this.randFeature(!chunk.getPos().getBlockPos(0,20,0).isWithinDistance(new Vec3i(0,20,0), this.getExitSpawnRadius(world)));
+                roomIdentifier = this.randFeature(!chunk.getPos().getBlockAt(0,20,0).closerThan(new Vec3i(0,20,0), this.getExitSpawnRadius(world)));
 
-                optional = structureTemplateManager.getTemplate(roomIdentifier);
+                optional = structureTemplateManager.get(roomIdentifier);
 
-                optional.ifPresent(structureTemplate -> structureTemplate.place(
+                optional.ifPresent(structureTemplate -> structureTemplate.placeInWorld(
                         world,
                         mutable.set(x, 31, z),
                         mutable.set(x, 31, z),
@@ -108,17 +106,17 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
     }
 
     private Identifier randFeature(boolean exit) {
-        int rand = random.nextBetween(1,3);
+        int rand = random.nextIntBetweenInclusive(1,3);
         if(exit){
             if(rand == 1){
-                return Identifier.of(SPBRevamped.MOD_ID, "inf_grass/exit");
+                return Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "inf_grass/exit");
             }
         }
-        return Identifier.of(SPBRevamped.MOD_ID, "inf_grass/feature" + rand);
+        return Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "inf_grass/feature" + rand);
     }
 
 
-    protected Codec<? extends ChunkGenerator> getCodec() {
+    protected MapCodec<? extends ChunkGenerator> codec() {
         return CODEC;
     }
 
@@ -126,11 +124,11 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
     /* this method builds the shape of the terrain. it places stone everywhere, which will later be overwritten with grass, terracotta, snow, sand, etc
          by the buildSurface method. it also is responsible for putting the water in oceans. it returns a CompletableFuture-- you'll likely want this to be delegated to worker threads. */
     @Override
-    public CompletableFuture<Chunk> populateNoise(Executor executor, Blender blender, NoiseConfig noiseConfig, StructureAccessor structureAccessor, Chunk chunk) {
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+    public CompletableFuture<ChunkAccess> fillFromNoise(Blender blender, RandomState randomState, StructureManager structureManager, ChunkAccess chunk) {
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         for(int k = 0; k < 16; ++k) {
             for(int l = 0; l < 16; ++l) {
-                chunk.setBlockState(mutable.set(k, 30, l), ModBlocks.DIRT.getDefaultState(), false);
+                chunk.setBlockState(mutable.set(k, 30, l), ModBlocks.DIRT.defaultBlockState());
             }
         }
 
@@ -145,36 +143,36 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
 
     /* the lowest value that blocks can be placed in the world. in a vanilla world, this is -64. */
     @Override
-    public int getMinimumY() {
+    public int getMinY() {
         return 0;
     }
 
     /* this method returns the height of the terrain at a given coordinate. it's used for structure generation */
     @Override
-    public int getHeight(int x, int z, Heightmap.Type heightmap, HeightLimitView world, NoiseConfig noiseConfig) {
-        return this.getWorldHeight();
+    public int getBaseHeight(int x, int z, Heightmap.Types heightmap, LevelHeightAccessor world, RandomState randomState) {
+        return this.getGenDepth();
     }
 
     /* this method returns a "core sample" of the world at a given coordinate. it's used for structure generation */
     @Override
-    public VerticalBlockSample getColumnSample(int x, int z, HeightLimitView world, NoiseConfig noiseConfig) {
+    public NoiseColumn getBaseColumn(int x, int z, LevelHeightAccessor world, RandomState randomState) {
         BlockState[] states = new BlockState[world.getHeight()];
 
         for (int i = 0; i < states.length; i++) {
-            states[i] = Blocks.AIR.getDefaultState();
+            states[i] = Blocks.AIR.defaultBlockState();
         }
 
-        return new VerticalBlockSample(0, states);
+        return new NoiseColumn(0, states);
     }
 
     /* this method adds text to the f3 menu. for NoiseChunkGenerator, it's the NoiseRouter line */
     @Override
-    public void getDebugHudText(List<String> text, NoiseConfig noiseConfig, BlockPos pos) {
+    public void addDebugScreenInfo(List<String> text, RandomState randomState, BlockPos pos) {
     }
 
     /* the distance between the highest and lowest points in the world. in vanilla, this is 384 (64+325) */
     @Override
-    public int getWorldHeight() {
+    public int getGenDepth() {
         return 384;
     }
 
@@ -183,19 +181,19 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
 
     /* the method that creates non-noise caves (i.e., all the caves we had before the caves and cliffs update) */
     @Override
-    public void carve(ChunkRegion chunkRegion, long seed, NoiseConfig noiseConfig, BiomeAccess biomeAccess, StructureAccessor structureAccessor, Chunk chunk, GenerationStep.Carver carverStep) {
+    public void applyCarvers(WorldGenRegion chunkRegion, long seed, RandomState randomState, BiomeManager biomeManager, StructureManager structureManager, ChunkAccess chunk) {
     }
 
     /* the method that places grass, dirt, and other things on top of the world, as well as handling the bedrock and deepslate layers,
     as well as a few other miscellaneous things. without this method, your world is just a blank stone (or whatever your default block is) canvas (plus any ores, etc) */
     @Override
-    public void buildSurface(ChunkRegion region, StructureAccessor structures, NoiseConfig noiseConfig, Chunk chunk) {
+    public void buildSurface(WorldGenRegion region, StructureManager structures, RandomState randomState, ChunkAccess chunk) {
 
     }
 
     /* this method spawns entities in the world */
     @Override
-    public void populateEntities(ChunkRegion region) {
+    public void spawnOriginalMobs(WorldGenRegion region) {
 
     }
 

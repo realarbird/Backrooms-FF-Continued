@@ -1,31 +1,31 @@
 package com.sp.world.generation.chunk_generator;
 
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sp.SPBRevamped;
 import com.sp.init.ModBlocks;
 import com.sp.world.generation.maze_generator.Level0MazeGenerator;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.structure.StructurePlacementData;
-import net.minecraft.structure.StructureTemplate;
-import net.minecraft.structure.StructureTemplateManager;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.StructureWorldAccess;
-import net.minecraft.world.biome.source.BiomeSource;
-import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 
 import java.util.Optional;
 
 public class Level0ChunkGenerator extends BackroomsChunkGenerator {
-    public static final Codec<Level0ChunkGenerator> CODEC = RecordCodecBuilder.create(
+    public static final MapCodec<Level0ChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(
             instance -> instance.group(
                             BiomeSource.CODEC.fieldOf("biome_source").forGetter(generator -> generator.biomeSource)
                     ).apply(instance, instance.stable(Level0ChunkGenerator::new)));
@@ -36,61 +36,61 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
     }
 
     @Override
-    protected Codec<? extends ChunkGenerator> getCodec() {
+    protected MapCodec<? extends ChunkGenerator> codec() {
         return CODEC;
     }
 
-    public void generate(StructureWorldAccess world, Chunk chunk) {
-        int x = chunk.getPos().getStartX();
-        int z = chunk.getPos().getStartZ();
-        Random random = Random.create();
+    public void generate(WorldGenLevel world, ChunkAccess chunk) {
+        int x = chunk.getPos().getMinBlockX();
+        int z = chunk.getPos().getMinBlockZ();
+        RandomSource random = RandomSource.create();
 
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         MinecraftServer server = world.getServer();
 
         if (server != null) {
-            StructureTemplateManager structureTemplateManager = world.getServer().getStructureTemplateManager();
+            StructureTemplateManager structureTemplateManager = world.getServer().getStructureManager();
             Optional<StructureTemplate> optional;
 
-            int megaRooms = random.nextBetween(1, 2);
+            int megaRooms = random.nextIntBetweenInclusive(1, 2);
 
             Identifier roomIdentifier;
-            StructurePlacementData structurePlacementData = new StructurePlacementData();
+            StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();
 
             //Spawn Point
             if((float) chunk.getPos().x == 0 && (float) chunk.getPos().z  == 0) {
                 for(int i = 0; i < 16; i++) {
                     for(int j = 0; j < 16; j++){
                         if(i == 0 && j == 0){
-                            world.setBlockState(mutable.set(i, 25, j), ModBlocks.GHOST_CEILING_TILE.getDefaultState(), 16);
+                            world.setBlock(mutable.set(i, 25, j), ModBlocks.GHOST_CEILING_TILE.defaultBlockState(), 16);
                         } else {
-                            world.setBlockState(mutable.set(i, 25, j), ModBlocks.CEILING_TILE.getDefaultState(), 16);
+                            world.setBlock(mutable.set(i, 25, j), ModBlocks.CEILING_TILE.defaultBlockState(), 16);
                         }
                     }
                 }
-                world.setBlockState(mutable.set(0, 25, 0), ModBlocks.GHOST_CEILING_TILE.getDefaultState(), 16);
+                world.setBlock(mutable.set(0, 25, 0), ModBlocks.GHOST_CEILING_TILE.defaultBlockState(), 16);
 
-                roomIdentifier = new Identifier(SPBRevamped.MOD_ID, "level0/megaroom1");
-                structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
-                optional = structureTemplateManager.getTemplate(roomIdentifier);
+                roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level0/megaroom1");
+                structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
+                optional = structureTemplateManager.get(roomIdentifier);
 
                 if (optional.isPresent()) {
-                    optional.get().place(
+                    optional.get().placeInWorld(
                             world,
                             mutable.set(x - 32, 18, z - 32),
                             mutable.set(x - 32, 18, z - 32),
                             structurePlacementData, random, 2);
-                    optional.get().place(
+                    optional.get().placeInWorld(
                             world,
                             mutable.set(x, 18, z - 32),
                             mutable.set(x, 18, z - 32),
                             structurePlacementData, random, 2);
-                    optional.get().place(
+                    optional.get().placeInWorld(
                             world,
                             mutable.set(x - 32, 18, z),
                             mutable.set(x - 32, 18, z),
                             structurePlacementData, random, 2);
-                    optional.get().place(
+                    optional.get().placeInWorld(
                             world,
                             mutable.set(x, 18, z),
                             mutable.set(x, 18, z),
@@ -99,14 +99,14 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
             } else if (((float) chunk.getPos().x) % SPBRevamped.FINAL_MAZE_SIZE == 0 && ((float) chunk.getPos().z) % SPBRevamped.FINAL_MAZE_SIZE == 0) {
 
 
-                if(!chunk.getPos().getBlockPos(0,20,0).isWithinDistance(new Vec3i(0,20,0), this.getExitSpawnRadius(world))) {
+                if(!chunk.getPos().getBlockAt(0,20,0).closerThan(new Vec3i(0,20,0), this.getExitSpawnRadius(world))) {
                     if(megaRooms != 1){
-                        roomIdentifier = new Identifier(SPBRevamped.MOD_ID, "level0/stairwell_0");
-                        structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
-                        optional = structureTemplateManager.getTemplate(roomIdentifier);
+                        roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level0/stairwell_0");
+                        structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
+                        optional = structureTemplateManager.get(roomIdentifier);
 
                         if (optional.isPresent()) {
-                            optional.get().place(
+                            optional.get().placeInWorld(
                                     world,
                                     mutable.set(x + 15,4,z + 15),
                                     mutable.set(x + 15,4,z + 15),
@@ -120,35 +120,35 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
                 if (megaRooms == 1) {
                     if (!isNearMegaRooms(x, z, world)) {
 
-                        megaRooms = random.nextBetween(1, 6);
-                        roomIdentifier = new Identifier(SPBRevamped.MOD_ID, "level0/megaroom" + megaRooms);
-                        structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
-                        optional = structureTemplateManager.getTemplate(roomIdentifier);
+                        megaRooms = random.nextIntBetweenInclusive(1, 6);
+                        roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level0/megaroom" + megaRooms);
+                        structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
+                        optional = structureTemplateManager.get(roomIdentifier);
 
                         if (optional.isPresent()) {
                             if (megaRooms == 1 || megaRooms == 2) {
-                                optional.get().place(
+                                optional.get().placeInWorld(
                                         world,
                                         mutable.set(x - 32, 18, z - 32),
                                         mutable.set(x - 32, 18, z - 32),
                                         structurePlacementData, random, 2);
-                                optional.get().place(
+                                optional.get().placeInWorld(
                                         world,
                                         mutable.set(x, 18, z - 32),
                                         mutable.set(x, 18, z - 32),
                                         structurePlacementData, random, 2);
-                                optional.get().place(
+                                optional.get().placeInWorld(
                                         world,
                                         mutable.set(x - 32, 18, z),
                                         mutable.set(x - 32, 18, z),
                                         structurePlacementData, random, 2);
-                                optional.get().place(
+                                optional.get().placeInWorld(
                                         world,
                                         mutable.set(x, 18, z),
                                         mutable.set(x, 18, z),
                                         structurePlacementData, random, 2);
                             } else {
-                                optional.get().place(
+                                optional.get().placeInWorld(
                                         world,
                                         mutable.set(x - 16, 18, z - 16),
                                         mutable.set(x - 16, 18, z - 16),
@@ -176,14 +176,14 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
                 for(int j = 0; j < 2; j++) {
                     roomIdentifier = this.getRoof();
                     structurePlacementData = this.randRotation();
-                    optional = structureTemplateManager.getTemplate(roomIdentifier);
+                    optional = structureTemplateManager.get(roomIdentifier);
 
                     if (optional.isPresent()) {
-                        if (world.getBlockState(mutable.set(x + 8 * i, 18, z + 8 * j)) != Blocks.CYAN_WOOL.getDefaultState() && world.getBlockState(mutable.set(x + 8 * i, 25, z + 8 * j)) == Blocks.AIR.getDefaultState() ){
-                            if (structurePlacementData.getRotation() == BlockRotation.CLOCKWISE_90) {
-                                optional.get().place(world, new BlockPos((x + 7) + 8 * i, 25, (z) + 8 * j), mutable.set((x + 7) + 8 * i, 25, (z) + 8 * j), structurePlacementData, random, 16);
+                        if (world.getBlockState(mutable.set(x + 8 * i, 18, z + 8 * j)) != Blocks.WOOL.cyan().defaultBlockState() && world.getBlockState(mutable.set(x + 8 * i, 25, z + 8 * j)) == Blocks.AIR.defaultBlockState() ){
+                            if (structurePlacementData.getRotation() == Rotation.CLOCKWISE_90) {
+                                optional.get().placeInWorld(world, new BlockPos((x + 7) + 8 * i, 25, (z) + 8 * j), mutable.set((x + 7) + 8 * i, 25, (z) + 8 * j), structurePlacementData, random, 16);
                             } else {
-                                optional.get().place(world, new BlockPos((x) + 8 * i, 25, (z) + 8 * j), mutable.set((x) + 8 * i, 25, (z) + 8 * j), structurePlacementData, random, 16);
+                                optional.get().placeInWorld(world, new BlockPos((x) + 8 * i, 25, (z) + 8 * j), mutable.set((x) + 8 * i, 25, (z) + 8 * j), structurePlacementData, random, 16);
                             }
                         }
                     }
@@ -194,14 +194,14 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
 
     }
 
-    public boolean isNearMegaRooms(int x, int z,StructureWorldAccess world){
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+    public boolean isNearMegaRooms(int x, int z,WorldGenLevel world){
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         boolean near = false;
 
         for(int i = -80; i <= 80; i += 80){
             for(int j = -80; j <= 80; j += 80){
                 BlockState blockState = world.getBlockState(mutable.set(x + i, 19, z + j));
-                if (blockState == Blocks.RED_WOOL.getDefaultState()){
+                if (blockState == Blocks.WOOL.red().defaultBlockState()){
                     near = true;
                     break;
                 }
@@ -212,28 +212,28 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
     }
 
     public Identifier getRoof(){
-        Random random = Random.create();
-        int roofNumber = random.nextBetween(1,5);
+        RandomSource random = RandomSource.create();
+        int roofNumber = random.nextIntBetweenInclusive(1,5);
 
         if (roofNumber == 1){
-            return new Identifier(SPBRevamped.MOD_ID, "level0/roof2");
+            return Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level0/roof2");
         }
         else {
-            return new Identifier(SPBRevamped.MOD_ID, "level0/roof1");
+            return Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level0/roof1");
         }
 
 
     }
 
-    public StructurePlacementData randRotation(){
-        StructurePlacementData structurePlacementData = new StructurePlacementData();
-        Random random = Random.create();
-        int rot = random.nextBetween(1,2);
+    public StructurePlaceSettings randRotation(){
+        StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();
+        RandomSource random = RandomSource.create();
+        int rot = random.nextIntBetweenInclusive(1,2);
 
         if(rot == 1){
-            structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.NONE).setIgnoreEntities(true);
+            structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
         }else{
-            structurePlacementData.setMirror(BlockMirror.NONE).setRotation(BlockRotation.CLOCKWISE_90).setIgnoreEntities(true);
+            structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.CLOCKWISE_90).setIgnoreEntities(true);
         }
         return structurePlacementData;
     }
