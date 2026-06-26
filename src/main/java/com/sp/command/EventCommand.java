@@ -18,11 +18,11 @@ import com.sp.world.events.level1.Level1Blackout;
 import com.sp.world.events.level2.Level2Warp;
 import com.sp.world.events.poolrooms.PoolroomsAmbience;
 import com.sp.world.events.poolrooms.PoolroomsSunset;
-import net.minecraft.command.CommandRegistryAccess;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.world.World;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 public class EventCommand {
     private static final SimpleCommandExceptionType FLICKER_BLACKOUT_EXCEPTION = new SimpleCommandExceptionType(new LiteralMessage("Event only occurs in Level 0 and Level 1"));
@@ -31,47 +31,47 @@ public class EventCommand {
     private static final SimpleCommandExceptionType WARP_EXCEPTION = new SimpleCommandExceptionType(new LiteralMessage("Event only occurs in Level 2"));
     private static final SimpleCommandExceptionType SUNSET_EXCEPTION = new SimpleCommandExceptionType(new LiteralMessage("Event only occurs in The Poolrooms"));
 
-    public static void register(CommandDispatcher<ServerCommandSource> serverCommandSourceCommandDispatcher, CommandRegistryAccess commandRegistryAccess, CommandManager.RegistrationEnvironment registrationEnvironment) {
-        serverCommandSourceCommandDispatcher.register(
-                CommandManager.literal("backroomsevent")
-                        .requires(source -> source.hasPermissionLevel(2))
-                        .then(CommandManager.literal("flicker")
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext registryAccess, Commands.CommandSelection environment) {
+        dispatcher.register(
+                Commands.literal("backroomsevent")
+                        .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                        .then(Commands.literal("flicker")
                                 .executes(context -> doFlicker(
                                                 context.getSource()
                                         )
                                 )
                         )
-                        .then(CommandManager.literal("blackout")
+                        .then(Commands.literal("blackout")
                                 .executes(context -> doBlackout(
                                                 context.getSource()
                                         )
                                 )
                         )
-                        .then(CommandManager.literal("intercom")
+                        .then(Commands.literal("intercom")
                                 .executes(context -> doIntercom(
                                                 context.getSource()
                                         )
                                 )
                         )
-                        .then(CommandManager.literal("music")
+                        .then(Commands.literal("music")
                                 .executes(context -> doMusic(
                                                 context.getSource()
                                         )
                                 )
                         )
-                        .then(CommandManager.literal("ambience")
+                        .then(Commands.literal("ambience")
                                 .executes(context -> doAmbience(
                                                 context.getSource()
                                         )
                                 )
                         )
-                        .then(CommandManager.literal("warp")
+                        .then(Commands.literal("warp")
                                 .executes(context -> doWarp(
                                                 context.getSource()
                                         )
                                 )
                         )
-                        .then(CommandManager.literal("sunset")
+                        .then(Commands.literal("sunset")
                                 .executes(context -> doSunset(
                                                 context.getSource()
                                         )
@@ -80,9 +80,9 @@ public class EventCommand {
         );
     }
 
-    private static int doFlicker(ServerCommandSource source) throws CommandSyntaxException {
-        World world = source.getWorld();
-        RegistryKey<World> registryKey = world.getRegistryKey();
+    private static int doFlicker(CommandSourceStack source) throws CommandSyntaxException {
+        Level world = source.getLevel();
+        ResourceKey<Level> registryKey = world.dimension();
         WorldEvents events = InitializeComponents.EVENTS.get(world);
 
         if (registryKey == BackroomsLevels.LEVEL0_WORLD_KEY) {
@@ -106,9 +106,9 @@ public class EventCommand {
         throw FLICKER_BLACKOUT_EXCEPTION.create();
     }
 
-    private static int doBlackout(ServerCommandSource source) throws CommandSyntaxException {
-        World world = source.getWorld();
-        RegistryKey<World> registryKey = world.getRegistryKey();
+    private static int doBlackout(CommandSourceStack source) throws CommandSyntaxException {
+        Level world = source.getLevel();
+        ResourceKey<Level> registryKey = world.dimension();
         WorldEvents events = InitializeComponents.EVENTS.get(world);
 
         if (registryKey == BackroomsLevels.LEVEL0_WORLD_KEY) {
@@ -126,9 +126,9 @@ public class EventCommand {
         throw FLICKER_BLACKOUT_EXCEPTION.create();
     }
 
-    private static int doIntercom(ServerCommandSource source) throws CommandSyntaxException {
-        World world = source.getWorld();
-        RegistryKey<World> registryKey = world.getRegistryKey();
+    private static int doIntercom(CommandSourceStack source) throws CommandSyntaxException {
+        Level world = source.getLevel();
+        ResourceKey<Level> registryKey = world.dimension();
         WorldEvents events = InitializeComponents.EVENTS.get(world);
 
         if (registryKey == BackroomsLevels.LEVEL0_WORLD_KEY) {
@@ -140,9 +140,9 @@ public class EventCommand {
         throw ONLY_LEVEL0_EXCEPTION.create();
     }
 
-    private static int doMusic(ServerCommandSource source) throws CommandSyntaxException {
-        World world = source.getWorld();
-        RegistryKey<World> registryKey = world.getRegistryKey();
+    private static int doMusic(CommandSourceStack source) throws CommandSyntaxException {
+        Level world = source.getLevel();
+        ResourceKey<Level> registryKey = world.dimension();
         WorldEvents events = InitializeComponents.EVENTS.get(world);
 
         if (registryKey == BackroomsLevels.LEVEL0_WORLD_KEY) {
@@ -154,9 +154,9 @@ public class EventCommand {
         throw ONLY_LEVEL0_EXCEPTION.create();
     }
 
-    private static int doAmbience(ServerCommandSource source) throws CommandSyntaxException {
-        World world = source.getWorld();
-        RegistryKey<World> registryKey = world.getRegistryKey();
+    private static int doAmbience(CommandSourceStack source) throws CommandSyntaxException {
+        Level world = source.getLevel();
+        ResourceKey<Level> registryKey = world.dimension();
         WorldEvents events = InitializeComponents.EVENTS.get(world);
 
         if (registryKey == BackroomsLevels.POOLROOMS_WORLD_KEY) {
@@ -183,9 +183,9 @@ public class EventCommand {
         throw AMBIENCE_EXCEPTION.create();
     }
 
-    private static int doWarp(ServerCommandSource source) throws CommandSyntaxException {
-        World world = source.getWorld();
-        RegistryKey<World> registryKey = world.getRegistryKey();
+    private static int doWarp(CommandSourceStack source) throws CommandSyntaxException {
+        Level world = source.getLevel();
+        ResourceKey<Level> registryKey = world.dimension();
         WorldEvents events = InitializeComponents.EVENTS.get(world);
 
         if (registryKey == BackroomsLevels.LEVEL2_WORLD_KEY) {
@@ -197,9 +197,9 @@ public class EventCommand {
         throw WARP_EXCEPTION.create();
     }
 
-    private static int doSunset(ServerCommandSource source) throws CommandSyntaxException {
-        World world = source.getWorld();
-        RegistryKey<World> registryKey = world.getRegistryKey();
+    private static int doSunset(CommandSourceStack source) throws CommandSyntaxException {
+        Level world = source.getLevel();
+        ResourceKey<Level> registryKey = world.dimension();
         WorldEvents events = InitializeComponents.EVENTS.get(world);
 
         if (registryKey == BackroomsLevels.POOLROOMS_WORLD_KEY) {
@@ -211,7 +211,7 @@ public class EventCommand {
         throw SUNSET_EXCEPTION.create();
     }
 
-    private static void setEvent(WorldEvents events, World world, AbstractEvent activeEvent) {
+    private static void setEvent(WorldEvents events, Level world, AbstractEvent activeEvent) {
         if (events.getActiveEvent() != null) {
             events.getActiveEvent().finish(world);
         }
