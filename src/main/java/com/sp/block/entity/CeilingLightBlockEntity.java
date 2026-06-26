@@ -1,43 +1,45 @@
 package com.sp.block.entity;
 
 import com.sp.init.ModBlockEntities;
-import foundry.veil.api.client.render.VeilRenderSystem;
-import foundry.veil.api.client.render.deferred.light.AreaLight;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
-import org.joml.Quaternionf;
-import org.joml.Vector3d;
+// PORT: phase6 - Veil deferred rendering removed/reworked
+//import foundry.veil.api.client.render.VeilRenderSystem;
+//import foundry.veil.api.client.render.deferred.light.AreaLight;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+//import org.joml.Quaternionf;
+//import org.joml.Vector3d;
 
 public class CeilingLightBlockEntity extends BlockEntity {
-    AreaLight light;
+    // PORT: phase6 - AreaLight light;
+    Object light; // PORT: phase6 - was foundry.veil.api.client.render.deferred.light.AreaLight
     float brightness;
     float angle;
     int ticks;
-    Random random = Random.create();
+    RandomSource random = RandomSource.create();
     int randomInt;
     boolean on;
 
     public CeilingLightBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.CEILING_LIGHT_BLOCK_ENTITY, pos, state);
-        this.randomInt = random.nextBetween(1, 4);
+        this.randomInt = random.nextIntBetweenInclusive(1, 4);
         this.on = true;
     }
 
     @Override
-    public void markRemoved() {
-        if (this.light != null && world.isClient) {
-            VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().removeLight(this.light);
+    public void setRemoved() {
+        if (this.light != null && level.isClientSide()) {
+            // PORT: phase6 - VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().removeLight(this.light);
             this.light = null;
         }
-        super.markRemoved();
+        super.setRemoved();
     }
 
-    public void tick(World world, BlockPos pos, BlockState state) {
-        if (!world.isClient) {
+    public void tick(Level world, BlockPos pos, BlockState state) {
+        if (!world.isClientSide()) {
             return;
         }
 
@@ -45,19 +47,19 @@ public class CeilingLightBlockEntity extends BlockEntity {
             return;
         }
 
-        Vec3d position = pos.toCenterPos().add(-0.5, -0.06, 0);
+        Vec3 position = Vec3.atCenterOf(pos).add(-0.5, -0.06, 0);
         this.brightness = 2.58f;
         this.angle = 60.4f;
-        this.light = new AreaLight();
-
-        VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().addLight(this.light
-                .setBrightness(this.brightness)
-                .setSize(0.9, 0.0)
-                .setAngle((float) Math.toRadians(this.angle))
-                .setOrientation(new Quaternionf().rotateXYZ((float) Math.toRadians(-90d), 0, 0))
-                .setPosition(new Vector3d(position.x, position.y, position.z))
-                .setDistance(15)
-        );
+        // PORT: phase6 - this.light = new AreaLight();
+        //
+        // VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().addLight(this.light
+        //         .setBrightness(this.brightness)
+        //         .setSize(0.9, 0.0)
+        //         .setAngle((float) Math.toRadians(this.angle))
+        //         .setOrientation(new Quaternionf().rotateXYZ((float) Math.toRadians(-90d), 0, 0))
+        //         .setPosition(new Vector3d(position.x, position.y, position.z))
+        //         .setDistance(15)
+        // );
 
 //            if(!state.get(CeilingLight.STOPPED)) {
 //                ticks++;

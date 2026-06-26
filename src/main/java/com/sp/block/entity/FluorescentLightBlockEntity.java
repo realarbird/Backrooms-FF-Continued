@@ -5,23 +5,24 @@ import com.sp.init.BackroomsLevels;
 import com.sp.init.ModBlockEntities;
 import com.sp.init.ModBlocks;
 import com.sp.world.levels.BackroomsLevelWithLights;
-import foundry.veil.api.client.render.VeilRenderSystem;
-import foundry.veil.api.client.render.deferred.light.PointLight;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
+// PORT: phase6 - Veil deferred rendering removed/reworked
+//import foundry.veil.api.client.render.VeilRenderSystem;
+//import foundry.veil.api.client.render.deferred.light.PointLight;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 
 import static com.sp.clientWrapper.ClientWrapper.doClientSideTick;
 
 public class FluorescentLightBlockEntity extends BlockEntity {
     public BlockState currentState;
-    public Random random = Random.create();
+    public RandomSource random = RandomSource.create();
     public java.util.Random random1 = new java.util.Random();
     public boolean playingSound;
-    public PointLight pointLight;
+    public Object pointLight; // PORT: phase6 - was foundry.veil.api.client.render.deferred.light.PointLight
     public boolean prevOn;
     public final int randInt;
     public int ticks = 0;
@@ -31,18 +32,18 @@ public class FluorescentLightBlockEntity extends BlockEntity {
 
         this.playingSound = false;
         this.currentState = state;
-        this.randInt = this.random.nextBetween(1, 5);
+        this.randInt = this.random.nextIntBetweenInclusive(1, 5);
     }
 
     @Override
-    public void markRemoved() {
-        super.markRemoved();
+    public void setRemoved() {
+        super.setRemoved();
 
-        if (world == null) {
+        if (level == null) {
             return;
         }
 
-        if (!world.isClient) {
+        if (!level.isClientSide()) {
             return;
         }
 
@@ -52,11 +53,11 @@ public class FluorescentLightBlockEntity extends BlockEntity {
             return;
         }
 
-        VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().removeLight(this.pointLight);
+        // PORT: phase6 - VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().removeLight(this.pointLight);
         this.pointLight = null;
     }
 
-    public void tick(World world, BlockPos pos, BlockState state) {
+    public void tick(Level world, BlockPos pos, BlockState state) {
         if (world.getBlockState(pos).getBlock() != ModBlocks.FLUORESCENT_LIGHT) {
             return;
         }
@@ -64,13 +65,13 @@ public class FluorescentLightBlockEntity extends BlockEntity {
         ticks++;
         this.currentState = state;
 
-        if (!world.isClient) {
+        if (!world.isClientSide()) {
             //Set to ceiling tile if it can't be seen
-            if (world.getRegistryKey() == BackroomsLevels.LEVEL0_WORLD_KEY) {
-                if (world.getBlockState(pos.down()) != Blocks.AIR.getDefaultState()) {
+            if (world.dimension() == BackroomsLevels.LEVEL0_WORLD_KEY) {
+                if (world.getBlockState(pos.below()) != Blocks.AIR.defaultBlockState()) {
                     world.removeBlockEntity(pos);
-                    world.getWorldChunk(pos).blockEntityNbts.remove(pos);
-                    world.setBlockState(pos, ModBlocks.CEILING_TILE.getDefaultState());
+                    // PORT: phase6 - LevelChunk.blockEntityNbts (pending NBT map) no longer public in 26.2
+                    world.setBlockAndUpdate(pos, ModBlocks.CEILING_TILE.defaultBlockState());
                     return;
                 }
             }
@@ -88,46 +89,46 @@ public class FluorescentLightBlockEntity extends BlockEntity {
 
             if (northOWest != 0) {
                 if (northOWest == 1) {
-                    world.setBlockState(pos, northState.with(FluorescentLightBlock.COPY, true));
+                    world.setBlockAndUpdate(pos, northState.setValue(FluorescentLightBlock.COPY, true));
                 } else {
-                    world.setBlockState(pos, westState.with(FluorescentLightBlock.COPY, true));
+                    world.setBlockAndUpdate(pos, westState.setValue(FluorescentLightBlock.COPY, true));
                 }
             } else {
-                if (state.get(FluorescentLightBlock.COPY)) {
-                    world.setBlockState(pos, ModBlocks.FLUORESCENT_LIGHT.getDefaultState().with(FluorescentLightBlock.COPY, false));
+                if (state.getValue(FluorescentLightBlock.COPY)) {
+                    world.setBlockAndUpdate(pos, ModBlocks.FLUORESCENT_LIGHT.defaultBlockState().setValue(FluorescentLightBlock.COPY, false));
                 }
 
-                if (!((BackroomsLevels.getLevel(this.getWorld()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL)) instanceof BackroomsLevelWithLights level)) {
+                if (!((BackroomsLevels.getLevel(this.getLevel()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL)) instanceof BackroomsLevelWithLights level)) {
                     return;
                 }
                 //Turn off if Blackout Event is active
                 if (level.getLightState() == BackroomsLevelWithLights.LightState.BLACKOUT) {
-                    world.setBlockState(pos, world.getBlockState(pos).with(FluorescentLightBlock.BLACKOUT, true));
+                    world.setBlockAndUpdate(pos, world.getBlockState(pos).setValue(FluorescentLightBlock.BLACKOUT, true));
                 }
 
-                if (level.getLightState() != BackroomsLevelWithLights.LightState.ON && state.get(FluorescentLightBlock.ON)) {
-                    world.setBlockState(pos, world.getBlockState(pos).with(FluorescentLightBlock.ON, false));
+                if (level.getLightState() != BackroomsLevelWithLights.LightState.ON && state.getValue(FluorescentLightBlock.ON)) {
+                    world.setBlockAndUpdate(pos, world.getBlockState(pos).setValue(FluorescentLightBlock.ON, false));
                 }
 
-                if (level.getLightState() == BackroomsLevelWithLights.LightState.FLICKER && !state.get(FluorescentLightBlock.BLACKOUT)) {
+                if (level.getLightState() == BackroomsLevelWithLights.LightState.FLICKER && !state.getValue(FluorescentLightBlock.BLACKOUT)) {
                     if (ticks % randInt == 0) {
                         boolean i = this.random.nextBoolean();
                         if (i) {
-                            world.setBlockState(pos, world.getBlockState(pos).with(FluorescentLightBlock.ON, true));
+                            world.setBlockAndUpdate(pos, world.getBlockState(pos).setValue(FluorescentLightBlock.ON, true));
                         } else {
-                            world.setBlockState(pos, world.getBlockState(pos).with(FluorescentLightBlock.ON, false));
+                            world.setBlockAndUpdate(pos, world.getBlockState(pos).setValue(FluorescentLightBlock.ON, false));
                         }
                     }
                 } else {
-                    if (!state.get(FluorescentLightBlock.ON) && level.getLightState() == BackroomsLevelWithLights.LightState.ON) {
-                        world.setBlockState(pos, world.getBlockState(pos).with(FluorescentLightBlock.ON, true));
+                    if (!state.getValue(FluorescentLightBlock.ON) && level.getLightState() == BackroomsLevelWithLights.LightState.ON) {
+                        world.setBlockAndUpdate(pos, world.getBlockState(pos).setValue(FluorescentLightBlock.ON, true));
                     }
                 }
             }
         }
 
 
-        if (world.isClient) {
+        if (world.isClientSide()) {
             doClientSideTick(world, pos, state, this);
         }
 
@@ -135,7 +136,7 @@ public class FluorescentLightBlockEntity extends BlockEntity {
             ticks = 1;
         }
 
-        prevOn = world.getBlockState(pos).get(FluorescentLightBlock.ON);
+        prevOn = world.getBlockState(pos).getValue(FluorescentLightBlock.ON);
     }
 
     public boolean isPlayingSound() {

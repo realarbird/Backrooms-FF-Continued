@@ -1,19 +1,17 @@
 package com.sp.block.entity;
 
 import com.sp.block.custom.FluorescentLightBlock;
-import com.sp.block.custom.TinyFluorescentLightBlock;
-import com.sp.init.BackroomsLevels;
 import com.sp.init.ModBlockEntities;
 import com.sp.init.ModBlocks;
-import com.sp.world.levels.BackroomsLevelWithLights;
-import foundry.veil.api.client.render.VeilRenderSystem;
-import foundry.veil.api.client.render.deferred.light.PointLight;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
+// PORT: phase6 - Veil deferred rendering removed/reworked
+//import foundry.veil.api.client.render.VeilRenderSystem;
+//import foundry.veil.api.client.render.deferred.light.PointLight;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 import static com.sp.clientWrapper.ClientWrapper.doClientSideTinyFluorescentsTick;
 
@@ -21,11 +19,11 @@ import static com.sp.clientWrapper.ClientWrapper.doClientSideTinyFluorescentsTic
 public class TinyFluorescentLightBlockEntity extends BlockEntity {
     BlockState currentState;
     public boolean playingSound;
-    public PointLight pointLight;
+    public Object pointLight; // PORT: phase6 - was foundry.veil.api.client.render.deferred.light.PointLight
     public boolean prevOn;
     public final int randInt;
     public int ticks = 0;
-    public final Random random = Random.create();
+    public final RandomSource random = RandomSource.create();
 
     public TinyFluorescentLightBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.TINY_FLUORESCENT_LIGHT_BLOCK_ENTITY, pos, state);
@@ -37,27 +35,27 @@ public class TinyFluorescentLightBlockEntity extends BlockEntity {
     }
 
     @Override
-    public void markRemoved() {
-        if (this.getWorld() != null && this.getWorld().isClient){
+    public void setRemoved() {
+        if (this.getLevel() != null && this.getLevel().isClientSide()){
             if(pointLight != null) {
-                VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().removeLight(pointLight);
+                // PORT: phase6 - VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().removeLight(pointLight);
                 pointLight = null;
             }
         }
 
-        super.markRemoved();
+        super.setRemoved();
     }
 
-    public void tick(World world, BlockPos pos, BlockState state) {
+    public void tick(Level world, BlockPos pos, BlockState state) {
         if (world.getBlockState(pos).getBlock() != ModBlocks.TINY_FLUORESCENT_LIGHT) {
             return;
         }
 
-        Vec3d position = pos.toCenterPos();
+        Vec3 position = Vec3.atCenterOf(pos);
         java.util.Random random1 = new java.util.Random();
 
 
-        if (world.isClient) {
+        if (world.isClientSide()) {
             doClientSideTinyFluorescentsTick(world, pos, state, random1, position, this);
         }
 
@@ -65,7 +63,7 @@ public class TinyFluorescentLightBlockEntity extends BlockEntity {
             ticks = 1;
         }
 
-        prevOn = world.getBlockState(pos).get(FluorescentLightBlock.ON);
+        prevOn = world.getBlockState(pos).getValue(FluorescentLightBlock.ON);
     }
 
     public BlockState getCurrentState() {
