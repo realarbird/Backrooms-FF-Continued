@@ -3,15 +3,15 @@ package com.sp.mixin.cutscene;
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.sp.SPBRevampedClient;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 
-@Mixin(ClientPlayerInteractionManager.class)
+@Mixin(MultiPlayerGameMode.class)
 public class ClientPlayerInteractionManagerMixin {
-    @WrapMethod(method = "attackEntity")
-    public void attackEntity(PlayerEntity player, Entity target, Operation<Void> original) {
+    @WrapMethod(method = "attack")
+    public void attackEntity(Player player, Entity target, Operation<Void> original) {
         if (SPBRevampedClient.getCutsceneManager().isPlaying) {
             return;
         }
