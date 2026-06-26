@@ -10,21 +10,21 @@ import com.sp.world.events.level324.ScreechSoundEvent;
 import com.sp.world.generation.chunk_generator.Level324ChunkGenerator;
 import com.sp.world.levels.BackroomsLevel;
 import com.sp.world.levels.BackroomsLevelWithLights;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.math.Vec2f;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3i;
-import net.minecraft.world.World;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.Vec2;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.core.Vec3i;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class Level324Backroomslevel extends BackroomsLevel implements BackroomsLevelWithLights {
-    private Level0BackroomsLevel.LightState lightState = BackroomsLevelWithLights.LightState.ON;
+    private BackroomsLevelWithLights.LightState lightState = BackroomsLevelWithLights.LightState.ON;
 
     public Level324Backroomslevel() {
-        super("level324", Level324ChunkGenerator.CODEC, new Vec3d(52,65,21), BackroomsLevels.LEVEL324_WORLD_KEY);
+        super("level324", Level324ChunkGenerator.CODEC, new Vec3(52,65,21), BackroomsLevels.LEVEL324_WORLD_KEY);
 
         this.registerEvent("flicker", LightLevelFlicker::new);
         this.registerEvent("ambience", ScreechSoundEvent::new);
@@ -36,7 +36,7 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
 
             if (from instanceof Level324Backroomslevel &&
                     hasGrassBeneath(playerComponent) &&
-                    playerComponent.player.getPos().squaredDistanceTo(new Vec3d(0, 65, 0)) >= (double) ((exitRadius / 3) * (exitRadius / 3)) ) {
+                    playerComponent.player.position().distanceToSqr(new Vec3(0, 65, 0)) >= (double) ((exitRadius / 3) * (exitRadius / 3)) ) {
                 playerList.add(getInfiniteFieldsTransition(playerComponent));
             }
 
@@ -46,28 +46,28 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
         this.registerTransition((world, playerComponent, from) -> {
             List<LevelTransition> playerList = new ArrayList<>();
 
-            Vec2f[] puddleLocations = new Vec2f[]{
-                    new Vec2f(300.0f, 0.0f),
-                    new Vec2f(-300.0f, 0.0f),
-                    new Vec2f(0.0f, 300.0f),
-                    new Vec2f(0.0f, -300.0f),
-                    new Vec2f(150.0f, 150.0f),
-                    new Vec2f(150.0f, -150.0f),
-                    new Vec2f(-150.0f, 150.0f),
-                    new Vec2f(-150.0f, -150.0f),
-                    new Vec2f(100.0f, 200.0f),
-                    new Vec2f(100.0f, -200.0f),
-                    new Vec2f(-100.0f, 200.0f),
-                    new Vec2f(-100.0f, -200.0f),
-                    new Vec2f(200.0f, 100.0f),
-                    new Vec2f(-200.0f, 100.0f),
-                    new Vec2f(200.0f, -100.0f),
-                    new Vec2f(-200.0f, -100.0f)
+            Vec2[] puddleLocations = new Vec2[]{
+                    new Vec2(300.0f, 0.0f),
+                    new Vec2(-300.0f, 0.0f),
+                    new Vec2(0.0f, 300.0f),
+                    new Vec2(0.0f, -300.0f),
+                    new Vec2(150.0f, 150.0f),
+                    new Vec2(150.0f, -150.0f),
+                    new Vec2(-150.0f, 150.0f),
+                    new Vec2(-150.0f, -150.0f),
+                    new Vec2(100.0f, 200.0f),
+                    new Vec2(100.0f, -200.0f),
+                    new Vec2(-100.0f, 200.0f),
+                    new Vec2(-100.0f, -200.0f),
+                    new Vec2(200.0f, 100.0f),
+                    new Vec2(-200.0f, 100.0f),
+                    new Vec2(200.0f, -100.0f),
+                    new Vec2(-200.0f, -100.0f)
             };
 
             if (from instanceof Level324Backroomslevel && playerComponent.player.getY() < 20) {
-                for (Vec2f vec2f : puddleLocations) {
-                    if (4 > vec2f.distanceSquared(new Vec2f((float) playerComponent.player.getX(), (float) playerComponent.player.getZ()))) {
+                for (Vec2 vec2f : puddleLocations) {
+                    if (4 > vec2f.distanceToSqr(new Vec2((float) playerComponent.player.getX(), (float) playerComponent.player.getZ()))) {
                         playerList.add(getPoolRoomsTransition(playerComponent));
                     }
                 }
@@ -78,17 +78,17 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
     }
 
     private static boolean hasGrassBeneath(PlayerComponent playerComponent) {
-        return playerComponent.player.getWorld().getBlockState(playerComponent.player.supportingBlockPos.orElseGet(() ->
-                playerComponent.player.getBlockPos().subtract(new Vec3i(0,1,0)))).isOf(ModBlocks.RED_DIRT);
+        return playerComponent.player.level().getBlockState(playerComponent.player.mainSupportingBlockPos.orElseGet(() ->
+                playerComponent.player.blockPosition().subtract(new Vec3i(0,1,0)))).getBlock() == ModBlocks.RED_DIRT;
     }
 
     private LevelTransition getInfiniteFieldsTransition(PlayerComponent playerComponent) {
         return new LevelTransition(
                 40,
                 (teleport, tick) -> {
-                    World world = teleport.playerComponent().player.getWorld();
+                    Level world = teleport.playerComponent().player.level();
 
-                    if (world.isClient()) {
+                    if (world.isClientSide()) {
                         if (tick == 14) {
                             SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(20, true, false);
                         }
@@ -101,7 +101,7 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
                     }
 
                     if (tick == 14) {
-                        SPBRevamped.sendBlackScreenPacket((ServerPlayerEntity) teleport.playerComponent().player, 20, true, false);
+                        SPBRevamped.sendBlackScreenPacket((ServerPlayer) teleport.playerComponent().player, 20, true, false);
                     }
 
                     //After the screen turns black THEN teleport
@@ -126,13 +126,13 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
         return new LevelTransition(
                 10,
                 (teleport, tick) -> {
-                    World world = teleport.playerComponent().player.getWorld();
+                    Level world = teleport.playerComponent().player.level();
                     if (tick == 9) {
                         teleport.playerComponent().setShouldNoClip(true);
                         teleport.playerComponent().sync();
                     }
 
-                    if (world.isClient()) {
+                    if (world.isClientSide()) {
                         if (tick == 4) {
                             SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(20, true, false);
                         }
@@ -140,7 +140,7 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
                     }
 
                     if (tick == 4) {
-                        SPBRevamped.sendBlackScreenPacket((ServerPlayerEntity) teleport.playerComponent().player, 20, true, false);
+                        SPBRevamped.sendBlackScreenPacket((ServerPlayer) teleport.playerComponent().player, 20, true, false);
                     }
 
                     //After the screen turns black THEN teleport
@@ -176,13 +176,13 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
     }
 
     @Override
-    public void writeToNbt(NbtCompound nbt) {
+    public void writeToNbt(CompoundTag nbt) {
         nbt.putString("lightState", lightState.name());
     }
 
     @Override
-    public void readFromNbt(NbtCompound nbt) {
-        this.lightState = BackroomsLevelWithLights.LightState.valueOf(nbt.getString("lightState"));
+    public void readFromNbt(CompoundTag nbt) {
+        this.lightState = BackroomsLevelWithLights.LightState.valueOf(nbt.getStringOr("lightState", "ON"));
 
     }
 
@@ -196,12 +196,12 @@ public class Level324Backroomslevel extends BackroomsLevel implements BackroomsL
 
     }
 
-    public void setLightState(Level0BackroomsLevel.LightState lightState) {
+    public void setLightState(BackroomsLevelWithLights.LightState lightState) {
         this.justChanged();
         this.lightState = lightState;
     }
 
-    public Level0BackroomsLevel.LightState getLightState() {
+    public BackroomsLevelWithLights.LightState getLightState() {
         return this.lightState;
     }
 }

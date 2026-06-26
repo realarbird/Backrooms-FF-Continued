@@ -12,12 +12,12 @@ import com.sp.world.events.level0.Level0Music;
 import com.sp.world.generation.chunk_generator.Level0ChunkGenerator;
 import com.sp.world.levels.BackroomsLevel;
 import com.sp.world.levels.BackroomsLevelWithLights;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +30,7 @@ public class Level0BackroomsLevel extends BackroomsLevel implements BackroomsLev
     private LightState lightState = LightState.ON;
 
     public Level0BackroomsLevel() {
-        super("level0", Level0ChunkGenerator.CODEC, new RoomCount(8), new Vec3d(0, 21, 0), BackroomsLevels.LEVEL0_WORLD_KEY);
+        super("level0", Level0ChunkGenerator.CODEC, new RoomCount(8), new Vec3(0, 21, 0), BackroomsLevels.LEVEL0_WORLD_KEY);
     }
 
     @Override
@@ -54,8 +54,8 @@ public class Level0BackroomsLevel extends BackroomsLevel implements BackroomsLev
         this.registerTransition((world, playerComponent, from) -> {
             List<LevelTransition> playerList = new ArrayList<>();
 
-            if (from instanceof Level0BackroomsLevel && playerComponent.player.getPos().getY() <= 11 && playerComponent.player.isOnGround()) {
-                for (PlayerEntity player : playerComponent.player.getWorld().getPlayers()) {
+            if (from instanceof Level0BackroomsLevel && playerComponent.player.position().y() <= 11 && playerComponent.player.onGround()) {
+                for (Player player : playerComponent.player.level().players()) {
                     PlayerComponent otherPlayerComponent = InitializeComponents.PLAYER.get(player);
                     playerList.add(getLevel1Transition(otherPlayerComponent));
                 }
@@ -69,37 +69,37 @@ public class Level0BackroomsLevel extends BackroomsLevel implements BackroomsLev
         return new LevelTransition(
             30,
             (teleport, tick) -> {
-                if (!teleport.playerComponent().player.getWorld().isClient() && tick == 30) {
+                if (!teleport.playerComponent().player.level().isClientSide() && tick == 30) {
                     if(!teleport.playerComponent().isTeleporting()) {
-                        SPBRevamped.sendLevelTransitionLightsOutPacket((ServerPlayerEntity) teleport.playerComponent().player, 80);
+                        SPBRevamped.sendLevelTransitionLightsOutPacket((ServerPlayer) teleport.playerComponent().player, 80);
                     }
                 }
             },
             new CrossDimensionTeleport(playerComponent,
                 calculateLevel1TeleportCoords(
                     playerComponent.player,
-                    playerComponent.player.getChunkPos()),
+                    playerComponent.player.chunkPosition()),
                 this,
                 BackroomsLevels.LEVEL1_BACKROOMS_LEVEL),
         (teleport, tick) -> {});
     }
 
-    private Vec3d calculateLevel1TeleportCoords(PlayerEntity player, ChunkPos chunkPos) {
-        if(chunkPos.x == player.getChunkPos().x && chunkPos.z == player.getChunkPos().z) {
-            int chunkX = chunkPos.getStartX();
-            int chunkZ = chunkPos.getStartZ();
+    private Vec3 calculateLevel1TeleportCoords(Player player, ChunkPos chunkPos) {
+        if(chunkPos.x == player.chunkPosition().x && chunkPos.z == player.chunkPosition().z) {
+            int chunkX = chunkPos.getMinBlockX();
+            int chunkZ = chunkPos.getMinBlockZ();
 
-            double playerX = player.getPos().x;
-            double playerZ = player.getPos().z;
+            double playerX = player.position().x;
+            double playerZ = player.position().z;
 
-            return new Vec3d(playerX - chunkX, player.getPos().y + 15, playerZ - chunkZ);
+            return new Vec3(playerX - chunkX, player.position().y + 15, playerZ - chunkZ);
         } else {
             return this.getSpawnPos();
         }
     }
 
     @Override
-    public AbstractEvent getRandomEvent(World world) {
+    public AbstractEvent getRandomEvent(Level world) {
         AbstractEvent activeEvent = super.getRandomEvent(world);
 
         if (activeEvent instanceof LightLevelBlackout) {
@@ -120,17 +120,17 @@ public class Level0BackroomsLevel extends BackroomsLevel implements BackroomsLev
     }
 
     @Override
-    public void writeToNbt(NbtCompound nbt) {
+    public void writeToNbt(CompoundTag nbt) {
         nbt.putInt("blackoutCount", blackoutCount);
         nbt.putInt("intercomCount", intercomCount);
         nbt.putString("lightState", lightState.name());
     }
 
     @Override
-    public void readFromNbt(NbtCompound nbt) {
-        this.blackoutCount = nbt.getInt("blackoutCount");
-        this.intercomCount = nbt.getInt("intercomCount");
-        this.lightState = LightState.valueOf(nbt.getString("lightState"));
+    public void readFromNbt(CompoundTag nbt) {
+        this.blackoutCount = nbt.getIntOr("blackoutCount", 0);
+        this.intercomCount = nbt.getIntOr("intercomCount", 0);
+        this.lightState = LightState.valueOf(nbt.getStringOr("lightState", "ON"));
     }
 
     @Override

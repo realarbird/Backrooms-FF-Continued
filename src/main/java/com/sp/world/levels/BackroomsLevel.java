@@ -1,20 +1,20 @@
 package com.sp.world.levels;
 
-import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.sp.SPBRevamped;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.world.events.AbstractEvent;
 import com.sp.world.events.EmptyEvent;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -24,27 +24,27 @@ public abstract class BackroomsLevel {
     private final String levelId;
     private final String modId;
     private final RoomCount roomCount;
-    private final Codec<? extends ChunkGenerator> chunkGeneratorCodec;
-    private final RegistryKey<World> worldKey;
-    private final Vec3d spawnPos;
+    private final MapCodec<? extends ChunkGenerator> chunkGeneratorCodec;
+    private final ResourceKey<Level> worldKey;
+    private final Vec3 spawnPos;
     public Random random = new Random();
     private boolean shouldSync = false;
     private final HashMap<String, Supplier<AbstractEvent>> events = new HashMap<>();
     private final HashMap<String, LevelTransitionCriteriaCallback> transitions = new HashMap<>();
 
-    public BackroomsLevel(String levelId, Codec<? extends ChunkGenerator> chunkGenerator, Vec3d spawnPos, RegistryKey<World> worldKey) {
+    public BackroomsLevel(String levelId, MapCodec<? extends ChunkGenerator> chunkGenerator, Vec3 spawnPos, ResourceKey<Level> worldKey) {
         this(levelId, chunkGenerator, null, spawnPos, worldKey, SPBRevamped.MOD_ID);
     }
 
-    public BackroomsLevel(String levelId, Codec<? extends ChunkGenerator> chunkGenerator, RoomCount roomCount, Vec3d spawnPos, RegistryKey<World> worldKey) {
+    public BackroomsLevel(String levelId, MapCodec<? extends ChunkGenerator> chunkGenerator, RoomCount roomCount, Vec3 spawnPos, ResourceKey<Level> worldKey) {
         this(levelId, chunkGenerator, roomCount, spawnPos, worldKey, SPBRevamped.MOD_ID);
     }
 
-    public BackroomsLevel(String levelId, Codec<? extends ChunkGenerator> chunkGenerator, Vec3d spawnPos, RegistryKey<World> worldKey, String modId) {
+    public BackroomsLevel(String levelId, MapCodec<? extends ChunkGenerator> chunkGenerator, Vec3 spawnPos, ResourceKey<Level> worldKey, String modId) {
         this(levelId, chunkGenerator, null, spawnPos, worldKey, modId);
     }
 
-    public BackroomsLevel(String levelId, Codec<? extends ChunkGenerator> chunkGenerator, @Nullable RoomCount roomCount, Vec3d spawnPos, RegistryKey<World> worldKey, String modId) {
+    public BackroomsLevel(String levelId, MapCodec<? extends ChunkGenerator> chunkGenerator, @Nullable RoomCount roomCount, Vec3 spawnPos, ResourceKey<Level> worldKey, String modId) {
         this.levelId = levelId;
         this.chunkGeneratorCodec = chunkGenerator;
         this.spawnPos = spawnPos;
@@ -55,7 +55,7 @@ public abstract class BackroomsLevel {
     }
 
     public void register() {
-        Registry.register(Registries.CHUNK_GENERATOR, new Identifier(modId, levelId + "_chunk_generator"), chunkGeneratorCodec);
+        Registry.register(BuiltInRegistries.CHUNK_GENERATOR, Identifier.fromNamespaceAndPath(modId, levelId + "_chunk_generator"), chunkGeneratorCodec);
     }
 
     public String getLevelId() {
@@ -66,11 +66,11 @@ public abstract class BackroomsLevel {
         return modId;
     }
 
-    public RegistryKey<World> getWorldKey() {
+    public ResourceKey<Level> getWorldKey() {
         return worldKey;
     }
 
-    public Vec3d getSpawnPos() {
+    public Vec3 getSpawnPos() {
         return spawnPos;
     }
 
@@ -83,7 +83,7 @@ public abstract class BackroomsLevel {
      * @return a BoolTextPair containing the value and a message to display to the player.
      */
     public BoolTextPair allowsTorch() {
-        return new BoolTextPair(true, Text.literal("Flashlight is allowed in this level."));
+        return new BoolTextPair(true, Component.literal("Flashlight is allowed in this level."));
     }
 
     /**
@@ -112,9 +112,9 @@ public abstract class BackroomsLevel {
         return false;
     }
 
-    public record BoolTextPair(boolean value, MutableText string) {}
+    public record BoolTextPair(boolean value, MutableComponent string) {}
 
-    public AbstractEvent getRandomEvent(World world) {
+    public AbstractEvent getRandomEvent(Level world) {
         if (this.events.isEmpty()) {
             return new EmptyEvent();
         }
@@ -129,7 +129,7 @@ public abstract class BackroomsLevel {
         return eventList.get(random.nextInt(eventList.size()));
     }
 
-    public List<LevelTransition> checkForTransition(PlayerComponent playerComponent, World world) {
+    public List<LevelTransition> checkForTransition(PlayerComponent playerComponent, Level world) {
         List<LevelTransition> possibleTransitions = new ArrayList<>();
         this.transitions.forEach((key, value) -> {
             if (!value.predicate(world, playerComponent, this).isEmpty()) {
@@ -149,19 +149,19 @@ public abstract class BackroomsLevel {
     /**
      * Called when the level needs to be synced or saved to disk.
      * Here you can put anything you want to save to the NBT.
-     * You do <b>not</b> needing to make a NbtCompound first. That is handled by the WorldEvents class.
+     * You do <b>not</b> needing to make a CompoundTag first. That is handled by the WorldEvents class.
      * <b>NOTE</b>: You should not only save data here which you want to <b>save</b> to disk but also which you want to <b>sync</b>.
-     * @param nbt the NbtCompound to save in, assigned by the WorldEvents class.
+     * @param nbt the CompoundTag to save in, assigned by the WorldEvents class.
      */
-    public abstract void writeToNbt(NbtCompound nbt);
+    public abstract void writeToNbt(CompoundTag nbt);
 
     /**
      * Called when the level is loaded from disk.
      * Here you can read anything you want to load from the NBT into your level.
-     * You do <b>not</b> needing to step down into an NbtCompound first. That is handled by the WorldEvents class.
-     * @param nbt the NbtCompound to load in, assigned by the WorldEvents class.
+     * You do <b>not</b> needing to step down into an CompoundTag first. That is handled by the WorldEvents class.
+     * @param nbt the CompoundTag to load in, assigned by the WorldEvents class.
      */
-    public abstract void readFromNbt(NbtCompound nbt);
+    public abstract void readFromNbt(CompoundTag nbt);
 
     public boolean shouldSync() {
         boolean shouldSync = this.shouldSync;
@@ -216,10 +216,10 @@ public abstract class BackroomsLevel {
         void cancel(CrossDimensionTeleport teleport, int tick);
     }
 
-    public record CrossDimensionTeleport(PlayerComponent playerComponent, Vec3d pos, BackroomsLevel from, BackroomsLevel to) {}
+    public record CrossDimensionTeleport(PlayerComponent playerComponent, Vec3 pos, BackroomsLevel from, BackroomsLevel to) {}
 
     public interface LevelTransitionCriteriaCallback {
-        List<LevelTransition> predicate(World world, PlayerComponent playerComponent, BackroomsLevel from);
+        List<LevelTransition> predicate(Level world, PlayerComponent playerComponent, BackroomsLevel from);
     }
 
     public record RoomCount(int aRoomCount, int bRoomCount, int cRoomCount, int dRoomCount, int eRoomCount) {

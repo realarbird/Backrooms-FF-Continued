@@ -7,10 +7,10 @@ import com.sp.world.events.level2.Level2Ambience;
 import com.sp.world.events.level2.Level2Warp;
 import com.sp.world.generation.chunk_generator.Level2ChunkGenerator;
 import com.sp.world.levels.BackroomsLevel;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +19,7 @@ public class Level2BackroomsLevel extends BackroomsLevel {
     private boolean isWarping = false;
 
     public Level2BackroomsLevel() {
-        super("level2", Level2ChunkGenerator.CODEC, new Vec3d(0.5, 20, 8), BackroomsLevels.LEVEL2_WORLD_KEY);
+        super("level2", Level2ChunkGenerator.CODEC, new Vec3(0.5, 20, 8), BackroomsLevels.LEVEL2_WORLD_KEY);
 
         this.registerEvent("warp", Level2Warp::new);
         this.registerEvent("abience", Level2Ambience::new);
@@ -29,7 +29,7 @@ public class Level2BackroomsLevel extends BackroomsLevel {
 
             int exitRadius = SPBRevamped.getExitSpawnRadius(world);
 
-            if (from instanceof Level2BackroomsLevel && Math.abs(playerComponent.player.getPos().getZ()) >= exitRadius) {
+            if (from instanceof Level2BackroomsLevel && Math.abs(playerComponent.player.position().z()) >= exitRadius) {
                 playerList.add(getPoolRoomsTransition(playerComponent));
             }
 
@@ -41,9 +41,9 @@ public class Level2BackroomsLevel extends BackroomsLevel {
         return new LevelTransition(
                 110,
                 (teleport, tick) -> {
-                    World world = teleport.playerComponent().player.getWorld();
+                    Level world = teleport.playerComponent().player.level();
 
-                    if (world.isClient()) {
+                    if (world.isClientSide()) {
                         return;
                     }
 
@@ -53,7 +53,7 @@ public class Level2BackroomsLevel extends BackroomsLevel {
                     }
 
                     if (tick == 14) {
-                        SPBRevamped.sendBlackScreenPacket((ServerPlayerEntity) teleport.playerComponent().player, 20, true, false);
+                        SPBRevamped.sendBlackScreenPacket((ServerPlayer) teleport.playerComponent().player, 20, true, false);
                     }
 
                     //After the screen turns black THEN teleport
@@ -88,13 +88,13 @@ public class Level2BackroomsLevel extends BackroomsLevel {
     }
 
     @Override
-    public void writeToNbt(NbtCompound nbt) {
+    public void writeToNbt(CompoundTag nbt) {
         nbt.putBoolean("isWarping", isWarping);
     }
 
     @Override
-    public void readFromNbt(NbtCompound nbt) {
-        this.isWarping = nbt.getBoolean("isWarping");
+    public void readFromNbt(CompoundTag nbt) {
+        this.isWarping = nbt.getBooleanOr("isWarping", false);
     }
 
     @Override

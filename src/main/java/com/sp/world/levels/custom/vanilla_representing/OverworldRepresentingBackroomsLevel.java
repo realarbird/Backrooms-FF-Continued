@@ -1,13 +1,13 @@
 package com.sp.world.levels.custom.vanilla_representing;
 
 import com.sp.world.levels.WorldRepresentingBackroomsLevel;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.Level;
 
 public class OverworldRepresentingBackroomsLevel extends WorldRepresentingBackroomsLevel {
     public OverworldRepresentingBackroomsLevel() {
-        super("overworld", new Vec3d(0,200,0), World.OVERWORLD);
+        super("overworld", new Vec3(0,200,0), Level.OVERWORLD);
     }
 
     @Override
@@ -16,12 +16,12 @@ public class OverworldRepresentingBackroomsLevel extends WorldRepresentingBackro
     }
 
     @Override
-    public void writeToNbt(NbtCompound nbt) {
+    public void writeToNbt(CompoundTag nbt) {
 
     }
 
     @Override
-    public void readFromNbt(NbtCompound nbt) {
+    public void readFromNbt(CompoundTag nbt) {
 
     }
 

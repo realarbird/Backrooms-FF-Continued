@@ -1,11 +1,9 @@
 package com.sp.world.levels;
 
-import com.sp.world.levels.custom.Level0BackroomsLevel;
-
 public interface BackroomsLevelWithLights {
-    Level0BackroomsLevel.LightState getLightState();
+    LightState getLightState();
 
-    void setLightState(Level0BackroomsLevel.LightState lightState);
+    void setLightState(LightState lightState);
 
     enum LightState {
         ON,
