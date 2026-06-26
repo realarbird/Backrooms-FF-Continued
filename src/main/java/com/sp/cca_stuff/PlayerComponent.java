@@ -9,35 +9,36 @@ import com.sp.sounds.voicechat.BackroomsVoicechatPlugin;
 import com.sp.world.levels.BackroomsLevel;
 import com.sp.world.levels.custom.Level2BackroomsLevel;
 import com.sp.world.levels.custom.Level324Backroomslevel;
-import dev.onyxstudios.cca.api.v3.component.ComponentProvider;
-import dev.onyxstudios.cca.api.v3.component.sync.AutoSyncedComponent;
-import dev.onyxstudios.cca.api.v3.component.tick.ClientTickingComponent;
-import dev.onyxstudios.cca.api.v3.component.tick.ServerTickingComponent;
-import net.fabricmc.fabric.api.dimension.v1.FabricDimensions;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.sound.MovingSoundInstance;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.network.packet.s2c.play.StopSoundS2CPacket;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.TeleportTarget;
-import net.minecraft.world.World;
+import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.NonNullList;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.ContainerHelper;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.portal.TeleportTransition;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.Vec3;
+import org.ladysnake.cca.api.v3.component.ComponentProvider;
+import org.ladysnake.cca.api.v3.component.sync.AutoSyncedComponent;
+import org.ladysnake.cca.api.v3.component.tick.ClientTickingComponent;
+import org.ladysnake.cca.api.v3.component.tick.ServerTickingComponent;
 
 import java.util.List;
 import java.util.Optional;
@@ -47,10 +48,10 @@ import static com.sp.SPBRevamped.SLOW_SPEED_MODIFIER;
 
 @SuppressWarnings("DataFlowIssue")
 public class PlayerComponent implements AutoSyncedComponent, ClientTickingComponent, ServerTickingComponent {
-    public final PlayerEntity player;
-    private final SimpleInventory playerSavedMainInventory = new SimpleInventory(36);
-    private final SimpleInventory playerSavedArmorInventory = new SimpleInventory(4);
-    private final SimpleInventory playerSavedOffhandInventory = new SimpleInventory(1);
+    public final Player player;
+    // 26.2: PlayerInventory split (main/armor/offHand DefaultedLists) is gone; Inventory is now a single
+    // flat Container. The saved copy mirrors the whole inventory in one SimpleContainer sized to match.
+    private SimpleContainer playerSavedInventory;
     private final Random random = new Random();
 
     private int smilerSpawnDelay = 80;
@@ -85,18 +86,20 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     private int visibilityTimerCooldown;
     private boolean talkingTooLoud;
     private int talkingTooLoudTimer;
-    private GameMode prevGameMode;
+    private GameType prevGameMode;
 
-    public MovingSoundInstance DeepAmbience;
-    public MovingSoundInstance GasPipeAmbience;
-    public MovingSoundInstance WaterPipeAmbience;
-    public MovingSoundInstance WarpAmbience;
-    public MovingSoundInstance PoolroomsNoonAmbience;
-    public MovingSoundInstance PoolroomsSunsetAmbience;
-    public MovingSoundInstance GlitchAmbience;
-    public MovingSoundInstance SmilerAmbience;
-    public MovingSoundInstance WindAmbience;
-    public MovingSoundInstance WindTunnelAmbience;
+    // PORT: phase6 — these client sound-instance fields are assigned by ClientWrapper (phase 6).
+    // MovingSoundInstance (Yarn) maps to AbstractTickableSoundInstance in mojmap.
+    public AbstractTickableSoundInstance DeepAmbience;
+    public AbstractTickableSoundInstance GasPipeAmbience;
+    public AbstractTickableSoundInstance WaterPipeAmbience;
+    public AbstractTickableSoundInstance WarpAmbience;
+    public AbstractTickableSoundInstance PoolroomsNoonAmbience;
+    public AbstractTickableSoundInstance PoolroomsSunsetAmbience;
+    public AbstractTickableSoundInstance GlitchAmbience;
+    public AbstractTickableSoundInstance SmilerAmbience;
+    public AbstractTickableSoundInstance WindAmbience;
+    public AbstractTickableSoundInstance WindTunnelAmbience;
 
     private boolean canSeeActiveSkinWalker;
     private boolean prevFlashLightOn;
@@ -108,11 +111,12 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
 
     public BackroomsLevel.LevelTransition currentTransition = null;
 
-    public PlayerComponent(PlayerEntity player){
+    public PlayerComponent(Player player){
         this.stamina = 300;
         this.tired = false;
         this.scrollingInInventoryTime = 0;
         this.player = player;
+        this.playerSavedInventory = new SimpleContainer(player.getInventory().getContainerSize());
         this.flashLightOn = false;
         this.shouldRender = true;
         this.shouldNoClip = false;
@@ -147,46 +151,32 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     }
 
     public void savePlayerInventory() {
-        PlayerInventory inventory = this.player.getInventory();
-        DefaultedList<ItemStack> mainInventory = inventory.main;
-        DefaultedList<ItemStack> armorInventory = inventory.armor;
-        DefaultedList<ItemStack> offHand = inventory.offHand;
-
-        this.saveInventory(mainInventory, this.playerSavedMainInventory);
-        this.saveInventory(armorInventory, this.playerSavedArmorInventory);
-        this.saveInventory(offHand, this.playerSavedOffhandInventory);
+        // 26.2: Inventory is a single flat Container; copy each non-empty slot into the saved mirror.
+        net.minecraft.world.entity.player.Inventory inventory = this.player.getInventory();
+        int size = inventory.getContainerSize();
+        if (this.playerSavedInventory.getContainerSize() != size) {
+            this.playerSavedInventory = new SimpleContainer(size);
+        }
+        for (int i = 0; i < size; i++) {
+            ItemStack itemStack = inventory.getItem(i);
+            if (!itemStack.isEmpty()) {
+                this.playerSavedInventory.setItem(i, itemStack);
+            }
+        }
     }
 
     public void loadPlayerSavedInventory() {
-        PlayerInventory inventory = this.player.getInventory();
-        inventory.clear();
-        DefaultedList<ItemStack> mainInventory = inventory.main;
-        DefaultedList<ItemStack> armorInventory = inventory.armor;
-        DefaultedList<ItemStack> offHand = inventory.offHand;
-
-        this.loadInventory(mainInventory, this.playerSavedMainInventory);
-        this.loadInventory(armorInventory, this.playerSavedArmorInventory);
-        this.loadInventory(offHand, this.playerSavedOffhandInventory);
-
-        this.playerSavedMainInventory.clear();
-    }
-
-    private void saveInventory(DefaultedList<ItemStack> inventory1, Inventory inventory2){
-        for (int i = 0; i < inventory1.size(); i++) {
-            ItemStack itemStack = inventory1.get(i);
+        net.minecraft.world.entity.player.Inventory inventory = this.player.getInventory();
+        inventory.clearContent();
+        int size = Math.min(inventory.getContainerSize(), this.playerSavedInventory.getContainerSize());
+        for (int i = 0; i < size; i++) {
+            ItemStack itemStack = this.playerSavedInventory.getItem(i);
             if (!itemStack.isEmpty()) {
-                inventory2.setStack(i, itemStack);
+                inventory.setItem(i, itemStack);
             }
         }
-    }
 
-    private void loadInventory(DefaultedList<ItemStack> inventory1, Inventory inventory2){
-        for (int i = 0; i < inventory2.size(); i++) {
-            ItemStack itemStack = inventory2.getStack(i);
-            if (!itemStack.isEmpty()) {
-                inventory1.set(i, itemStack);
-            }
-        }
+        this.playerSavedInventory.clearContent();
     }
 
     public int getTeleportingTimer() {
@@ -248,7 +238,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     }
 
     public boolean isTeleportingToPoolrooms() {
-        BackroomsLevel level = BackroomsLevels.getLevel(this.player.getWorld()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL);
+        BackroomsLevel level = BackroomsLevels.getLevel(this.player.level()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL);
         return (level instanceof Level2BackroomsLevel || level instanceof Level324Backroomslevel) && this.teleportingTimer > 0;
     }
 
@@ -318,10 +308,10 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.talkingTooLoudTimer = 20;
     }
 
-    public GameMode getPrevGameMode() {
+    public GameType getPrevGameMode() {
         return prevGameMode;
     }
-    public void setPrevGameMode(GameMode prevGameMode) {
+    public void setPrevGameMode(GameType prevGameMode) {
         this.prevGameMode = prevGameMode;
     }
 
@@ -344,29 +334,32 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     }
 
     @Override
-    public void readFromNbt(NbtCompound tag) {
-        this.stamina = tag.getInt("stamina");
-        this.flashLightOn = tag.getBoolean("flashLightOn");
-        this.shouldRender = tag.getBoolean("shouldRender");
-        this.isDoingCutscene = tag.getBoolean("isDoingCutscene");
-        this.playingGlitchSound = tag.getBoolean("playingGlitchSound");
-        this.shouldNoClip = tag.getBoolean("shouldNoClip");
-        this.shouldDoStatic = tag.getBoolean("shouldDoStatic");
-        this.isBeingCaptured = tag.getBoolean("isBeingCaptured");
-        this.hasBeenCaptured = tag.getBoolean("hasBeenCaptured");
-        this.isBeingReleased = tag.getBoolean("isBeingReleased");
-        this.shouldBeMuted = tag.getBoolean("shouldBeMuted");
-        this.shouldGlitch = tag.getBoolean("shouldGlitch");
-        this.shouldInflictGlitchDamage = tag.getBoolean("shouldInflictGlitchDamage");
-        this.teleportingTimer = tag.getInt("teleportingTimer");
+    public void readData(ValueInput tag) {
+        this.stamina = tag.getIntOr("stamina", 300);
+        this.flashLightOn = tag.getBooleanOr("flashLightOn", false);
+        this.shouldRender = tag.getBooleanOr("shouldRender", true);
+        this.isDoingCutscene = tag.getBooleanOr("isDoingCutscene", false);
+        this.playingGlitchSound = tag.getBooleanOr("playingGlitchSound", false);
+        this.shouldNoClip = tag.getBooleanOr("shouldNoClip", false);
+        this.shouldDoStatic = tag.getBooleanOr("shouldDoStatic", false);
+        this.isBeingCaptured = tag.getBooleanOr("isBeingCaptured", false);
+        this.hasBeenCaptured = tag.getBooleanOr("hasBeenCaptured", false);
+        this.isBeingReleased = tag.getBooleanOr("isBeingReleased", false);
+        this.shouldBeMuted = tag.getBooleanOr("shouldBeMuted", false);
+        this.shouldGlitch = tag.getBooleanOr("shouldGlitch", false);
+        this.shouldInflictGlitchDamage = tag.getBooleanOr("shouldInflictGlitchDamage", false);
+        this.teleportingTimer = tag.getIntOr("teleportingTimer", -1);
 
-        this.playerSavedMainInventory.readNbtList(tag.getList("inventory", NbtElement.COMPOUND_TYPE));
-        this.playerSavedOffhandInventory.readNbtList(tag.getList("inventoryOffHand", NbtElement.COMPOUND_TYPE));
-        this.playerSavedArmorInventory.readNbtList(tag.getList("inventoryArmor", NbtElement.COMPOUND_TYPE));
+        // 26.2: saved inventory serialised as a flat item list via ContainerHelper into a child tag.
+        NonNullList<ItemStack> items = NonNullList.withSize(this.playerSavedInventory.getContainerSize(), ItemStack.EMPTY);
+        tag.child("inventory").ifPresent(child -> ContainerHelper.loadAllItems(child, items));
+        for (int i = 0; i < items.size(); i++) {
+            this.playerSavedInventory.setItem(i, items.get(i));
+        }
     }
 
     @Override
-    public void writeToNbt(NbtCompound tag) {
+    public void writeData(ValueOutput tag) {
         tag.putInt("stamina", this.stamina);
         tag.putBoolean("flashLightOn", this.flashLightOn);
         tag.putBoolean("shouldRender", this.shouldRender);
@@ -382,10 +375,8 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         tag.putBoolean("shouldInflictGlitchDamage", this.shouldInflictGlitchDamage);
         tag.putInt("teleportingTimer", this.teleportingTimer);
 
-        if (BackroomsLevels.isInBackrooms(this.player.getWorld().getRegistryKey())) {
-            tag.put("inventory", this.playerSavedMainInventory.toNbtList());
-            tag.put("inventoryOffHand", this.playerSavedOffhandInventory.toNbtList());
-            tag.put("inventoryOffHand", this.playerSavedArmorInventory.toNbtList());
+        if (BackroomsLevels.isInBackrooms(this.player.level().dimension())) {
+            ContainerHelper.saveAllItems(tag.child("inventory"), this.playerSavedInventory.getItems());
         }
     }
 
@@ -407,11 +398,11 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
 
         //*Damage if glitched enough from smilers
         if(this.shouldInflictGlitchDamage){
-            this.player.damage(ModDamageTypes.of(this.player.getWorld(), ModDamageTypes.SMILER), 1.0f);
+            this.player.hurtServer((ServerLevel) this.player.level(), ModDamageTypes.of(this.player.level(), ModDamageTypes.SMILER), 1.0f);
         }
 
         //*Is speaking
-        if(BackroomsVoicechatPlugin.speakingTime.containsKey(this.player.getUuid()) && BackroomsVoicechatPlugin.speakingTime.get(this.player.getUuid()) == this.prevSpeakingTime) {
+        if(BackroomsVoicechatPlugin.speakingTime.containsKey(this.player.getUUID()) && BackroomsVoicechatPlugin.speakingTime.get(this.player.getUUID()) == this.prevSpeakingTime) {
             if(this.isSpeaking()) {
                 this.speakingBuffer--;
                 if (this.speakingBuffer <= 0) {
@@ -426,27 +417,25 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         //*Cast him to the Backrooms
         if (checkBackroomsTeleport()) return;
 
-        Optional<BackroomsLevel> backroomsLevel = BackroomsLevels.getLevel(this.player.getWorld());
+        Optional<BackroomsLevel> backroomsLevel = BackroomsLevels.getLevel(this.player.level());
 
         if (backroomsLevel.isPresent()) {
             BackroomsLevel level = backroomsLevel.get();
 
-            List<BackroomsLevel.LevelTransition> teleports = level.checkForTransition(this, this.player.getWorld());
+            List<BackroomsLevel.LevelTransition> teleports = level.checkForTransition(this, this.player.level());
 
             if (!teleports.isEmpty() && currentTransition == null) {
                 currentTransition = teleports.get(0);
             }
 
-            if (level == BackroomsLevels.LEVEL324_BACKROOMS_LEVEL && this.player.getWorld().getBlockState(this.player.getBlockPos().offset(Direction.DOWN, 3)).isOf(Blocks.RED_WOOL)) {
-                this.player.teleport(this.player.getX(), this.player.getY() - 64, this.player.getZ());
+            if (level == BackroomsLevels.LEVEL324_BACKROOMS_LEVEL && this.player.level().getBlockState(this.player.blockPosition().relative(Direction.DOWN, 3)).getBlock() == Blocks.WOOL.red()) {
+                this.player.teleportTo(this.player.getX(), this.player.getY() - 64, this.player.getZ());
             }
 
-            if (level == BackroomsLevels.LEVEL324_BACKROOMS_LEVEL && this.player.getWorld().getBlockState(this.player.getBlockPos().offset(Direction.DOWN, 3)).isOf(Blocks.YELLOW_WOOL)) {
-                this.player.teleport(this.player.getX(), this.player.getY() + 64, this.player.getZ());
+            if (level == BackroomsLevels.LEVEL324_BACKROOMS_LEVEL && this.player.level().getBlockState(this.player.blockPosition().relative(Direction.DOWN, 3)).getBlock() == Blocks.WOOL.yellow()) {
+                this.player.teleportTo(this.player.getX(), this.player.getY() + 64, this.player.getZ());
             }
         }
-
-        // ������ Why is the � a question mark for me?
 
         if (currentTransition != null) {
             if (teleportingTimer == -1) {
@@ -454,20 +443,21 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
             }
 
             if (teleportingTimer == 0) {
-                ServerWorld destination = this.player.getWorld().getServer().getWorld(currentTransition.teleport().to().getWorldKey());
-                TeleportTarget target = new TeleportTarget(currentTransition.teleport().pos(), currentTransition.teleport().playerComponent().player.getVelocity(), currentTransition.teleport().playerComponent().player.getYaw(), currentTransition.teleport().playerComponent().player.getPitch());
+                ServerLevel destination = this.player.level().getServer().getLevel(currentTransition.teleport().to().getWorldKey());
+                Player transitionPlayer = currentTransition.teleport().playerComponent().player;
+                Vec3 targetPos = currentTransition.teleport().pos();
 
                 if (currentTransition.teleport().to() == BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL) {
                     currentTransition.teleport().playerComponent().sync();
 
-                    if (this.player.getWorld().getGameRules().getBoolean(ModGamerules.STUCK_IN_BACKROOMS)) {
-                        destination = this.player.getWorld().getServer().getWorld(BackroomsLevels.LEVEL0_BACKROOMS_LEVEL.getWorldKey());
-                        target = new TeleportTarget(BackroomsLevels.LEVEL0_BACKROOMS_LEVEL.getSpawnPos(), currentTransition.teleport().playerComponent().player.getVelocity(), currentTransition.teleport().playerComponent().player.getYaw(), currentTransition.teleport().playerComponent().player.getPitch());
+                    if (this.player.level().getGameRules().get(ModGamerules.STUCK_IN_BACKROOMS)) {
+                        destination = this.player.level().getServer().getLevel(BackroomsLevels.LEVEL0_BACKROOMS_LEVEL.getWorldKey());
+                        targetPos = BackroomsLevels.LEVEL0_BACKROOMS_LEVEL.getSpawnPos();
                     }
                 }
 
                 currentTransition.teleport().to().transitionOut(currentTransition.teleport());
-                FabricDimensions.teleport(currentTransition.teleport().playerComponent().player, destination, target);
+                transitionPlayer.teleport(new TeleportTransition(destination, targetPos, transitionPlayer.getDeltaMovement(), transitionPlayer.getYRot(), transitionPlayer.getXRot(), TeleportTransition.DO_NOTHING));
                 currentTransition.teleport().to().transitionIn(currentTransition.teleport());
 
                 currentTransition = null;
@@ -481,30 +471,34 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
             this.setTeleportingTimer(teleportingTimer - 1);
         }
 
-        if (BackroomsLevels.isInBackroomsLevel(player.getWorld(), BackroomsLevels.LEVEL324_BACKROOMS_LEVEL) && player.getPos().subtract(0, 64, 0).lengthSquared() > 10000 && player.getPos().y > 60) {
+        if (BackroomsLevels.isInBackroomsLevel(player.level(), BackroomsLevels.LEVEL324_BACKROOMS_LEVEL) && player.position().subtract(0, 64, 0).lengthSqr() > 10000 && player.position().y > 60) {
             summonSmilers();
         }
 
         //*Update Entity Visibility
         updateEntityVisibility();
 
-        if(BackroomsVoicechatPlugin.speakingTime.containsKey(this.player.getUuid())) {
-            this.prevSpeakingTime = BackroomsVoicechatPlugin.speakingTime.get(this.player.getUuid());
+        if(BackroomsVoicechatPlugin.speakingTime.containsKey(this.player.getUUID())) {
+            this.prevSpeakingTime = BackroomsVoicechatPlugin.speakingTime.get(this.player.getUUID());
         }
-        
+
         shouldSync();
     }
 
     private void summonSmilers() {
         if (this.smilerSpawnDelay < 0) {
-            SmilerEntity smiler = ModEntities.SMILER_ENTITY.create(this.player.getWorld());
+            SmilerEntity smiler = ModEntities.SMILER_ENTITY.create(this.player.level(), EntitySpawnReason.EVENT);
+            if (smiler == null) {
+                smilerSpawnDelay--;
+                return;
+            }
 
-            BlockPos.Mutable mutable = new BlockPos.Mutable();
+            BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
             float randomAngle = random.nextFloat() * 360.0f;
-            Vec3d spawnPos = new Vec3d(0, 0, 15).rotateY(randomAngle).add(player.getPos());
-            if (!this.player.getWorld().getBlockState(mutable.set(spawnPos.x, spawnPos.y, spawnPos.z)).blocksMovement()) {
-                smiler.refreshPositionAndAngles(Math.floor(spawnPos.x) + 0.5f, spawnPos.y, Math.floor(spawnPos.z) + 0.5f, 0.0f, 0.0f);
-                this.player.getWorld().spawnEntity(smiler);
+            Vec3 spawnPos = new Vec3(0, 0, 15).yRot(randomAngle).add(player.position());
+            if (!this.player.level().getBlockState(mutable.set(spawnPos.x, spawnPos.y, spawnPos.z)).blocksMotion()) {
+                smiler.snapTo(Math.floor(spawnPos.x) + 0.5f, spawnPos.y, Math.floor(spawnPos.z) + 0.5f, 0.0f, 0.0f);
+                this.player.level().addFreshEntity(smiler);
                 smilerSpawnDelay = 80;
             }
         }
@@ -513,7 +507,7 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     }
 
     private void updateStamina() {
-        EntityAttributeInstance attributeInstance = this.player.getAttributeInstance(EntityAttributes.GENERIC_MOVEMENT_SPEED);
+        AttributeInstance attributeInstance = this.player.getAttribute(Attributes.MOVEMENT_SPEED);
         if(attributeInstance != null) {
             int prevStamina = this.stamina;
             if(!this.player.isCreative() && !this.player.isSpectator()){
@@ -533,51 +527,50 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
 
             if(this.isTired()){
                 this.player.setSprinting(false);
-                this.player.addExhaustion(0.05f);
+                this.player.causeFoodExhaustion(0.05f);
                 if(this.stamina > 200){
                     this.setTired(false);
                 }
-            } else if(!((ServerPlayNetworkSprint)((ServerPlayerEntity)this.player).networkHandler).getShouldStopSprinting()){
+            } else if(!((ServerPlayNetworkSprint)((ServerPlayer)this.player).connection).getShouldStopSprinting()){
                 this.player.setSprinting(true);
             }
 
-            if ((!player.isSneaking() && !player.isSprinting()) || this.isTired()) {
-                if(!attributeInstance.hasModifier(SLOW_SPEED_MODIFIER)) {
-                    attributeInstance.addTemporaryModifier(SLOW_SPEED_MODIFIER);
+            if ((!player.isShiftKeyDown() && !player.isSprinting()) || this.isTired()) {
+                if(!attributeInstance.hasModifier(SLOW_SPEED_MODIFIER.id())) {
+                    attributeInstance.addTransientModifier(SLOW_SPEED_MODIFIER);
                 }
-            } else if(attributeInstance.hasModifier(SLOW_SPEED_MODIFIER)) {
+            } else if(attributeInstance.hasModifier(SLOW_SPEED_MODIFIER.id())) {
                 attributeInstance.removeModifier(SLOW_SPEED_MODIFIER);
             }
             //*Mod by 20 to reduce packet count
             if(prevStamina != this.stamina && this.stamina % 20 == 0){
                 //*Only sync with the specific player since other players don't need to know your stamina
-                InitializeComponents.PLAYER.syncWith((ServerPlayerEntity) this.player, (ComponentProvider) this.player);
+                InitializeComponents.PLAYER.syncWith((ServerPlayer) this.player, (ComponentProvider) this.player);
             }
 
         }
     }
 
     private boolean checkBackroomsTeleport() {
-        if (this.player.isInsideWall()) {
-            if (this.player.getWorld().getRegistryKey() == World.OVERWORLD && !this.isDoingCutscene()) {
+        if (this.player.isInWall()) {
+            if (this.player.level().dimension() == Level.OVERWORLD && !this.isDoingCutscene()) {
                 suffocationTimer++;
                 if (suffocationTimer == 1) {
-                    SPBRevamped.sendPersonalPlaySoundPacket((ServerPlayerEntity) this.player, ModSounds.GLITCH, 1.0f, 1.0f);
+                    SPBRevamped.sendPersonalPlaySoundPacket((ServerPlayer) this.player, ModSounds.GLITCH, 1.0f, 1.0f);
                     this.playingGlitchSound = true;
                 }
 
                 if (suffocationTimer == 40) {
-                    RegistryKey<World> registryKey = BackroomsLevels.LEVEL0_WORLD_KEY;
-                    ServerWorld backrooms = this.player.getWorld().getServer().getWorld(registryKey);
+                    ResourceKey<Level> registryKey = BackroomsLevels.LEVEL0_WORLD_KEY;
+                    ServerLevel backrooms = this.player.level().getServer().getLevel(registryKey);
                     if (backrooms == null) {
                         return true;
                     }
 
                     this.savePlayerInventory();
                     this.sync();
-                    this.player.getInventory().clear();
-                    TeleportTarget target = new TeleportTarget(new Vec3d(1.5, 22, 1.5), Vec3d.ZERO, this.player.getYaw(), this.player.getPitch());
-                    FabricDimensions.teleport(this.player, backrooms, target);
+                    this.player.getInventory().clearContent();
+                    this.player.teleport(new TeleportTransition(backrooms, new Vec3(1.5, 22, 1.5), Vec3.ZERO, this.player.getYRot(), this.player.getXRot(), TeleportTransition.DO_NOTHING));
                     this.setDoingCutscene(true);
                     this.sync();
                     suffocationTimer = 0;
@@ -585,8 +578,8 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
             }
         } else {
             if (this.playingGlitchSound) {
-                StopSoundS2CPacket stopSoundS2CPacket = new StopSoundS2CPacket(new Identifier(SPBRevamped.MOD_ID, "glitch"), null);
-                ((ServerPlayerEntity) this.player).networkHandler.sendPacket(stopSoundS2CPacket);
+                ClientboundStopSoundPacket stopSoundPacket = new ClientboundStopSoundPacket(Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "glitch"), null);
+                ((ServerPlayer) this.player).connection.send(stopSoundPacket);
             }
             this.playingGlitchSound = false;
             suffocationTimer = 0;
@@ -605,9 +598,11 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         }
 
         if(!this.isVisibleToEntity()) {
-            float speed = this.player.horizontalSpeed - this.player.prevHorizontalSpeed;
+            // 26.2: Entity.horizontalSpeed/prevHorizontalSpeed are gone; moveDist tracks accumulated
+            // horizontal movement and is reset each tick, so a non-zero value means the player moved.
+            float speed = this.player.moveDist;
 
-            if (!this.player.isSneaking() && speed != 0) {
+            if (!this.player.isShiftKeyDown() && speed != 0) {
                 this.visibilityTimer--;
             }
             if (this.player.isSprinting()) {
