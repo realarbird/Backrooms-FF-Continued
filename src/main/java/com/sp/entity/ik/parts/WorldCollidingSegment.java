@@ -1,54 +1,55 @@
 package com.sp.entity.ik.parts;
 
-import net.minecraft.entity.projectile.ArrowEntity;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.projectile.arrow.Arrow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 public class WorldCollidingSegment extends Segment {
-    private World level;
+    private Level level;
 
     public WorldCollidingSegment(Builder builder) {
         super(builder);
     }
 
-    public World getLevel() {
+    public Level getLevel() {
         return this.level;
     }
 
-    public void setLevel(World level) {
+    public void setLevel(Level level) {
         this.level = level;
     }
 
     /**
-     * You need to call {@link #setLevel(World)} before calling this method!!
+     * You need to call {@link #setLevel(Level)} before calling this method!!
      */
     @Override
-    public void move(Vec3d position) {
+    public void move(Vec3 position) {
         this.move(position, true);
     }
 
-    public void move(Vec3d position, boolean checkCollision) {
+    public void move(Vec3 position, boolean checkCollision) {
         this.move(position, checkCollision, 0);
     }
 
-    public void move(Vec3d position, boolean checkCollision, double risingAmount) {
+    public void move(Vec3 position, boolean checkCollision, double risingAmount) {
         if (this.level == null) {
             throw new IllegalStateException("WorldCollidingSegment has not been setup with a level");
         }
 
-        Vec3d oldPosition = this.getPosition();
+        Vec3 oldPosition = this.getPosition();
 
         super.move(position);
 
         if (checkCollision) {
-            Vec3d collisionPoint = this.level.raycast(new RaycastContext(
+            Vec3 collisionPoint = this.level.clip(new ClipContext(
                     oldPosition.add(0, risingAmount, 0),
                     this.getPosition(),
-                    RaycastContext.ShapeType.COLLIDER,
-                    RaycastContext.FluidHandling.NONE,
-                    new ArrowEntity(this.level, this.getPosition().x, this.getPosition().y, this.getPosition().z)
-            )).getPos();
+                    ClipContext.Block.COLLIDER,
+                    ClipContext.Fluid.NONE,
+                    new Arrow(this.level, this.getPosition().x, this.getPosition().y, this.getPosition().z, ItemStack.EMPTY, ItemStack.EMPTY)
+            )).getLocation();
 
             super.move(collisionPoint);
         }

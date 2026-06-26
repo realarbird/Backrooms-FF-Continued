@@ -2,7 +2,7 @@ package com.sp.entity.ik.parts.ik_chains;
 
 import com.sp.entity.ik.parts.Segment;
 import com.sp.entity.ik.util.MathUtil;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.phys.Vec3;
 
 public class TargetReachingIKChain extends StretchingIKChain {
     public TargetReachingIKChain(double... lengths) {
@@ -14,10 +14,10 @@ public class TargetReachingIKChain extends StretchingIKChain {
     }
 
     @Override
-    public Vec3d getStretchingPos(Vec3d target, Vec3d base) {
-        Vec3d flatTargetDir = MathUtil.convertToFlatVector(target.subtract(base)).normalize();
+    public Vec3 getStretchingPos(Vec3 target, Vec3 base) {
+        Vec3 flatTargetDir = MathUtil.convertToFlatVector(target.subtract(base)).normalize();
 
-        Vec3d newPos = base.add(flatTargetDir.multiply(this.getMaxLength())).add(0, this.getMaxLength(), 0);
+        Vec3 newPos = base.add(flatTargetDir.scale(this.getMaxLength())).add(0, this.getMaxLength(), 0);
 
         return newPos;
     }

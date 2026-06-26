@@ -7,41 +7,41 @@ import com.sp.entity.ik.parts.ik_chains.IKChain;
 import com.sp.entity.ik.util.ArrayUtil;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class ServerLimb {
-    public Vec3d target = Vec3d.ZERO;
-    public Vec3d oldTarget = Vec3d.ZERO;
-    public Vec3d pos = Vec3d.ZERO;
-    public Vec3d baseOffset;
+    public Vec3 target = Vec3.ZERO;
+    public Vec3 oldTarget = Vec3.ZERO;
+    public Vec3 pos = Vec3.ZERO;
+    public Vec3 baseOffset;
     public boolean hasToBeSet = true;
     public TimedDistanceFunction currentDistanceFunction = null;
-    public final Random random = Random.create();
+    public final RandomSource random = RandomSource.create();
     public boolean playedStepSound;
     public StepCallback stepCallback;
 
-    public ServerLimb(Vec3d baseOffset, StepCallback stepCallback) {
+    public ServerLimb(Vec3 baseOffset, StepCallback stepCallback) {
         this.baseOffset = baseOffset;
         this.stepCallback = stepCallback;
     }
 
     public ServerLimb(double x, double y, double z, StepCallback stepCallback) {
-        this.baseOffset = new Vec3d(x, y, z);
+        this.baseOffset = new Vec3(x, y, z);
         this.stepCallback = stepCallback;
     }
 
-    public void set(Vec3d newPos) {
+    public void set(Vec3 newPos) {
         this.pos = newPos;
         this.oldTarget = newPos;
         this.setTarget(newPos);
         this.hasToBeSet = false;
     }
 
-    public void setTarget(Vec3d target) {
+    public void setTarget(Vec3 target) {
         this.target = target;
     }
 
@@ -64,12 +64,12 @@ public class ServerLimb {
             return;
         }
 
-        Vec3d flatTarget = new Vec3d(this.target.x, 0, this.target.z);
-        Vec3d flatOldTarget = new Vec3d(this.oldTarget.x, 0, this.oldTarget.z);
+        Vec3 flatTarget = new Vec3(this.target.x, 0, this.target.z);
+        Vec3 flatOldTarget = new Vec3(this.oldTarget.x, 0, this.oldTarget.z);
 
-        Vec3d targetDirection = flatTarget.subtract(flatOldTarget);
+        Vec3 targetDirection = flatTarget.subtract(flatOldTarget);
 
-        this.pos = this.oldTarget.add(targetDirection.multiply(this.currentDistanceFunction.time)).add(new Vec3d(0, this.currentDistanceFunction.getHeight(), 0));
+        this.pos = this.oldTarget.add(targetDirection.scale(this.currentDistanceFunction.time)).add(new Vec3(0, this.currentDistanceFunction.getHeight(), 0));
 
         this.currentDistanceFunction.time += 0.3;
 
@@ -111,11 +111,11 @@ public class ServerLimb {
     }
 
 
-    public Vec3d getPos() {
+    public Vec3 getPos() {
         return this.pos;
     }
 
-    public void setPos(Vec3d pos) {
+    public void setPos(Vec3 pos) {
         this.pos = pos;
     }
 
