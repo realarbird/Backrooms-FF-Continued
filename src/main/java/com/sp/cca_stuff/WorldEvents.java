@@ -10,15 +10,18 @@ import com.sp.world.events.AbstractEvent;
 import com.sp.world.levels.BackroomsLevel;
 import com.sp.world.levels.BackroomsLevelWithLights;
 import com.sp.world.levels.custom.Level0BackroomsLevel;
-import dev.onyxstudios.cca.api.v3.component.sync.AutoSyncedComponent;
-import dev.onyxstudios.cca.api.v3.component.tick.ServerTickingComponent;
-import net.minecraft.entity.ai.TargetPredicate;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.predicate.entity.EntityPredicates;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.World;
+import net.minecraft.core.UUIDUtil;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntitySelector;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import org.ladysnake.cca.api.v3.component.sync.AutoSyncedComponent;
+import org.ladysnake.cca.api.v3.component.tick.ServerTickingComponent;
 
 import java.util.List;
 import java.util.Map;
@@ -26,7 +29,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent {
-    private final World world;
+    private final Level world;
 
     private AbstractEvent activeEvent;
     public int ticks;
@@ -39,7 +42,7 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
     public boolean done;
     private int tick;
 
-    public WorldEvents(World world) {
+    public WorldEvents(Level world) {
         this.world = world;
         this.ticks = 0;
         this.delay = 1800;
@@ -55,11 +58,11 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
         return this.activeEvent;
     }
 
-    public PlayerEntity getActiveSkinwalkerTarget() {
+    public Player getActiveSkinwalkerTarget() {
         if(this.activeSkinwalkerTarget == null || this.activeSkinwalkerTarget.equals(nullUUID)){
             return null;
         }
-        return this.world.getPlayerByUuid(this.activeSkinwalkerTarget);
+        return this.world.getPlayerByUUID(this.activeSkinwalkerTarget);
     }
     public void setActiveSkinwalkerTarget(UUID uuid) {
         this.activeSkinwalkerTarget = uuid;
@@ -71,32 +74,37 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
     }
 
     @Override
-    public void readFromNbt(NbtCompound tag) {
+    public void readData(ValueInput tag) {
+        // BackroomsLevel still serialises against a CompoundTag (ported in Phase 3); bridge the CCA 8
+        // ValueInput by extracting the stored CompoundTag and handing it to the matching level.
+        CompoundTag levelData = tag.read("levelData", CompoundTag.CODEC).orElseGet(CompoundTag::new);
         for (BackroomsLevel level: BackroomsLevels.BACKROOMS_LEVELS) {
-            if (this.world.getRegistryKey() == level.getWorldKey()) {
-                level.readFromNbt(tag);
+            if (this.world.dimension() == level.getWorldKey()) {
+                level.readFromNbt(levelData);
             }
         }
 
-        this.activeSkinwalkerTarget = tag.getUuid("activeSkinwalkerTarget");
-        this.done = tag.getBoolean("skinwalkerDone");
+        this.activeSkinwalkerTarget = tag.read("activeSkinwalkerTarget", UUIDUtil.CODEC).orElse(nullUUID);
+        this.done = tag.getBooleanOr("skinwalkerDone", false);
     }
 
     @Override
-    public void writeToNbt(NbtCompound tag) {
+    public void writeData(ValueOutput tag) {
+        CompoundTag levelData = new CompoundTag();
         for (BackroomsLevel level: BackroomsLevels.BACKROOMS_LEVELS) {
-            if (this.world.getRegistryKey() == level.getWorldKey()) {
-                level.writeToNbt(tag);
+            if (this.world.dimension() == level.getWorldKey()) {
+                level.writeToNbt(levelData);
             }
         }
+        tag.store("levelData", CompoundTag.CODEC, levelData);
 
-        tag.putUuid("activeSkinwalkerTarget", this.activeSkinwalkerTarget);
+        tag.store("activeSkinwalkerTarget", UUIDUtil.CODEC, this.activeSkinwalkerTarget);
         tag.putBoolean("skinwalkerDone", this.done);
     }
 
     @Override
     public void serverTick() {
-        if (world != null && !world.getPlayers().isEmpty() && BackroomsLevels.isInBackrooms(world.getRegistryKey())) {
+        if (world != null && !world.players().isEmpty() && BackroomsLevels.isInBackrooms(world.dimension())) {
             ticks++;
 
             tickWorldEvents();
@@ -112,11 +120,11 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
     private void shouldReleasePlayer() {
         if (this.activeSkinWalkerEntity == null) {
             if (this.getActiveSkinwalkerTarget() != null) {
-                ServerPlayerEntity target = (ServerPlayerEntity) this.getActiveSkinwalkerTarget();
+                ServerPlayer target = (ServerPlayer) this.getActiveSkinwalkerTarget();
                 PlayerComponent targetComponent = InitializeComponents.PLAYER.get(target);
 
                 if (targetComponent.hasBeenCaptured() || targetComponent.isBeingCaptured()) {
-                    target.changeGameMode(GameMode.SURVIVAL);
+                    target.setGameMode(GameType.SURVIVAL);
                     targetComponent.setHasBeenCaptured(false);
                     targetComponent.setShouldBeMuted(false);
                     targetComponent.sync();
@@ -133,8 +141,8 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
 
         if (!component.shouldBeginRelease()) {
             if (this.getActiveSkinwalkerTarget() != null) {
-                ((ServerPlayerEntity) this.getActiveSkinwalkerTarget()).changeGameMode(GameMode.SPECTATOR);
-                ((ServerPlayerEntity) this.getActiveSkinwalkerTarget()).setCameraEntity(this.activeSkinWalkerEntity);
+                ((ServerPlayer) this.getActiveSkinwalkerTarget()).setGameMode(GameType.SPECTATOR);
+                ((ServerPlayer) this.getActiveSkinwalkerTarget()).setCamera(this.activeSkinWalkerEntity);
             }
 
             return;
@@ -143,7 +151,7 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
         BackroomsLevels.getLevel(world).ifPresent((backroomsLevel -> {
             if (backroomsLevel instanceof Level0BackroomsLevel level0BackroomsLevel) {
                 PlayerComponent targetComponent = InitializeComponents.PLAYER.get(this.getActiveSkinwalkerTarget());
-                ServerPlayerEntity target = (ServerPlayerEntity) this.getActiveSkinwalkerTarget();
+                ServerPlayer target = (ServerPlayer) this.getActiveSkinwalkerTarget();
                 tick++;
 
                 if (this.tick == 1) {
@@ -158,10 +166,10 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
 
                     SPBRevamped.sendPersonalPlaySoundPacket(target, ModSounds.SKINWALKER_RELEASE, 1.0f, 1.0f);
 
-                    target.changeGameMode(targetComponent.getPrevGameMode() != null ? targetComponent.getPrevGameMode() : GameMode.SURVIVAL);
-                    target.setCameraEntity(target);
+                    target.setGameMode(targetComponent.getPrevGameMode() != null ? targetComponent.getPrevGameMode() : GameType.SURVIVAL);
+                    target.setCamera(target);
 
-                    for (PlayerEntity player : this.world.getPlayers()) {
+                    for (Player player : this.world.players()) {
                         PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
                         playerComponent.setFlashLightOn(false);
                         playerComponent.sync();
@@ -186,11 +194,11 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
             return;
         }
 
-        if (level0BackroomsLevel.getIntercomCount() < 2 || world.getPlayers().size() <= 1) {
+        if (level0BackroomsLevel.getIntercomCount() < 2 || world.players().size() <= 1) {
             return;
         }
 
-        if (done || this.world.getRegistryKey() != BackroomsLevels.LEVEL0_WORLD_KEY) {
+        if (done || this.world.dimension() != BackroomsLevels.LEVEL0_WORLD_KEY) {
             return;
         }
 
@@ -207,9 +215,9 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
         }
 
         if (min != null) {
-            PlayerEntity target = this.world.getPlayerByUuid(min.getKey());
+            Player target = this.world.getPlayerByUUID(min.getKey());
             if (target != null && target.isAlive()) {
-                this.setActiveSkinwalkerTarget(target.getUuid());
+                this.setActiveSkinwalkerTarget(target.getUUID());
             }
         }
 
@@ -217,24 +225,23 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
             return;
         }
 
-        PlayerEntity target = this.getActiveSkinwalkerTarget();
+        Player target = this.getActiveSkinwalkerTarget();
         PlayerComponent targetComponent = InitializeComponents.PLAYER.get(target);
 
         if (targetComponent.isSpeaking()) {
             return;
         }
 
-        List<PlayerEntity> playerEntityList = target.getWorld().getPlayers(
-                TargetPredicate.DEFAULT
-                        .ignoreDistanceScalingFactor()
-                        .ignoreVisibility()
-                        .setBaseMaxDistance(50)
-                        .setPredicate(EntityPredicates.EXCEPT_CREATIVE_OR_SPECTATOR::test),
-                target,
-                target.getBoundingBox().expand(50));
+        // 26.2: World.getPlayers(TargetPredicate, source, Box) is removed. The original ignored distance
+        // scaling and line-of-sight while excluding creative/spectator within 50 blocks; getEntitiesOfClass
+        // with the inflated box + EntitySelector.NO_CREATIVE_OR_SPECTATOR reproduces that.
+        List<Player> playerEntityList = target.level().getEntitiesOfClass(
+                Player.class,
+                target.getBoundingBox().inflate(50),
+                EntitySelector.NO_CREATIVE_OR_SPECTATOR);
 
         boolean seen = false;
-        for (PlayerEntity player : playerEntityList) {
+        for (Player player : playerEntityList) {
             if (player != target) {
                 PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
                 if (playerComponent.canSeeActiveSkinWalkerTarget()) {
@@ -248,24 +255,24 @@ public class WorldEvents implements AutoSyncedComponent, ServerTickingComponent 
             return;
         }
         //Take em
-        SkinWalkerEntity skinWalkerEntity = ModEntities.SKIN_WALKER_ENTITY.create(this.world);
+        SkinWalkerEntity skinWalkerEntity = ModEntities.SKIN_WALKER_ENTITY.create(this.world, EntitySpawnReason.EVENT);
         if (skinWalkerEntity == null) {
             return;
         }
 
-        skinWalkerEntity.refreshPositionAndAngles(target.getX(), target.getY(), target.getZ(), target.getYaw(), target.getPitch());
-        skinWalkerEntity.setVelocity(target.getVelocity());
-        this.world.spawnEntity(skinWalkerEntity);
+        skinWalkerEntity.snapTo(target.getX(), target.getY(), target.getZ(), target.getYRot(), target.getXRot());
+        skinWalkerEntity.setDeltaMovement(target.getDeltaMovement());
+        this.world.addFreshEntity(skinWalkerEntity);
         this.activeSkinWalkerEntity = skinWalkerEntity;
 
-        targetComponent.setPrevGameMode(((ServerPlayerEntity) target).interactionManager.getGameMode());
+        targetComponent.setPrevGameMode(((ServerPlayer) target).gameMode());
         targetComponent.setBeingCaptured(true);
         targetComponent.setHasBeenCaptured(true);
         targetComponent.setShouldBeMuted(true);
         targetComponent.sync();
 
-        ((ServerPlayerEntity) target).changeGameMode(GameMode.SPECTATOR);
-        ((ServerPlayerEntity) target).setCameraEntity(skinWalkerEntity);
+        ((ServerPlayer) target).setGameMode(GameType.SPECTATOR);
+        ((ServerPlayer) target).setCamera(skinWalkerEntity);
         this.done = true;
         this.sync();
     }
