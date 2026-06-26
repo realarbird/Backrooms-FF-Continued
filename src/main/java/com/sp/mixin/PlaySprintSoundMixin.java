@@ -2,9 +2,9 @@ package com.sp.mixin;
 
 import com.llamalad7.mixinextras.sugar.Local;
 import com.sp.block.SprintBlockSoundGroup;
-import net.minecraft.entity.Entity;
-import net.minecraft.sound.BlockSoundGroup;
-import net.minecraft.sound.SoundEvent;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.SoundType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -15,8 +15,8 @@ public abstract class PlaySprintSoundMixin {
 
     @Shadow public abstract void playSound(SoundEvent sound, float volume, float pitch);
 
-    @Redirect(method = "playStepSound", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;playSound(Lnet/minecraft/sound/SoundEvent;FF)V"))
-    private void playSprintSound(Entity instance, SoundEvent sound, float volume, float pitch, @Local BlockSoundGroup blockSoundGroup){
+    @Redirect(method = "playStepSound", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;playSound(Lnet/minecraft/sounds/SoundEvent;FF)V"))
+    private void playSprintSound(Entity instance, SoundEvent sound, float volume, float pitch, @Local SoundType blockSoundGroup){
         if(blockSoundGroup instanceof SprintBlockSoundGroup && instance.isSprinting()) {
             this.playSound(((SprintBlockSoundGroup) blockSoundGroup).getSprintingSound(), blockSoundGroup.getVolume(), blockSoundGroup.getPitch());
         } else {

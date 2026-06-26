@@ -4,10 +4,11 @@ import com.sp.init.BackroomsLevels;
 import com.sp.init.ModDamageTypes;
 import com.sp.init.ModSounds;
 import com.sp.world.levels.custom.PoolroomsBackroomsLevel;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,23 +20,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Entity.class)
 public abstract class EntityMixin {
 
-    @Shadow private World world;
+    @Shadow private Level level;
 
-    @Shadow public abstract boolean isTouchingWater();
+    @Shadow public abstract boolean isInWater();
 
-    @Shadow public abstract boolean damage(DamageSource source, float amount);
+    @Shadow public abstract boolean hurtServer(ServerLevel level, DamageSource source, float amount);
 
-    @Inject(method = "baseTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;updateSwimming()V"))
+    @Inject(method = "baseTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;updateSwimming()V"))
     private void acidWater(CallbackInfo ci) {
 
-        BackroomsLevels.getLevel(world).ifPresent(backroomsLevel -> {
-            if (!(backroomsLevel instanceof PoolroomsBackroomsLevel level)) {
+        BackroomsLevels.getLevel(level).ifPresent(backroomsLevel -> {
+            if (!(backroomsLevel instanceof PoolroomsBackroomsLevel poolrooms)) {
                 return;
             }
 
-            if(!level.isNoon()){
-                if(this.isTouchingWater()){
-                    this.damage(ModDamageTypes.of(world, ModDamageTypes.ACID_WATER), 1.0f);
+            if(!poolrooms.isNoon()){
+                if(this.isInWater() && this.level instanceof ServerLevel serverLevel){
+                    this.hurtServer(serverLevel, ModDamageTypes.of(level, ModDamageTypes.ACID_WATER), 1.0f);
                 }
             }
         });
@@ -46,7 +47,7 @@ public abstract class EntityMixin {
         cir.setReturnValue(ModSounds.SWIM);
     }
 
-    @ModifyArg(method = "playSwimSound()V", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/Entity;playSwimSound(F)V"))
+    @ModifyArg(method = "waterSwimSound()V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;playSwimSound(F)V"))
     private float sfxLouder(float volume){
         return volume + 0.1f;
     }
