@@ -10,25 +10,27 @@ import com.sp.entity.ik.parts.ik_chains.BendReachingIKChain;
 import com.sp.entity.ik.parts.sever_limbs.ServerLimb;
 import com.sp.entity.ik.util.MathUtil;
 import com.sp.init.ModEntities;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
-import net.minecraft.world.World;
+import com.geckolib.animatable.GeoEntity;
+import com.geckolib.animatable.GeoAnimatable;
+import com.geckolib.animatable.instance.AnimatableInstanceCache;
+import com.geckolib.animatable.manager.AnimatableManager;
+import com.geckolib.util.GeckoLibUtil;
+import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaterniond;
 import org.joml.Quaternionf;
 import org.joml.Vector3d;
-import software.bernie.geckolib.animatable.GeoEntity;
-import software.bernie.geckolib.core.animatable.GeoAnimatable;
-import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
-import software.bernie.geckolib.core.animation.AnimatableManager;
-import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +50,7 @@ public class WalkerEntity extends Entity implements GeoEntity, GeoAnimatable, IK
     public Quaterniond upDirection = new Quaterniond(1, 0 ,0 ,1);
     private double roll = 0;
 
-    public WalkerEntity(EntityType<WalkerEntity> entityType, World world) {
+    public WalkerEntity(EntityType<WalkerEntity> entityType, Level world) {
         super(ModEntities.WALKER_ENTITY, world);
         this.addComponent(new IKWalkerComponent<>(
                 new IKLegComponent.LegSetting.Builder()
@@ -91,8 +93,13 @@ public class WalkerEntity extends Entity implements GeoEntity, GeoAnimatable, IK
     }
 
     @Override
-    protected void initDataTracker() {
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
 
+    }
+
+    @Override
+    public boolean hurtServer(net.minecraft.server.level.ServerLevel world, net.minecraft.world.damagesource.DamageSource source, float amount) {
+        return false;
     }
 
     public @Nullable Entity getTarget() {
@@ -108,8 +115,8 @@ public class WalkerEntity extends Entity implements GeoEntity, GeoAnimatable, IK
         ((Entity) this).baseTick(); // Leave this as is. Trust me.
         this.tickComponentsServer(this);
 
-        PlayerEntity nearestPlayer = this.getWorld().getClosestPlayer(this, 100);
-        if (nearestPlayer != null && nearestPlayer.getMainHandStack().isOf(Items.BONE)) {
+        Player nearestPlayer = this.level().getNearestPlayer(this, 100);
+        if (nearestPlayer != null && nearestPlayer.getMainHandItem().getItem() == Items.BONE) {
             this.setTarget(nearestPlayer);
         } else {
             this.setTarget(null);
@@ -120,15 +127,15 @@ public class WalkerEntity extends Entity implements GeoEntity, GeoAnimatable, IK
         if (this.getTarget() != null) {
             this.isWalking = true;
 
-            Vec3d direction = this.getFacingTarget();
+            Vec3 direction = this.getFacingTarget();
             double horizontalDistance = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
 
             double yaw = Math.atan2(direction.x, direction.z);
             double pitch = -Math.atan2(direction.y, horizontalDistance);
             //double roll = Math.atan2(direction.y, direction.x);
 
-            boolean shouldBeInverted = this.getUpDirection().negate().squaredDistanceTo(this.getRightDirection()) > this.getUpStationaryDirection().squaredDistanceTo(this.getRightDirection());
-            double roll = (shouldBeInverted ? (-1) : (1)) * Math.toDegrees(Math.acos(this.getUpDirection().negate().dotProduct(this.getUpStationaryDirection().negate())));
+            boolean shouldBeInverted = this.getUpDirection().reverse().distanceToSqr(this.getRightDirection()) > this.getUpStationaryDirection().distanceToSqr(this.getRightDirection());
+            double roll = (shouldBeInverted ? (-1) : (1)) * Math.toDegrees(Math.acos(this.getUpDirection().reverse().dot(this.getUpStationaryDirection().reverse())));
 
             Quaterniond newRotation = new Quaterniond()
                     .identity()
@@ -137,80 +144,80 @@ public class WalkerEntity extends Entity implements GeoEntity, GeoAnimatable, IK
 
             rotation.nlerp(newRotation, 0.1);
 
-            Vec3d newVelocity = this.getRotationVector().multiply(this.getTarget().distanceTo(this) * SPEED_MULTIPLIER);
+            Vec3 newVelocity = this.getForwardVector().scale(this.getTarget().distanceTo(this) * SPEED_MULTIPLIER);
 
-            if (Math.min(SQUARED_MAX_VELOCITY, newVelocity.lengthSquared()) != SQUARED_MAX_VELOCITY) {
-                this.setVelocity(newVelocity);
+            if (Math.min(SQUARED_MAX_VELOCITY, newVelocity.lengthSqr()) != SQUARED_MAX_VELOCITY) {
+                this.setDeltaMovement(newVelocity);
             }
 
-            this.setPosition(
-                    this.getPos().add(this.getVelocity()).x,
-                    this.getPos().add(this.getVelocity()).y,
-                    this.getPos().add(this.getVelocity()).z);
+            this.setPos(
+                    this.position().add(this.getDeltaMovement()).x,
+                    this.position().add(this.getDeltaMovement()).y,
+                    this.position().add(this.getDeltaMovement()).z);
 
-            this.setYaw((float) MathHelper.wrapDegrees(-(Math.toDegrees(yaw))));
-            this.setPitch((float) MathHelper.wrapDegrees(Math.toDegrees(pitch) + 270));
-            this.setRoll((float) MathHelper.wrapDegrees(roll));
+            this.setYRot((float) Mth.wrapDegrees(-(Math.toDegrees(yaw))));
+            this.setXRot((float) Mth.wrapDegrees(Math.toDegrees(pitch) + 270));
+            this.setRoll((float) Mth.wrapDegrees(roll));
 
             updateUpDirection();
         }
     }
 
-    private Vec3d getFacingTarget() {
-        Vec3d averageDirection = this.getTarget().getPos().subtract(this.getPos()).normalize();
+    private Vec3 getFacingTarget() {
+        Vec3 averageDirection = this.getTarget().position().subtract(this.position()).normalize();
         int directionsApplied = 1;
 
-        List<Vec3d> testPositions = new ArrayList<>();
+        List<Vec3> testPositions = new ArrayList<>();
 
 
-        testPositions.add(new Vec3d(1, 0, 0).normalize());
-        testPositions.add(new Vec3d(-1, 0, 0).normalize());
+        testPositions.add(new Vec3(1, 0, 0).normalize());
+        testPositions.add(new Vec3(-1, 0, 0).normalize());
 
-        testPositions.add(new Vec3d(1, 1, 0).normalize());
-        testPositions.add(new Vec3d(-1, -1, 0).normalize());
-        testPositions.add(new Vec3d(1, -1, 0).normalize());
-        testPositions.add(new Vec3d(-1, 1, 0).normalize());
+        testPositions.add(new Vec3(1, 1, 0).normalize());
+        testPositions.add(new Vec3(-1, -1, 0).normalize());
+        testPositions.add(new Vec3(1, -1, 0).normalize());
+        testPositions.add(new Vec3(-1, 1, 0).normalize());
 
-        testPositions.add(new Vec3d(1, 1, 1).normalize());
-        testPositions.add(new Vec3d(-1, -1, -1).normalize());
-        testPositions.add(new Vec3d(1, 1, -1).normalize());
-        testPositions.add(new Vec3d(-1, -1, 1).normalize());
+        testPositions.add(new Vec3(1, 1, 1).normalize());
+        testPositions.add(new Vec3(-1, -1, -1).normalize());
+        testPositions.add(new Vec3(1, 1, -1).normalize());
+        testPositions.add(new Vec3(-1, -1, 1).normalize());
 
-        testPositions.add(new Vec3d(1, -1, -1).normalize());
-        testPositions.add(new Vec3d(-1, 1, 1).normalize());
-        testPositions.add(new Vec3d(1, -1, 1).normalize());
-        testPositions.add(new Vec3d(-1, 1, -1).normalize());
+        testPositions.add(new Vec3(1, -1, -1).normalize());
+        testPositions.add(new Vec3(-1, 1, 1).normalize());
+        testPositions.add(new Vec3(1, -1, 1).normalize());
+        testPositions.add(new Vec3(-1, 1, -1).normalize());
 
-        testPositions.add(new Vec3d(0, 1, 0).normalize());
-        testPositions.add(new Vec3d(0, -1, 0).normalize());
+        testPositions.add(new Vec3(0, 1, 0).normalize());
+        testPositions.add(new Vec3(0, -1, 0).normalize());
 
-        testPositions.add(new Vec3d(0, 1, 1).normalize());
-        testPositions.add(new Vec3d(0, -1, -1).normalize());
-        testPositions.add(new Vec3d(0, 1, -1).normalize());
-        testPositions.add(new Vec3d(0, -1, 1).normalize());
+        testPositions.add(new Vec3(0, 1, 1).normalize());
+        testPositions.add(new Vec3(0, -1, -1).normalize());
+        testPositions.add(new Vec3(0, 1, -1).normalize());
+        testPositions.add(new Vec3(0, -1, 1).normalize());
 
 
-        testPositions.add(new Vec3d(0, 0, 1).normalize());
-        testPositions.add(new Vec3d(0, 0, -1).normalize());
+        testPositions.add(new Vec3(0, 0, 1).normalize());
+        testPositions.add(new Vec3(0, 0, -1).normalize());
 
-        testPositions.add(new Vec3d(1, 0, 1).normalize());
-        testPositions.add(new Vec3d(-1, 0, -1).normalize());
-        testPositions.add(new Vec3d(-1, 0, 1).normalize());
-        testPositions.add(new Vec3d(1, 0, -1).normalize());
+        testPositions.add(new Vec3(1, 0, 1).normalize());
+        testPositions.add(new Vec3(-1, 0, -1).normalize());
+        testPositions.add(new Vec3(-1, 0, 1).normalize());
+        testPositions.add(new Vec3(1, 0, -1).normalize());
 
-        for (Vec3d testPosition : testPositions) {
-            Vec3d targetPos = this.getPos().add(testPosition.multiply(COLLISION_TEST_RANGE));
+        for (Vec3 testPosition : testPositions) {
+            Vec3 targetPos = this.position().add(testPosition.scale(COLLISION_TEST_RANGE));
 
-            HitResult hitResult = this.getWorld().raycast(new RaycastContext(this.getPos(), targetPos, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, this));
+            HitResult hitResult = this.level().clip(new ClipContext(this.position(), targetPos, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
             boolean hit = hitResult.getType() != HitResult.Type.MISS;
 
             if (hit) {
-                averageDirection = averageDirection.add(testPosition.negate().multiply(hitResult.getPos().squaredDistanceTo(targetPos) / COLLISION_TEST_RANGE * COLLISION_TEST_RANGE));
+                averageDirection = averageDirection.add(testPosition.reverse().scale(hitResult.getLocation().distanceToSqr(targetPos) / COLLISION_TEST_RANGE * COLLISION_TEST_RANGE));
                 directionsApplied++;
             }
         }
 
-        return new Vec3d(averageDirection.x / directionsApplied,
+        return new Vec3(averageDirection.x / directionsApplied,
                          averageDirection.y / directionsApplied,
                          averageDirection.z / directionsApplied).normalize();
     }
@@ -218,49 +225,49 @@ public class WalkerEntity extends Entity implements GeoEntity, GeoAnimatable, IK
     public void updateUpDirection() {
         double hitAmount = 0;
 
-        Vec3d hitAverage = Vec3d.ZERO;
+        Vec3 hitAverage = Vec3.ZERO;
 
-        List<Vec3d> testPositions = new ArrayList<>();
+        List<Vec3> testPositions = new ArrayList<>();
 
-        testPositions.add(new Vec3d(1, 0, 0).normalize());
-        testPositions.add(new Vec3d(-1, 0, 0).normalize());
+        testPositions.add(new Vec3(1, 0, 0).normalize());
+        testPositions.add(new Vec3(-1, 0, 0).normalize());
 
-        testPositions.add(new Vec3d(1, 1, 0).normalize());
-        testPositions.add(new Vec3d(-1, -1, 0).normalize());
-        testPositions.add(new Vec3d(1, -1, 0).normalize());
-        testPositions.add(new Vec3d(-1, 1, 0).normalize());
+        testPositions.add(new Vec3(1, 1, 0).normalize());
+        testPositions.add(new Vec3(-1, -1, 0).normalize());
+        testPositions.add(new Vec3(1, -1, 0).normalize());
+        testPositions.add(new Vec3(-1, 1, 0).normalize());
 
-        testPositions.add(new Vec3d(1, 1, 1).normalize());
-        testPositions.add(new Vec3d(-1, -1, -1).normalize());
-        testPositions.add(new Vec3d(1, 1, -1).normalize());
-        testPositions.add(new Vec3d(-1, -1, 1).normalize());
+        testPositions.add(new Vec3(1, 1, 1).normalize());
+        testPositions.add(new Vec3(-1, -1, -1).normalize());
+        testPositions.add(new Vec3(1, 1, -1).normalize());
+        testPositions.add(new Vec3(-1, -1, 1).normalize());
 
-        testPositions.add(new Vec3d(1, -1, -1).normalize());
-        testPositions.add(new Vec3d(-1, 1, 1).normalize());
-        testPositions.add(new Vec3d(1, -1, 1).normalize());
-        testPositions.add(new Vec3d(-1, 1, -1).normalize());
+        testPositions.add(new Vec3(1, -1, -1).normalize());
+        testPositions.add(new Vec3(-1, 1, 1).normalize());
+        testPositions.add(new Vec3(1, -1, 1).normalize());
+        testPositions.add(new Vec3(-1, 1, -1).normalize());
 
-        testPositions.add(new Vec3d(0, 1, 0).normalize());
-        testPositions.add(new Vec3d(0, -1, 0).normalize());
+        testPositions.add(new Vec3(0, 1, 0).normalize());
+        testPositions.add(new Vec3(0, -1, 0).normalize());
 
-        testPositions.add(new Vec3d(0, 1, 1).normalize());
-        testPositions.add(new Vec3d(0, -1, -1).normalize());
-        testPositions.add(new Vec3d(0, 1, -1).normalize());
-        testPositions.add(new Vec3d(0, -1, 1).normalize());
+        testPositions.add(new Vec3(0, 1, 1).normalize());
+        testPositions.add(new Vec3(0, -1, -1).normalize());
+        testPositions.add(new Vec3(0, 1, -1).normalize());
+        testPositions.add(new Vec3(0, -1, 1).normalize());
 
 
-        testPositions.add(new Vec3d(0, 0, 1).normalize());
-        testPositions.add(new Vec3d(0, 0, -1).normalize());
+        testPositions.add(new Vec3(0, 0, 1).normalize());
+        testPositions.add(new Vec3(0, 0, -1).normalize());
 
-        testPositions.add(new Vec3d(1, 0, 1).normalize());
-        testPositions.add(new Vec3d(-1, 0, -1).normalize());
-        testPositions.add(new Vec3d(-1, 0, 1).normalize());
-        testPositions.add(new Vec3d(1, 0, -1).normalize());
+        testPositions.add(new Vec3(1, 0, 1).normalize());
+        testPositions.add(new Vec3(-1, 0, -1).normalize());
+        testPositions.add(new Vec3(-1, 0, 1).normalize());
+        testPositions.add(new Vec3(1, 0, -1).normalize());
 
-        for (Vec3d testPosition : testPositions) {
-            Vec3d targetPos = this.getPos().add(testPosition.multiply(TILTING_TEST_RANGE));
+        for (Vec3 testPosition : testPositions) {
+            Vec3 targetPos = this.position().add(testPosition.scale(TILTING_TEST_RANGE));
 
-            boolean hit = this.getWorld().raycast(new RaycastContext(this.getPos(), targetPos, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, this)).getType() == HitResult.Type.BLOCK;
+            boolean hit = this.level().clip(new ClipContext(this.position(), targetPos, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this)).getType() == HitResult.Type.BLOCK;
 
             if (hit) {
                 hitAverage = hitAverage.add(testPosition);
@@ -268,10 +275,10 @@ public class WalkerEntity extends Entity implements GeoEntity, GeoAnimatable, IK
             }
         }
 
-        if (hitAverage.lengthSquared() < 0.01) {
+        if (hitAverage.lengthSqr() < 0.01) {
             return;
         } else {
-            hitAverage = new Vec3d(hitAverage.x / hitAmount, hitAverage.y / hitAmount, hitAverage.z / hitAmount);
+            hitAverage = new Vec3(hitAverage.x / hitAmount, hitAverage.y / hitAmount, hitAverage.z / hitAmount);
         }
 
         double yaw = Math.atan2(hitAverage.x, hitAverage.z);
@@ -288,29 +295,29 @@ public class WalkerEntity extends Entity implements GeoEntity, GeoAnimatable, IK
     }
 
     @Override
-    protected void readCustomDataFromNbt(NbtCompound nbt) {
+    protected void readAdditionalSaveData(ValueInput nbt) {
 
     }
 
     @Override
-    protected void writeCustomDataToNbt(NbtCompound nbt) {
+    protected void addAdditionalSaveData(ValueOutput nbt) {
 
     }
 
-    @Override
-    public Vec3d getRotationVector() {
+    // Entity.getRotationVector() now returns Vec2; this entity's forward direction is renamed.
+    public Vec3 getForwardVector() {
         return MathUtil.toVec3(rotation.transform(new Vector3d(0, 0, 1))).normalize();
     }
 
-    public Vec3d getUpDirection() {
-        return MathUtil.toVec3(upDirection.transform(new Vector3d(0, 0, 1))).negate().normalize();
+    public Vec3 getUpDirection() {
+        return MathUtil.toVec3(upDirection.transform(new Vector3d(0, 0, 1))).reverse().normalize();
     }
 
-    public Vec3d getUpStationaryDirection() {
+    public Vec3 getUpStationaryDirection() {
         return MathUtil.toVec3(rotation.transform(new Vector3d(0, 1, 0))).normalize();
     }
 
-    public Vec3d getRightDirection() {
+    public Vec3 getRightDirection() {
         return MathUtil.toVec3(rotation.transform(new Vector3d(1, 0, 0))).normalize();
     }
 

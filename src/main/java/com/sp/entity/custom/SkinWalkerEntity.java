@@ -12,37 +12,38 @@ import com.sp.entity.ik.components.IKModelComponent;
 import com.sp.init.BackroomsLevels;
 import com.sp.init.ModSounds;
 import com.sp.sounds.entity.SkinWalkerChaseSoundInstance;
+import com.sp.util.Easings;
 import com.sp.world.levels.BackroomsLevelWithLights;
 import com.sp.world.levels.custom.Level0BackroomsLevel;
-import foundry.veil.api.client.util.Easings;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.ai.TargetPredicate;
-import net.minecraft.entity.ai.control.LookControl;
-import net.minecraft.entity.attribute.DefaultAttributeContainer;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.mob.HostileEntity;
-import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
+import com.geckolib.animatable.GeoEntity;
+import com.geckolib.animatable.GeoAnimatable;
+import com.geckolib.animatable.instance.AnimatableInstanceCache;
+import com.geckolib.animatable.manager.AnimatableManager;
+import com.geckolib.animation.AnimationController;
+import com.geckolib.animation.RawAnimation;
+import com.geckolib.animation.object.LoopType;
+import com.geckolib.animation.object.PlayState;
+import com.geckolib.util.GeckoLibUtil;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.control.LookControl;
+import net.minecraft.world.entity.ai.targeting.TargetingConditions;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
-import software.bernie.geckolib.animatable.GeoEntity;
-import software.bernie.geckolib.core.animatable.GeoAnimatable;
-import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
-import software.bernie.geckolib.core.animation.AnimatableManager;
-import software.bernie.geckolib.core.animation.Animation;
-import software.bernie.geckolib.core.animation.AnimationController;
-import software.bernie.geckolib.core.animation.RawAnimation;
-import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -52,9 +53,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAnimatable, IKAnimatable<SkinWalkerEntity> {
+public class SkinWalkerEntity extends Monster implements GeoEntity, GeoAnimatable, IKAnimatable<SkinWalkerEntity> {
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
-    public static final RawAnimation TRANSITION = RawAnimation.begin().then("transition", Animation.LoopType.PLAY_ONCE);
+    public static final RawAnimation TRANSITION = RawAnimation.begin().then("transition", LoopType.PLAY_ONCE);
     public SkinWalkerComponent component;
     public List<IKModelComponent<SkinWalkerEntity>> components = new ArrayList<>();
     private final int maxSuspicion;
@@ -64,14 +65,14 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
 
     public SkinWalkerChaseSoundInstance chaseSoundInstance;
 
-    public SkinWalkerEntity(EntityType<? extends HostileEntity> entityType, World world) {
+    public SkinWalkerEntity(EntityType<? extends Monster> entityType, Level world) {
         super(entityType, world);
         this.navigation = new SlightlyBetterMobNavigation(this, world);
         this.lookControl = new SkinWalkerLookControl(this);
         this.component = InitializeComponents.SKIN_WALKER.get(this);
         this.component.setTargetPlayerUUID(this.getTargetPlayer(world));
         this.component.setSneaking(false);
-        this.maxSuspicion = 1800 + (900 * (world.getPlayers().size() - 1));
+        this.maxSuspicion = 1800 + (900 * (world.players().size() - 1));
 
         this.setUpLimbs();
     }
@@ -80,71 +81,71 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
         this.addComponent(component.getIKComponent());
     }
 
-    private UUID getTargetPlayer(World world) {
+    private UUID getTargetPlayer(Level world) {
         WorldEvents events = InitializeComponents.EVENTS.get(world);
         if(events.getActiveSkinwalkerTarget() != null){
-            return events.getActiveSkinwalkerTarget().getUuid();
+            return events.getActiveSkinwalkerTarget().getUUID();
         }
 
-        List<? extends PlayerEntity> players = world.getPlayers();
+        List<? extends Player> players = world.players();
         int rand;
         if(players.size() <= 1){
             rand = 0;
         } else {
-            rand = Random.create().nextBetween(0, players.size() - 1);
+            rand = RandomSource.create().nextIntBetweenInclusive(0, players.size() - 1);
         }
 
         if (players.isEmpty()) {
             return null;
         }
 
-        return players.get(rand).getUuid();
+        return players.get(rand).getUUID();
     }
 
-    public static DefaultAttributeContainer.Builder createSkinWalkerAttributes() {
-        return HostileEntity.createHostileAttributes()
-                .add(EntityAttributes.GENERIC_MAX_HEALTH, 10000F)
-                .add(EntityAttributes.GENERIC_FOLLOW_RANGE, 1000.0F)
-                .add(EntityAttributes.GENERIC_MOVEMENT_SPEED, 0.32f)
-                .add(EntityAttributes.GENERIC_ATTACK_DAMAGE, 12.0f);
+    public static AttributeSupplier.Builder createSkinWalkerAttributes() {
+        return Monster.createMonsterAttributes()
+                .add(Attributes.MAX_HEALTH, 10000F)
+                .add(Attributes.FOLLOW_RANGE, 1000.0F)
+                .add(Attributes.MOVEMENT_SPEED, 0.32f)
+                .add(Attributes.ATTACK_DAMAGE, 12.0f);
     }
 
 
     @Override
-    protected void initGoals() {
-        this.targetSelector.add(2, new SkinWalkerActiveTarget(this));
-        this.targetSelector.add(1, new FinalFormActiveTargetGoal(this));
+    protected void registerGoals() {
+        this.targetSelector.addGoal(2, new SkinWalkerActiveTarget(this));
+        this.targetSelector.addGoal(1, new FinalFormActiveTargetGoal(this));
 
-        this.goalSelector.add(5, new FinalFormWanderGoal(this, 1.0));
-        this.goalSelector.add(4, new SpeakGoal(this));
-        this.goalSelector.add(3, new FollowClosestPlayerGoal(this, 5, 15, 1.0f));
-        this.goalSelector.add(3, new ActNaturalGoal(this));
-        this.goalSelector.add(2, new FinalFormIdleGoal(this, 60, 60));
-        this.goalSelector.add(1, new FinalFormAttackGoal(this));
+        this.goalSelector.addGoal(5, new FinalFormWanderGoal(this, 1.0));
+        this.goalSelector.addGoal(4, new SpeakGoal(this));
+        this.goalSelector.addGoal(3, new FollowClosestPlayerGoal(this, 5, 15, 1.0f));
+        this.goalSelector.addGoal(3, new ActNaturalGoal(this));
+        this.goalSelector.addGoal(2, new FinalFormIdleGoal(this, 60, 60));
+        this.goalSelector.addGoal(1, new FinalFormAttackGoal(this));
     }
 
     @Override
-    public boolean onKilledOther(ServerWorld world, LivingEntity other) {
+    public boolean killedEntity(ServerLevel world, LivingEntity other, DamageSource damageSource) {
         this.setTarget(null);
         this.getNavigation().stop();
 
         this.component.setShouldBeginRelease(true);
-        return super.onKilledOther(world, other);
+        return super.killedEntity(world, other, damageSource);
     }
 
     @Override
     public void tick() {
         if (this.component.getTargetPlayerUUID() == null) {
-            this.component.setTargetPlayerUUID(this.getTargetPlayer(this.getWorld()));
+            this.component.setTargetPlayerUUID(this.getTargetPlayer(this.level()));
         }
 
         this.setInvulnerable(this.component.isInTrueForm());
 
-        if (this.getWorld().isClient && this.component.isInTrueForm()) {
+        if (this.level().isClientSide() && this.component.isInTrueForm()) {
             this.tickComponentsServer(this);
         }
 
-        if (!this.getWorld().isClient) {
+        if (!this.level().isClientSide()) {
             if (this.getTarget() != null) {
                 if (!this.component.isChasing()) {
                     this.component.setChasing(true);
@@ -157,7 +158,7 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
 
             if (!this.component.isInTrueForm() && !this.component.shouldBeginReveal()) {
                 //3600
-                if (this.age >= 2400 || this.component.getSuspicion() > this.maxSuspicion) {
+                if (this.tickCount >= 2400 || this.component.getSuspicion() > this.maxSuspicion) {
                     this.component.setBeginReveal(true);
                 }
 
@@ -204,17 +205,17 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
         this.getNavigation().stop();
 
 
-        BackroomsLevels.getLevel(this.getWorld()).ifPresent((backroomsLevel -> {
+        BackroomsLevels.getLevel(this.level()).ifPresent((backroomsLevel -> {
             if (this.ticks == 9) {
-                this.getWorld().playSoundFromEntity(null, this, ModSounds.SKINWALKER_BONE_CRACK, SoundCategory.HOSTILE, 10.0f, 1.0f);
+                this.level().playSound(null, this, ModSounds.SKINWALKER_BONE_CRACK, SoundSource.HOSTILE, 10.0f, 1.0f);
             }
 
             if (this.ticks == 39) {
-                this.getWorld().playSoundFromEntity(null, this, ModSounds.SKINWALKER_BONE_CRACK_LONG, SoundCategory.HOSTILE, 10.0f, 1.0f);
+                this.level().playSound(null, this, ModSounds.SKINWALKER_BONE_CRACK_LONG, SoundSource.HOSTILE, 10.0f, 1.0f);
             }
 
             if (this.ticks == 99) {
-                this.getWorld().playSoundFromEntity(null, this, ModSounds.SKINWALKER_REVEAL, SoundCategory.HOSTILE, 100.0f, 1.0f);
+                this.level().playSound(null, this, ModSounds.SKINWALKER_REVEAL, SoundSource.HOSTILE, 100.0f, 1.0f);
             }
 
             if (this.ticks == 110) {
@@ -228,7 +229,7 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
                     level.setLightState(BackroomsLevelWithLights.LightState.OFF);
                 }
 
-                for (PlayerEntity player : this.getWorld().getPlayers()) {
+                for (Player player : this.level().players()) {
                     PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
                     playerComponent.setFlashLightOn(false);
                     playerComponent.sync();
@@ -243,7 +244,7 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
                 this.component.setTrueForm(true);
 
                 if (this.prevTarget != null) {
-                    this.beginTargeting((PlayerEntity) this.prevTarget);
+                    this.beginTargeting((Player) this.prevTarget);
                     this.prevTarget = null;
                 }
 
@@ -253,11 +254,15 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
     }
 
     private void updateLookAtSuspicion() {
-        HashSet<PlayerEntity> otherPlayers = new HashSet<>(this.getWorld().getPlayers());
-        List<PlayerEntity> players = this.getWorld().getPlayers(TargetPredicate.DEFAULT, this, new Box(this.getPos(), this.getPos().add(15, 15, 15)).offset(-7.5, -7.5, -7.5));
+        ServerLevel serverLevel = (ServerLevel) this.level();
+        HashSet<Player> otherPlayers = new HashSet<>(this.level().players());
+        TargetingConditions conditions = TargetingConditions.DEFAULT;
+        List<Player> players = serverLevel.getEntitiesOfClass(Player.class,
+                new AABB(this.position(), this.position().add(15, 15, 15)).move(-7.5, -7.5, -7.5),
+                player -> conditions.test(serverLevel, this, player));
         players.forEach(otherPlayers::remove);
 
-        for (PlayerEntity player : players) {
+        for (Player player : players) {
             PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
             Entity targetEntity = playerComponent.getTargetEntity();
 
@@ -276,55 +281,55 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
             }
         }
 
-        for(PlayerEntity player : otherPlayers){
+        for(Player player : otherPlayers){
             PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
             playerComponent.setSkinWalkerLookDelay(60);
         }
     }
 
-    public void noticePlayer(PlayerEntity player){
+    public void noticePlayer(Player player){
         component.setNoticing(true);
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 
         this.playSound(ModSounds.SKINWALKER_NOTICE, 10.0f, 1.0f);
-        this.getLookControl().lookAt(player, 360, 360);
+        this.getLookControl().setLookAt(player, 360, 360);
 
         executorService.schedule(() ->{
-            this.getWorld().sendEntityStatus(this, (byte) 123);
+            this.level().broadcastEntityEvent(this, (byte) 123);
             this.setTarget(player);
             component.setNoticing(false);
             executorService.shutdown();
         }, 4300, TimeUnit.MILLISECONDS);
     }
 
-    public void beginTargeting(PlayerEntity player) {
-        this.getLookControl().lookAt(player, 360, 360);
+    public void beginTargeting(Player player) {
+        this.getLookControl().setLookAt(player, 360, 360);
         this.setTarget(player);
-        this.getWorld().sendEntityStatus(this, (byte) 123);
+        this.level().broadcastEntityEvent(this, (byte) 123);
     }
 
     @Override
-    public void handleStatus(byte status) {
-        if(status == (byte) 123 && this.getWorld().isClient){
+    public void handleEntityEvent(byte status) {
+        if(status == (byte) 123 && this.level().isClientSide()){
             ClientWrapper.handleSkinWalkerEntityClientSide(this);
         }
-        super.handleStatus(status);
+        super.handleEntityEvent(status);
     }
 
     @Override
-    public void onRemoved() {
-        if (this.getWorld().isClient()) {
+    public void onClientRemoval() {
+        if (this.level().isClientSide()) {
             ClientWrapper.onRemoveSkinWalkerClientSide(this);
         }
     }
 
     @Override
-    public boolean damage(DamageSource source, float amount) {
-        boolean bl = super.damage(source, amount);
-        if (this.getWorld().isClient) {
+    public boolean hurtServer(ServerLevel world, DamageSource source, float amount) {
+        boolean bl = super.hurtServer(world, source, amount);
+        if (this.level().isClientSide()) {
             return false;
         } else {
-            if (bl && source.getAttacker() instanceof PlayerEntity) {
+            if (bl && source.getEntity() instanceof Player) {
                 this.component.addSuspicion(100);
             }
 
@@ -332,46 +337,46 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
         }
     }
 
+    // PORT: phase6 - vanilla head-turn hook moved into BodyRotationControl in 26.2; the 360-degree
+    // freedom this method provided is now achieved via getMaxHeadYRot/getMaxHeadXRot returning 360.
+    // protected float turnHead(float bodyRotation, float headRotation) {
+    //     if (this.attackAnim > 0.0F) {
+    //         bodyRotation = this.getYHeadRot();
+    //     }
+    //     float f = Mth.wrapDegrees(bodyRotation - this.yBodyRot);
+    //     this.yBodyRot += f * 0.3F;
+    //     float g = Mth.wrapDegrees(this.getYHeadRot() - this.yBodyRot);
+    //     if (Math.abs(g) > 50.0F) {
+    //         this.yBodyRot = this.yBodyRot + (g - (float)(Mth.sign(g) * 50));
+    //     }
+    //
+    //     boolean bl = g < -90.0F || g >= 90.0F;
+    //     if (bl) {
+    //         headRotation *= -1.0F;
+    //     }
+    //
+    //     return headRotation;
+    // }
+
     @Override
-    protected float turnHead(float bodyRotation, float headRotation) {
-        if (this.handSwingProgress > 0.0F) {
-            bodyRotation = this.getHeadYaw();
-        }
-        float f = MathHelper.wrapDegrees(bodyRotation - this.bodyYaw);
-        this.bodyYaw += f * 0.3F;
-        float g = MathHelper.wrapDegrees(this.getHeadYaw() - this.bodyYaw);
-        if (Math.abs(g) > 50.0F) {
-            this.bodyYaw = this.bodyYaw + (g - (float)(MathHelper.sign(g) * 50));
-        }
-
-        boolean bl = g < -90.0F || g >= 90.0F;
-        if (bl) {
-            headRotation *= -1.0F;
-        }
-
-        return headRotation;
-    }
-
-    @Override
-    public int getMaxLookYawChange() {
+    public int getMaxHeadYRot() {
         return 360;
     }
 
     @Override
-    public int getMaxLookPitchChange() {
+    public int getMaxHeadXRot() {
         return 360;
     }
 
     //GECKO LIB STUFF
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        controllers.add(new AnimationController<>(this, "controller", 10, state -> {
+        controllers.add(new AnimationController<>("controller", 10, test -> {
             if (this.component.shouldBeginReveal()) {
-                return state.setAndContinue(TRANSITION);
+                return test.setAndContinue(TRANSITION);
             }
             else {
-                state.resetCurrentAnimation();
-                return null;
+                return PlayState.STOP;
             }
         }));
     }
@@ -394,42 +399,42 @@ public class SkinWalkerEntity extends HostileEntity implements GeoEntity, GeoAni
         private int maxLookAtTimer = 5;
         private final Easings.Easing easing = Easings.Easing.easeInOutCubic;
 
-        public SkinWalkerLookControl(MobEntity entity) {
+        public SkinWalkerLookControl(Mob entity) {
             super(entity);
         }
 
         public void lookAt(Entity entity, int lookTimer){
-            this.lookAt(new Vec3d(entity.getX(), getLookingHeightFor(entity), entity.getZ()), lookTimer);
+            this.lookAt(new Vec3(entity.getX(), getLookingHeightFor(entity), entity.getZ()), lookTimer);
         }
 
-        public void lookAt(Vec3d vec3d, int lookTimer){
-            this.x = vec3d.x;
-            this.y = vec3d.y;
-            this.z = vec3d.z;
-            this.maxYawChange = (float)this.entity.getMaxLookYawChange();
-            this.maxPitchChange = (float)this.entity.getMaxLookPitchChange();
-            this.lookAtTimer = lookTimer;
+        public void lookAt(Vec3 vec3d, int lookTimer){
+            this.wantedX = vec3d.x;
+            this.wantedY = vec3d.y;
+            this.wantedZ = vec3d.z;
+            this.yMaxRotSpeed = (float)this.mob.getMaxHeadYRot();
+            this.xMaxRotAngle = (float)this.mob.getMaxHeadXRot();
+            this.lookAtCooldown = lookTimer;
             this.maxLookAtTimer = lookTimer;
 //            this.easing;
         }
 
         @Override
         public void tick() {
-            if (this.lookAtTimer > 0) {
-                this.lookAtTimer--;
-                this.getTargetYaw().ifPresent(yaw -> this.entity.headYaw = this.changeAngle2(this.entity.headYaw, yaw, this.maxYawChange));
-                this.getTargetPitch().ifPresent(pitch -> this.entity.setPitch(this.changeAngle2(this.entity.getPitch(), pitch, this.maxPitchChange)));
+            if (this.lookAtCooldown > 0) {
+                this.lookAtCooldown--;
+                this.getYRotD().ifPresent(yaw -> this.mob.yHeadRot = this.changeAngle2(this.mob.yHeadRot, yaw, this.yMaxRotSpeed));
+                this.getXRotD().ifPresent(pitch -> this.mob.setXRot(this.changeAngle2(this.mob.getXRot(), pitch, this.xMaxRotAngle)));
             } else {
-                this.entity.headYaw = this.changeAngle(this.entity.headYaw, this.entity.bodyYaw, 10.0F);
+                this.mob.yHeadRot = Mth.rotateIfNecessary(this.mob.yHeadRot, this.mob.yBodyRot, 10.0F);
             }
 
-            this.clampHeadYaw();
+            this.clampHeadRotationToBody();
         }
 
         private float changeAngle2(float from, float to, float max){
-            float f = MathHelper.subtractAngles(from, to);
-            float g = MathHelper.clamp(f, -max, max);
-            return from + (g * this.easing.ease(1 - ((float) this.lookAtTimer / maxLookAtTimer)));
+            float f = Mth.degreesDifference(from, to);
+            float g = Mth.clamp(f, -max, max);
+            return from + (g * this.easing.ease(1 - ((float) this.lookAtCooldown / maxLookAtTimer)));
         }
 
         private static double getLookingHeightFor(Entity entity) {
