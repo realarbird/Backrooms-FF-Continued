@@ -394,3 +394,38 @@ These need individual rework, not a 1:1 rename:
 
 ### Easing helper (Phase 4/7)
 - Veil `foundry.veil.api.client.util.Easings` is replaced by the in-repo shim **`com.sp.util.Easings`** (`Easings.Easing.<name>.ease(float)`); switch sound/render call sites to the local class.
+
+### Phase 5 mixin injection points (VERIFIED via javap on merged-deobf 26.2 — TRUST THESE)
+**Entity / LivingEntity / Player (server-logic):**
+- `Entity`: `world` field → private `Level level` (also `Level level()` accessor); `damage(DamageSource,float)` → **`hurtServer(ServerLevel,DamageSource,float)`** (abstract); `isTouchingWater()` → **`isInWater()`**; the no-arg Yarn `playSwimSound()V` host method is renamed **`waterSwimSound()V`** (it still calls `playSwimSound(F)` — `@ModifyArg` target unchanged); `noClip` field → **`noPhysics`** (public, on Entity); `playStepSound` stores a local `SoundType` in slot 3 (`@Local SoundType` works); `BlockSoundGroup` → `world.level.block.SoundType`.
+- `Player`: `onDeath(DamageSource)` → **`die(DamageSource)`**; `setPosition(x,y,z)` → `setPos(double,double,double)`, `setPosition(Vec3)` → `setPos(Vec3)`; `setCameraEntity` → `setCamera`; `getLastDeathPos()` → **`getLastDeathLocation()`** (`Optional<GlobalPos>`, on Player; `GlobalPos.pos()`/`.dimension()`); `DamageTypes.OUT_OF_WORLD` → **`DamageTypes.FELL_OUT_OF_WORLD`**; `DamageSource.isOf(key)` → `is(ResourceKey)`.
+- `LivingEntity`: `fall` → **`checkFallDamage(double,boolean,BlockState,BlockPos)`** (calls `ServerLevel.sendParticles(ParticleOptions,DDDIDDDD)I`); `ServerWorld.spawnParticles` → `ServerLevel.sendParticles`; `ParticleEffect` → `core.particles.ParticleOptions`.
+**Server props / weather / lightning:**
+- `ServerPropertiesHandler` → `DedicatedServerProperties extends Settings<DedicatedServerProperties>`; `Settings(Properties)` ctor; `getInt(String,int)` → **`get(String,int)`** (protected).
+- `LevelProperties.getLifecycle` is GONE on `PrimaryLevelData` → accessor is **`worldGenSettingsLifecycle()`** (field `worldGenSettingsLifecycle`).
+- **Weather refactored:** `PrimaryLevelData`/`LevelData` no longer have `getRainTime/isRaining/getThunderTime/isThundering` (no class in the jar even mentions them). Weather is now `Level.rainLevel/thunderLevel` floats + `Level.isRaining()/isThundering()/getRainLevel(f)/setRainLevel(f)` and `WeatherAttributes`. **`AlwaysRainLevelPropertiesMixin` cannot be ported 1:1 — flagged, deferred to Phase 6.**
+- `LightningEntity` → **`LightningBolt`**: `tick()` and private `spawnFire(int)` survive; `age` → `tickCount`; no-arg `kill()` → use **`discard()`** (`Entity.kill()` now needs a `ServerLevel`); `getWorld()` → `level()`.
+- Skeleton-horse trap spawn moved from `ServerLevel.tickChunk` to **`ServerLevel.tickThunder(LevelChunk)`**; `spawnEntity` → **`addFreshEntity`** (in tickThunder ordinal 0 = trap horse, ordinal 1 = lightning bolt).
+**Respawn (server):**
+- `PlayerManager` → `PlayerList`; `respawnPlayer(ServerPlayer,boolean)` → **`respawn(ServerPlayer,boolean,Entity$RemovalReason)`**. The old per-step calls (`getSpawnPointPosition`/`MinecraftServer.getWorld(key)`/`Player.findRespawnPosition`/`refreshPositionAndAngles`/`setSpawnPoint`) are GONE — `respawn` now makes a single **`ServerPlayer.findRespawnPositionAndUseSpawnBlock(boolean, TeleportTransition$PostTeleportTransition)`** call returning a `TeleportTransition` (wrap that one INVOKE to override the spawn). `refreshPositionAndAngles` → `snapTo`. `TeleportTransition` ctor `(ServerLevel, Vec3 pos, Vec3 delta, float yRot, float xRot, PostTeleportTransition)`.
+**Stamina / sprint:**
+- `ServerPlayNetworkHandler` → `ServerGamePacketListenerImpl`; `onClientCommand(ClientCommandC2SPacket)` → **`handlePlayerCommand(ServerboundPlayerCommandPacket)`** (calls `ServerPlayer.setSprinting(Z)` twice — ordinals 0/1 hold).
+**Skin-stolen (server):**
+- `ServerPlayer.setCameraEntity` → `setCamera`. **Yarn `canBeSpectated(ServerPlayerEntity)` → `broadcastToPlayer(ServerPlayer)`** (overridden on ServerPlayer, returns boolean). The Yarn `attack` `setCamera` redirect has **no 26.2 target** (neither Player.attack nor ServerPlayer call setCamera in any attack path) — dropped + flagged.
+**AI / body control:**
+- `BodyControl` → `BodyRotationControl`; field `entity` → **`mob`**; `slowlyAdjustBody` GONE → the body-rotation step is private **`rotateBodyIfNecessary()`** (called from `clientTick()`); cancel it to keep body from snapping to head.
+- `Entity.adjustMovementForCollisions(Vec3d)` → private **`collide(Vec3)`** (for PlatformCollisionMixin if revived).
+**Client GUI / input (non-render):**
+- `ChatScreen`: host `sendMessage` → **`handleChatInput(String,boolean)`** (calls `ClientPacketListener.sendCommand` then `sendChat`); `ClientPlayNetworkHandler` → `ClientPacketListener`; `sendChatMessage`/`sendChatCommand` → `sendChat`/`sendCommand`. `Screen.client` field → **`minecraft`**; `Screen(Component)` ctor.
+- `GameMenuScreen` → `PauseScreen`; `initWidgets` → private **`createPauseMenu()`**; `ButtonWidget` → `Button` (`Button.builder(Component,OnPress)`, `Button.Builder(Component,OnPress)` public ctor, `Button.OnPress.onPress(Button)`). Among `Button.builder` calls (3; the rest use `SpriteIconButton.builder`): **ordinal 0 = returnToGame, 1 = options, 2 = disconnect** (the old "leave" button is now ordinal **2**). `Formatting` → `ChatFormatting`; `.formatted(...)` → `.withStyle(ChatFormatting...)`.
+- `Minecraft`: `setScreen(Screen)` is GONE → **`setScreenAndShow(Screen)`**; `handleInputEvents` → private **`handleKeybinds()`** (the inventory open routes through **`Gui.setScreen(Screen)`** — the sole setScreen call there, ordinal 0; redirect receiver is `Gui`, not `Minecraft`).
+- `DeathScreen`: `ButtonWidget` → `Button`; `ticksSinceDeath` field → **`delayTicker`**; `setButtonsActive(boolean)` private; `requestRespawn()` → **`respawn()`** (`LocalPlayer`); `init` Button.builder ordinals unchanged (0=respawn, 1=titleScreen). `LocalPlayer.getWorld().getRegistryKey()` → `level().dimension()`.
+- `ClientPlayerEntity` → `LocalPlayer`; `isCamera` → protected **`isControlledCamera()`**.
+- `ClientPlayerInteractionManager` → `MultiPlayerGameMode`; `attackEntity(PlayerEntity,Entity)` → **`attack(Player,Entity)`**.
+- `SoundEvent.getId()` → **`location()`**.
+**Targets gone / reworked (deferred — flagged for Phase 6 / review):**
+- `ParticleManager.addBlockBreakingParticles` (now `ParticleEngine`) — method GONE (block-crack reworked) → RemoveBlockBreakParticlesMixin deferred.
+- `DebugHud.render` (now `DebugScreenOverlay`) — deferred-HUD `extractRenderState` → DisableF3Mixin deferred.
+- `KeyboardInput.jumping` field (now `client.player.KeyboardInput`) — input reworked (`calculateImpulse`), field gone → DisableJumpMixin deferred.
+- `PlayerInventory.scrollInHotbar` (now `Inventory`) — GONE; selection is `getSelectedSlot()/setSelectedSlot()` (scroll handling moved to MouseHandler/Minecraft) → PlayerInventoryMixin deferred.
+- `client.util.Monitor.populateVideoModes` → `Monitor` is now a **record** built by static `tryCreate(long)`; `videoModes` is a final record component (no instance populate method) → MonitorMixin deferred. `VideoMode` → `com.mojang.blaze3d.platform.VideoMode` (getWidth/getHeight/getRefreshRate unchanged).
