@@ -23,7 +23,7 @@ public class WallBlock extends Block {
 
     @Override
     public void tick(BlockState state, ServerLevel world, BlockPos pos, RandomSource random) {
-        if(world.getBlockState(pos.below()).is(this)){
+        if(world.getBlockState(pos.below()).getBlock() == this){
             world.setBlockAndUpdate(pos, state.setValue(BOTTOM, false));
         }else{
             world.setBlockAndUpdate(pos, state.setValue(BOTTOM, true));
@@ -33,7 +33,7 @@ public class WallBlock extends Block {
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext ctx) {
-        if(ctx.getLevel().getBlockState(ctx.getClickedPos().below()).is(this)){
+        if(ctx.getLevel().getBlockState(ctx.getClickedPos().below()).getBlock() == this){
             return this.defaultBlockState().setValue(BOTTOM, false);
         }else{
             return this.defaultBlockState().setValue(BOTTOM, true);

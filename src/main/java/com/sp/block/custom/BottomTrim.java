@@ -41,7 +41,7 @@ public class BottomTrim extends HorizontalDirectionalBlock {
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext ctx) {
         BlockState blockState = ctx.getLevel().getBlockState(ctx.getClickedPos());
-        if (blockState.is(this)) {
+        if (blockState.getBlock() == this) {
             return blockState.setValue(SIDES, Math.min(4, blockState.getValue(SIDES) + 1)).setValue(FACING, blockState.getValue(FACING));
         } else {
             return this.defaultBlockState().setValue(FACING, ctx.getHorizontalDirection().getOpposite());
@@ -71,7 +71,7 @@ public class BottomTrim extends HorizontalDirectionalBlock {
 
     @Override
     public boolean canBeReplaced(BlockState state, BlockPlaceContext context) {
-        return !context.isSecondaryUseActive() && context.getItemInHand().is(this.asItem()) && state.getValue(SIDES) < 4 || super.canBeReplaced(state, context);
+        return !context.isSecondaryUseActive() && context.getItemInHand().getItem() == this.asItem() && state.getValue(SIDES) < 4 || super.canBeReplaced(state, context);
     }
 
     @Override

@@ -123,7 +123,7 @@ public class PoolTileSlopeBlock extends Block implements SimpleWaterloggedBlock 
         return this.defaultBlockState()
                 .setValue(FACING, ctx.getHorizontalDirection().getOpposite())
                 .setValue(HALF, direction != Direction.DOWN && (direction == Direction.UP || !(ctx.getClickLocation().y - (double)blockPos.getY() > 0.5)) ? Half.BOTTOM : Half.TOP)
-                .setValue(WATERLOGGED,ctx.getLevel().getFluidState(ctx.getClickedPos()).is(Fluids.WATER));
+                .setValue(WATERLOGGED,ctx.getLevel().getFluidState(ctx.getClickedPos()).getType() == Fluids.WATER);
     }
 
     @Override

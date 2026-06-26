@@ -78,7 +78,7 @@ public class PoolTileWall extends HorizontalDirectionalBlock {
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext ctx) {
         BlockState blockState = ctx.getLevel().getBlockState(ctx.getClickedPos());
-        if (blockState.is(this)) {
+        if (blockState.getBlock() == this) {
             return blockState.setValue(TYPE, Math.min(1, blockState.getValue(TYPE) + 1)).setValue(FACING, blockState.getValue(FACING));
         } else {
             return this.defaultBlockState().setValue(FACING, ctx.getHorizontalDirection().getOpposite());
@@ -87,7 +87,7 @@ public class PoolTileWall extends HorizontalDirectionalBlock {
 
     @Override
     public boolean canBeReplaced(BlockState state, BlockPlaceContext context) {
-        return !context.isSecondaryUseActive() && context.getItemInHand().is(this.asItem()) && state.getValue(TYPE) < 1 || super.canBeReplaced(state, context);
+        return !context.isSecondaryUseActive() && context.getItemInHand().getItem() == this.asItem() && state.getValue(TYPE) < 1 || super.canBeReplaced(state, context);
     }
 
     @Override
