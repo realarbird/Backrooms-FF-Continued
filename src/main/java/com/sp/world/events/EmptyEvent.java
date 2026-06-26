@@ -1,10 +1,10 @@
 package com.sp.world.events;
 
-import net.minecraft.world.World;
+import net.minecraft.world.level.Level;
 
 public class EmptyEvent extends AbstractEvent {
     @Override
-    public void init(World world) {
+    public void init(Level world) {
 
         done = true;
     }

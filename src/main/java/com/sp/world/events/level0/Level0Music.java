@@ -4,24 +4,24 @@ import com.sp.init.BackroomsLevels;
 import com.sp.init.ModSounds;
 import com.sp.world.events.AbstractEvent;
 import com.sp.world.levels.custom.Level0BackroomsLevel;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.Level;
 
 public class Level0Music extends AbstractEvent {
     int duration = 980;
 
     @Override
-    public void init(World world) {
+    public void init(Level world) {
         if (!(BackroomsLevels.getLevel(world).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL) instanceof Level0BackroomsLevel level)) {
             return;
         }
 
         int intercomCount = level.getIntercomCount();
-        Random random = Random.create();
+        RandomSource random = RandomSource.create();
 
 
         if (intercomCount > 2) {
-            int rand = random.nextBetween(1, 3);
+            int rand = random.nextIntBetweenInclusive(1, 3);
             if (rand == 1) {
                 playSoundWithRandLocation(world, ModSounds.CREEPY_MUSIC1, 25, 20);
             } else if (rand == 2) {
@@ -34,7 +34,7 @@ public class Level0Music extends AbstractEvent {
             if (level.getIntercomCount() == 2){
                 playSoundWithRandLocation(world, ModSounds.INTERCOM_REVERSED, 25, 20);
             } else {
-                int rand = random.nextBetween(1, 2);
+                int rand = random.nextIntBetweenInclusive(1, 2);
                 if (rand == 1) {
                     playSoundWithRandLocation(world, ModSounds.INTERCOM_BASIC1, 25, 20);
                 } else {

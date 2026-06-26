@@ -4,11 +4,11 @@ import com.sp.init.BackroomsLevels;
 import com.sp.init.ModSounds;
 import com.sp.world.events.AbstractEvent;
 import com.sp.world.levels.BackroomsLevelWithLights;
-import net.minecraft.world.World;
+import net.minecraft.world.level.Level;
 
 public class LightLevelBlackout extends AbstractEvent {
     @Override
-    public void init(World world) {
+    public void init(Level world) {
         if (!(BackroomsLevels.getLevel(world).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL) instanceof BackroomsLevelWithLights level)) {
             return;
         }
@@ -20,7 +20,7 @@ public class LightLevelBlackout extends AbstractEvent {
     }
 
     @Override
-    public void finish(World world) {
+    public void finish(Level world) {
         super.finish(world);
         if (!(BackroomsLevels.getLevel(world).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL) instanceof BackroomsLevelWithLights level)) {
             return;

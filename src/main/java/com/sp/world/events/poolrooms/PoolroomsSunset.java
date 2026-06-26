@@ -4,14 +4,15 @@ import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.WorldEvents;
 import com.sp.init.BackroomsLevels;
 import com.sp.init.ModSounds;
-import com.sp.render.PoolroomsDayCycle;
+// PORT: phase6 - com.sp.render.PoolroomsDayCycle lives in the render package (not yet ported)
+// import com.sp.render.PoolroomsDayCycle;
 import com.sp.world.events.AbstractEvent;
 import com.sp.world.levels.custom.PoolroomsBackroomsLevel;
-import net.minecraft.world.World;
+import net.minecraft.world.level.Level;
 
 public class PoolroomsSunset extends AbstractEvent {
     @Override
-    public void init(World world) {
+    public void init(Level world) {
 
         BackroomsLevels.getLevel(world).ifPresent(backroomsLevel -> {
             if (!(backroomsLevel instanceof PoolroomsBackroomsLevel level)) {
@@ -19,7 +20,8 @@ public class PoolroomsSunset extends AbstractEvent {
             }
 
             WorldEvents events = InitializeComponents.EVENTS.get(world);
-            float currentDayTime = PoolroomsDayCycle.getDayTime(world);
+            // PORT: phase6 - restore once com.sp.render.PoolroomsDayCycle is ported
+            float currentDayTime = 0.0f; // PoolroomsDayCycle.getDayTime(world);
             level.setSunsetTransitioning(true);
             level.setTimeOfDay(level.getTimeOfDay() + 0.25f);
             events.sync();
@@ -31,7 +33,7 @@ public class PoolroomsSunset extends AbstractEvent {
     }
 
     @Override
-    public void finish(World world) {
+    public void finish(Level world) {
         super.finish(world);
 
         BackroomsLevels.getLevel(world).ifPresent(backroomsLevel -> {
