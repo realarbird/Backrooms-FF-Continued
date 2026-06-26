@@ -3,14 +3,15 @@ package com.sp.entity.ai.goals;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.SkinWalkerComponent;
 import com.sp.entity.custom.SkinWalkerEntity;
-import net.minecraft.entity.ai.goal.Goal;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.Vec3;
 
 public class ActNaturalGoal extends Goal {
-    private final Random random = Random.create(7585889L);
+    private final RandomSource random = RandomSource.create(7585889L);
     private final java.util.Random rand = new java.util.Random();
     private final SkinWalkerEntity entity;
     private final SkinWalkerComponent component;
@@ -21,7 +22,7 @@ public class ActNaturalGoal extends Goal {
     private int currentActionCooldown = 0;
     private boolean currentActionSwitch = false;
 
-    private Vec3d randLookDir;
+    private Vec3 randLookDir;
 
     public ActNaturalGoal(SkinWalkerEntity entity) {
         this.entity = entity;
@@ -29,13 +30,13 @@ public class ActNaturalGoal extends Goal {
     }
 
     @Override
-    public boolean canStart() {
+    public boolean canUse() {
         return this.component.shouldActNatural() && !this.component.isInTrueForm() && !this.component.shouldBeginReveal();
     }
 
     @Override
     public void start() {
-        this.actCooldown = getTickCount(40);
+        this.actCooldown = adjustedTickDelay(40);
     }
 
     @Override
@@ -49,7 +50,7 @@ public class ActNaturalGoal extends Goal {
 
     @Override
     public void tick() {
-        if(!this.entity.getWorld().isClient) {
+        if(!this.entity.level().isClientSide()) {
             ////Cooldown Checks////
             if (actCooldown > 0) {
                 actCooldown--;
@@ -57,7 +58,7 @@ public class ActNaturalGoal extends Goal {
             }
             ///////////////////////
             if (this.randomAction == null) {
-                this.randomAction = random.nextBetween(1, 4);
+                this.randomAction = random.nextIntBetweenInclusive(1, 4);
             }
             this.component.setCurrentlyActingNatural(true);
             switch (this.randomAction) {
@@ -97,20 +98,20 @@ public class ActNaturalGoal extends Goal {
     private void strafeTick() {
         if (this.currentActionCooldown <= 0) {
             if (this.currentActionCount < 8 && !this.currentActionSwitch) {
-                this.entity.sidewaysSpeed = 0.2f;
+                this.entity.xxa = 0.2f;
                 this.currentActionSwitch = true;
                 this.currentActionCount++;
                 this.currentActionCooldown = 2;
 
             } else if (this.currentActionSwitch) {
-                this.entity.sidewaysSpeed = -0.2f;
+                this.entity.xxa = -0.2f;
                 this.currentActionSwitch = false;
                 this.currentActionCooldown = 2;
                 this.currentActionCount++;
 
             } else {
                 this.component.setCurrentlyActingNatural(false);
-                this.entity.sidewaysSpeed = 0;
+                this.entity.xxa = 0;
                 this.currentActionSwitch = false;
                 this.randomAction = null;
                 this.currentActionCount = 0;
@@ -123,8 +124,8 @@ public class ActNaturalGoal extends Goal {
     }
 
     private void punchPlayer() {
-        this.entity.swingHand(Hand.MAIN_HAND);
-        this.entity.tryAttack(this.component.getFollowTarget());
+        this.entity.swing(InteractionHand.MAIN_HAND);
+        this.entity.doHurtTarget((ServerLevel) this.entity.level(), this.component.getFollowTarget());
         this.component.setCurrentlyActingNatural(false);
         this.randomAction = null;
         this.setRandomActCoolDown();
@@ -142,7 +143,7 @@ public class ActNaturalGoal extends Goal {
 
         if(this.currentActionCooldown <= 0){
             if (this.currentActionCount < 4) {
-                this.entity.swingHand(Hand.MAIN_HAND);
+                this.entity.swing(InteractionHand.MAIN_HAND);
                 this.currentActionCount++;
                 this.currentActionCooldown = 2;
 
@@ -168,15 +169,15 @@ public class ActNaturalGoal extends Goal {
             if (this.currentActionCount < 5) {
                 float randX = rand.nextFloat(-45, 45);
                 float randY = rand.nextFloat(-180, 180);
-                ((SkinWalkerEntity.SkinWalkerLookControl)this.entity.getLookControl()).lookAt(eulerToVector(randX, randY), random.nextBetween(4, 9));
+                ((SkinWalkerEntity.SkinWalkerLookControl)this.entity.getLookControl()).lookAt(eulerToVector(randX, randY), random.nextIntBetweenInclusive(4, 9));
 
-                int shouldPunch = random.nextBetween(1,3);
+                int shouldPunch = random.nextIntBetweenInclusive(1,3);
                 if(shouldPunch == 1){
-                    this.entity.swingHand(Hand.MAIN_HAND);
+                    this.entity.swing(InteractionHand.MAIN_HAND);
                 }
 
                 this.currentActionCount++;
-                this.currentActionCooldown = random.nextBetween(6, 12);
+                this.currentActionCooldown = random.nextIntBetweenInclusive(6, 12);
 
             } else {
                 this.component.setCurrentlyActingNatural(false);
@@ -191,17 +192,17 @@ public class ActNaturalGoal extends Goal {
         }
     }
 
-    private Vec3d eulerToVector(float pitch, float yaw){
+    private Vec3 eulerToVector(float pitch, float yaw){
 
-        float x = MathHelper.cos(yaw)*MathHelper.cos(pitch);
-        float y = MathHelper.sin(yaw)*MathHelper.cos(pitch);
-        float z = MathHelper.sin(pitch);
+        float x = Mth.cos(yaw)*Mth.cos(pitch);
+        float y = Mth.sin(yaw)*Mth.cos(pitch);
+        float z = Mth.sin(pitch);
 
-        return new Vec3d(x, y, z).multiply(180/Math.PI);
+        return new Vec3(x, y, z).scale(180/Math.PI);
     }
 
 
     private void setRandomActCoolDown(){
-        this.actCooldown = getTickCount(random.nextBetween(60, 150));
+        this.actCooldown = adjustedTickDelay(random.nextIntBetweenInclusive(60, 150));
     }
 }

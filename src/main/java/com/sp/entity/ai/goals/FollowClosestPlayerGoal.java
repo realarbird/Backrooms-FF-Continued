@@ -3,16 +3,16 @@ package com.sp.entity.ai.goals;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.SkinWalkerComponent;
 import com.sp.entity.custom.SkinWalkerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ai.goal.Goal;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.player.Player;
 
 public class FollowClosestPlayerGoal extends Goal {
     private final SkinWalkerEntity entity;
     private final SkinWalkerComponent component;
     private final float minDistance;
     private final float maxDistance;
-    private PlayerEntity target;
+    private Player target;
     private double speed;
 
 
@@ -25,9 +25,9 @@ public class FollowClosestPlayerGoal extends Goal {
     }
 
     @Override
-    public boolean canStart() {
+    public boolean canUse() {
         if(!this.component.isInTrueForm() && !this.component.shouldBeginReveal() && !this.component.isCurrentlyActingNatural()) {
-            PlayerEntity player = this.entity.getWorld().getClosestPlayer(this.entity, 200);
+            Player player = this.entity.level().getNearestPlayer(this.entity, 200);
 
             if(player != null) {
                 if(!this.isTooClose(player) && !player.isSpectator() && !player.isCreative()) {
@@ -46,11 +46,11 @@ public class FollowClosestPlayerGoal extends Goal {
     }
 
     @Override
-    public boolean shouldContinue() {
+    public boolean canContinueToUse() {
         if(this.isTooClose(this.target)){
             return false;
         }
-        return super.shouldContinue();
+        return super.canContinueToUse();
     }
 
     @Override
@@ -71,14 +71,14 @@ public class FollowClosestPlayerGoal extends Goal {
             this.entity.setSprinting(false);
         }
 
-        this.entity.getNavigation().startMovingTo(this.target, this.speed);
+        this.entity.getNavigation().moveTo(this.target, this.speed);
     }
 
     private boolean isTooClose(Entity entity){
-        return this.entity.squaredDistanceTo(entity) < (double) (this.minDistance * this.minDistance);
+        return this.entity.distanceToSqr(entity) < (double) (this.minDistance * this.minDistance);
     }
 
     private boolean isTooFar(Entity entity){
-        return this.entity.squaredDistanceTo(entity) > (double) (this.maxDistance * this.maxDistance);
+        return this.entity.distanceToSqr(entity) > (double) (this.maxDistance * this.maxDistance);
     }
 }

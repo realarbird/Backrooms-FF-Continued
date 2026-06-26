@@ -3,9 +3,9 @@ package com.sp.entity.ai.goals;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.SkinWalkerComponent;
 import com.sp.entity.custom.SkinWalkerEntity;
-import net.minecraft.entity.ai.goal.WanderAroundFarGoal;
+import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 
-public class FinalFormWanderGoal extends WanderAroundFarGoal {
+public class FinalFormWanderGoal extends WaterAvoidingRandomStrollGoal {
     private final SkinWalkerComponent component;
 
     public FinalFormWanderGoal(SkinWalkerEntity entity, double d) {
@@ -14,7 +14,7 @@ public class FinalFormWanderGoal extends WanderAroundFarGoal {
     }
 
     @Override
-    public boolean canStart() {
-        return super.canStart() && component.isInTrueForm() && component.isIdle();
+    public boolean canUse() {
+        return super.canUse() && component.isInTrueForm() && component.isIdle();
     }
 }

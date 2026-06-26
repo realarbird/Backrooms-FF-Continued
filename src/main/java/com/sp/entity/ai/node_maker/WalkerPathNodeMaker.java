@@ -1,43 +1,43 @@
 package com.sp.entity.ai.node_maker;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.ai.pathing.LandPathNodeMaker;
-import net.minecraft.entity.ai.pathing.PathNode;
-import net.minecraft.entity.ai.pathing.PathNodeType;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.world.BlockView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.pathfinder.Node;
+import net.minecraft.world.level.pathfinder.PathType;
+import net.minecraft.world.level.pathfinder.WalkNodeEvaluator;
 import org.jetbrains.annotations.Nullable;
 
-public class WalkerPathNodeMaker extends LandPathNodeMaker {
+public class WalkerPathNodeMaker extends WalkNodeEvaluator {
     private static final int HOVER_HEIGHT = 3;
     private static final int SCAN_RADIUS = 4;
 
     @Override
-    protected PathNode getStart(BlockPos pos) {
+    protected Node getStartNode(BlockPos pos) {
         BlockPos hoverPos = findNearestSupportBlock(pos);
         if (hoverPos != null) {
-            PathNode pathNode = this.getNode(hoverPos.getX(), hoverPos.getY() - HOVER_HEIGHT, hoverPos.getZ());
-            pathNode.type = PathNodeType.WALKABLE;
-            pathNode.penalty = 0.0F;
+            Node pathNode = this.getNode(hoverPos.getX(), hoverPos.getY() - HOVER_HEIGHT, hoverPos.getZ());
+            pathNode.type = PathType.WALKABLE;
+            pathNode.costMalus = 0.0F;
             return pathNode;
         }
-        return super.getStart(pos);
+        return super.getStartNode(pos);
     }
 
     @Override
-    public int getSuccessors(PathNode[] successors, PathNode node) {
+    public int getNeighbors(Node[] successors, Node node) {
         int i = 0;
 
         // Check all 6 directions (including up and down)
         for (Direction direction : Direction.values()) {
-            PathNode successor = getHoveringPathNode(
-                    node.x + direction.getOffsetX(),
-                    node.y + direction.getOffsetY(),
-                    node.z + direction.getOffsetZ()
+            Node successor = getHoveringPathNode(
+                    node.x + direction.getStepX(),
+                    node.y + direction.getStepY(),
+                    node.z + direction.getStepZ()
             );
 
-            if (successor != null && !successor.visited && successor.penalty >= 0.0F) {
+            if (successor != null && !successor.closed && successor.costMalus >= 0.0F) {
                 successors[i++] = successor;
             }
         }
@@ -46,11 +46,11 @@ public class WalkerPathNodeMaker extends LandPathNodeMaker {
     }
 
     @Nullable
-    private PathNode getHoveringPathNode(int x, int y, int z) {
+    private Node getHoveringPathNode(int x, int y, int z) {
         BlockPos pos = new BlockPos(x, y, z);
 
         // Check if current position has air
-        if (!this.cachedWorld.getBlockState(pos).isAir()) {
+        if (!this.currentContext.getBlockState(pos).isAir()) {
             return null;
         }
 
@@ -59,15 +59,15 @@ public class WalkerPathNodeMaker extends LandPathNodeMaker {
             return null;
         }
 
-        PathNode pathNode = this.getNode(x, y, z);
-        pathNode.type = PathNodeType.WALKABLE;
-        pathNode.penalty = 0.0F;
+        Node pathNode = this.getNode(x, y, z);
+        pathNode.type = PathType.WALKABLE;
+        pathNode.costMalus = 0.0F;
 
         return pathNode;
     }
 
     private boolean hasSupportBlockNearby(BlockPos center) {
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
 
         for (int x = -SCAN_RADIUS; x <= SCAN_RADIUS; x++) {
             for (int y = -SCAN_RADIUS; y <= SCAN_RADIUS; y++) {
@@ -77,13 +77,13 @@ public class WalkerPathNodeMaker extends LandPathNodeMaker {
                     mutable.set(center.getX() + x, center.getY() + y, center.getZ() + z);
 
                     // Check if position one block below support has air
-                    BlockPos airCheck = mutable.up();
-                    if (!this.cachedWorld.getBlockState(airCheck).isAir()) {
+                    BlockPos airCheck = mutable.above();
+                    if (!this.currentContext.getBlockState(airCheck).isAir()) {
                         continue;
                     }
 
                     // Check if support block is solid
-                    if (isSolidSupport(this.cachedWorld, mutable)) {
+                    if (isSolidSupport(mutable)) {
                         return true;
                     }
                 }
@@ -95,7 +95,7 @@ public class WalkerPathNodeMaker extends LandPathNodeMaker {
 
     @Nullable
     private BlockPos findNearestSupportBlock(BlockPos start) {
-        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
 
         for (int radius = 0; radius <= SCAN_RADIUS; radius++) {
             for (int x = -radius; x <= radius; x++) {
@@ -103,9 +103,9 @@ public class WalkerPathNodeMaker extends LandPathNodeMaker {
                     for (int z = -radius; z <= radius; z++) {
                         mutable.set(start.getX() + x, start.getY() + y, start.getZ() + z);
 
-                        if (isSolidSupport(this.cachedWorld, mutable) &&
-                                this.cachedWorld.getBlockState(mutable.up()).isAir()) {
-                            return mutable.toImmutable();
+                        if (isSolidSupport(mutable) &&
+                                this.currentContext.getBlockState(mutable.above()).isAir()) {
+                            return mutable.immutable();
                         }
                     }
                 }
@@ -115,13 +115,14 @@ public class WalkerPathNodeMaker extends LandPathNodeMaker {
         return null;
     }
 
-    private boolean isSolidSupport(BlockView world, BlockPos pos) {
-        BlockState state = world.getBlockState(pos);
-        return !state.isAir() && state.isSolidBlock(world, pos);
+    private boolean isSolidSupport(BlockPos pos) {
+        BlockGetter world = this.currentContext.level();
+        BlockState state = this.currentContext.getBlockState(pos);
+        return !state.isAir() && state.isCollisionShapeFullBlock(world, pos);
     }
 
     @Override
-    protected double getFeetY(BlockPos pos) {
+    protected double getFloorLevel(BlockPos pos) {
         return pos.getY() - HOVER_HEIGHT;
     }
 }

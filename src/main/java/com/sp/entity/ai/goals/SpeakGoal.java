@@ -8,11 +8,11 @@ import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.audiochannel.AudioPlayer;
 import de.maxhenkel.voicechat.api.audiochannel.LocationalAudioChannel;
 import de.maxhenkel.voicechat.plugins.impl.ServerLevelImpl;
-import net.minecraft.entity.ai.goal.Goal;
-import net.minecraft.util.math.random.Random;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.ai.goal.Goal;
 
 public class SpeakGoal extends Goal {
-    private final Random random = Random.create();
+    private final RandomSource random = RandomSource.create();
     private final SkinWalkerEntity entity;
     private final SkinWalkerComponent component;
     private int actCooldown;
@@ -26,13 +26,13 @@ public class SpeakGoal extends Goal {
     }
 
     @Override
-    public boolean canStart() {
+    public boolean canUse() {
         return this.entity.isAlive();
     }
 
     @Override
     public void start() {
-        this.actCooldown = getTickCount(40);
+        this.actCooldown = adjustedTickDelay(40);
     }
 
     @Override
@@ -44,7 +44,7 @@ public class SpeakGoal extends Goal {
 
     @Override
     public void tick() {
-        if (!this.entity.getWorld().isClient) {
+        if (!this.entity.level().isClientSide()) {
             if (this.component.shouldBeginReveal()) {
                 if (this.audioPlayer != null) {
                     this.audioPlayer.stopPlaying();
@@ -64,20 +64,20 @@ public class SpeakGoal extends Goal {
     }
 
     private void setRandomActCoolDown(){
-        this.actCooldown = getTickCount(random.nextBetween(60, 150));
+        this.actCooldown = adjustedTickDelay(random.nextIntBetweenInclusive(60, 150));
     }
 
     private void playRandomPlayerSounds() {
-        if (this.entity.getServer() == null) {
+        if (this.entity.level().getServer() == null) {
             return;
         }
 
         if (this.serverLevel == null) {
-            this.serverLevel = new ServerLevelImpl(this.entity.getServer().getWorld(this.entity.getWorld().getRegistryKey()));
+            this.serverLevel = new ServerLevelImpl(this.entity.level().getServer().getLevel(this.entity.level().dimension()));
         }
 
-        if (!this.serverLevel.getServerLevel().equals(this.entity.getServer().getWorld(this.entity.getWorld().getRegistryKey()))) {
-            this.serverLevel = new ServerLevelImpl(this.entity.getServer().getWorld(this.entity.getWorld().getRegistryKey()));
+        if (!this.serverLevel.getServerLevel().equals(this.entity.level().getServer().getLevel(this.entity.level().dimension()))) {
+            this.serverLevel = new ServerLevelImpl(this.entity.level().getServer().getLevel(this.entity.level().dimension()));
         }
 
         VoicechatServerApi api = BackroomsVoicechatPlugin.voicechatApi;
@@ -102,7 +102,7 @@ public class SpeakGoal extends Goal {
             return;
         }
 
-        short[] data = BackroomsVoicechatPlugin.randomSpeakingList.get(this.component.getTargetPlayerUUID()).get(random.nextBetween(0, BackroomsVoicechatPlugin.randomSpeakingList.get(this.component.getTargetPlayerUUID()).size() - 1));
+        short[] data = BackroomsVoicechatPlugin.randomSpeakingList.get(this.component.getTargetPlayerUUID()).get(random.nextIntBetweenInclusive(0, BackroomsVoicechatPlugin.randomSpeakingList.get(this.component.getTargetPlayerUUID()).size() - 1));
 
         if (this.component.isInTrueForm()) {
             if(data != null && data.length > 0) {
@@ -111,7 +111,7 @@ public class SpeakGoal extends Goal {
         }
 
         if (this.audioChannel == null) {
-            this.audioChannel = api.createLocationalAudioChannel(this.entity.getUuid(), this.serverLevel, api.createPosition(this.entity.getX(), this.entity.getY(), this.entity.getZ()));
+            this.audioChannel = api.createLocationalAudioChannel(this.entity.getUUID(), this.serverLevel, api.createPosition(this.entity.getX(), this.entity.getY(), this.entity.getZ()));
         }
 
         if (this.audioChannel == null) {
@@ -131,7 +131,7 @@ public class SpeakGoal extends Goal {
     }
 
     private short[] demonizeVoice(short[] data) {
-        switch (this.random.nextBetween(0, 3)) {
+        switch (this.random.nextIntBetweenInclusive(0, 3)) {
             case 0:
                 data = applyStutter(data);
                 break;
@@ -146,7 +146,7 @@ public class SpeakGoal extends Goal {
         //data = reverseSegments(data);
         //data = addStaticNoise(data);
 
-        if (this.random.nextBetween(0, 3) < 2) {
+        if (this.random.nextIntBetweenInclusive(0, 3) < 2) {
             data = demonizeVoice(data);
         }
 

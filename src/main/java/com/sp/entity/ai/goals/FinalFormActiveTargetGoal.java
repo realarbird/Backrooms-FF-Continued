@@ -3,44 +3,47 @@ package com.sp.entity.ai.goals;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.SkinWalkerComponent;
 import com.sp.entity.custom.SkinWalkerEntity;
-import net.minecraft.entity.ai.TargetPredicate;
-import net.minecraft.entity.ai.goal.TrackTargetGoal;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.predicate.entity.EntityPredicates;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.EntitySelector;
+import net.minecraft.world.entity.ai.goal.target.TargetGoal;
+import net.minecraft.world.entity.ai.targeting.TargetingConditions;
+import net.minecraft.world.entity.player.Player;
 
 import java.util.Comparator;
 import java.util.List;
 
-public class FinalFormActiveTargetGoal extends TrackTargetGoal {
+public class FinalFormActiveTargetGoal extends TargetGoal {
     private final SkinWalkerComponent component;
 
     public FinalFormActiveTargetGoal(SkinWalkerEntity entity){
         super(entity, true, false);
         this.component = InitializeComponents.SKIN_WALKER.get(entity);
-        this.maxTimeWithoutVisibility = 100;
+        this.unseenMemoryTicks = 100;
     }
 
     @Override
-    public boolean canStart() {
+    public boolean canUse() {
         if(this.component.isInTrueForm() && !this.component.shouldBeginReveal()){
             if(this.mob.getTarget() != null){
-                this.target = this.mob.getTarget();
+                this.targetMob = this.mob.getTarget();
                 return true;
             }
 
-            List<PlayerEntity> playerEntityList = this.mob.getWorld().getPlayers(
-                    TargetPredicate.DEFAULT
-                            .ignoreDistanceScalingFactor()
-                            .ignoreVisibility()
-                            .setBaseMaxDistance(100)
-                            .setPredicate(EntityPredicates.EXCEPT_CREATIVE_OR_SPECTATOR::test),
-                    this.mob,
-                    this.mob.getBoundingBox().expand(100));
-            playerEntityList.sort(Comparator.comparingDouble(player -> -this.mob.getPos().squaredDistanceTo(player.getPos().x, player.getPos().y, player.getPos().z)));
+            TargetingConditions conditions = TargetingConditions.forCombat()
+                    .range(100)
+                    .ignoreLineOfSight()
+                    .selector((target, level) -> EntitySelector.NO_CREATIVE_OR_SPECTATOR.test(target));
 
-            for (PlayerEntity player : playerEntityList){
-                if(this.mob.canSee(player)){
-                    this.target = player;
+            ServerLevel serverLevel = (ServerLevel) this.mob.level();
+            List<Player> playerEntityList = serverLevel.getEntitiesOfClass(
+                    Player.class,
+                    this.mob.getBoundingBox().inflate(100),
+                    player -> conditions.test(serverLevel, this.mob, player));
+            playerEntityList.sort(Comparator.comparingDouble(player -> -this.mob.position().distanceToSqr(player.position().x, player.position().y, player.position().z)));
+
+            for (Player player : playerEntityList){
+                if(this.mob.hasLineOfSight(player)){
+                    this.targetMob = player;
                     ((SkinWalkerEntity)this.mob).beginTargeting(player);
                     return true;
                 }
@@ -50,14 +53,14 @@ public class FinalFormActiveTargetGoal extends TrackTargetGoal {
     }
 
     @Override
-    public boolean shouldContinue() {
-        return super.shouldContinue() && this.canStart();
+    public boolean canContinueToUse() {
+        return super.canContinueToUse() && this.canUse();
     }
 
     @Override
     public void tick() {
-        if(this.target != null) {
-            this.component.setLastKnownTargetLocation(this.target.getBlockPos());
+        if(this.targetMob != null) {
+            this.component.setLastKnownTargetLocation(this.targetMob.blockPosition());
         }
     }
 
