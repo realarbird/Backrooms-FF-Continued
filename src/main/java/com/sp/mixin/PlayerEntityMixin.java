@@ -4,59 +4,59 @@ import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.cca_stuff.WorldEvents;
 import com.sp.init.BackroomsLevels;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.damage.DamageTypes;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.world.World;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(PlayerEntity.class)
+@Mixin(Player.class)
 public abstract class PlayerEntityMixin extends Entity {
 
-    protected PlayerEntityMixin(EntityType<? extends LivingEntity> entityType, World world) {
+    protected PlayerEntityMixin(EntityType<? extends LivingEntity> entityType, Level world) {
         super(entityType, world);
     }
 
-    @Inject(method = "tick", at = @At(value = "FIELD", target = "Lnet/minecraft/entity/player/PlayerEntity;noClip:Z", ordinal = 0, shift = At.Shift.AFTER))
+    @Inject(method = "tick", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/Entity;noPhysics:Z", ordinal = 0, shift = At.Shift.AFTER))
     private void enableNoclip(CallbackInfo ci) {
         PlayerComponent playerComponent = InitializeComponents.PLAYER.get(this);
 
         if (playerComponent.shouldNoClip()) {
-            this.noClip = playerComponent.shouldNoClip();
+            this.noPhysics = playerComponent.shouldNoClip();
         }
     }
 
     // Potential fix for: https://github.com/SpacePotatoee/MinecraftFoundFootage/issues/85
     // IDK tho. I am just throwing shit at the wall to see what sticks.
-    @Inject(method = "onDeath", at = @At("HEAD"))
+    @Inject(method = "die", at = @At("HEAD"))
     public void onDeath(DamageSource damageSource, CallbackInfo ci) {
         PlayerComponent playerComponent = InitializeComponents.PLAYER.get(this);
 
-        PlayerEntity player = (PlayerEntity) (Object) this;
+        Player player = (Player) (Object) this;
 
-        WorldEvents events = InitializeComponents.EVENTS.get(player.getWorld());
+        WorldEvents events = InitializeComponents.EVENTS.get(player.level());
 
-        if (damageSource.isOf(DamageTypes.OUT_OF_WORLD)) {
-            if (BackroomsLevels.getLevel(player.getWorld()).isPresent()) {
-                player.setPosition(0, 100, 0);
+        if (damageSource.is(DamageTypes.FELL_OUT_OF_WORLD)) {
+            if (BackroomsLevels.getLevel(player.level()).isPresent()) {
+                player.setPos(0, 100, 0);
             } else {
-                player.setPosition(BackroomsLevels.getLevel(player.getWorld()).get().getSpawnPos());
+                player.setPos(BackroomsLevels.getLevel(player.level()).get().getSpawnPos());
             }
         }
 
         if (playerComponent.hasBeenCaptured() || playerComponent.isBeingCaptured() || events.activeSkinWalkerEntity.getTarget() == player) {
-            if (this.getWorld() instanceof ServerWorld) {
-                ServerPlayerEntity serverPlayer = (ServerPlayerEntity) player;
+            if (this.level() instanceof ServerLevel) {
+                ServerPlayer serverPlayer = (ServerPlayer) player;
 
-                serverPlayer.setCameraEntity(serverPlayer);
+                serverPlayer.setCamera(serverPlayer);
             }
 
             events.activeSkinWalkerEntity.discard();
