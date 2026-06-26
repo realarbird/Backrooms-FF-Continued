@@ -126,8 +126,8 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
         //Removes the ceiling for debugging
 //        for(int i = 0; i < 16; i++){
 //            for(int j = 0; j < 16; j++) {
-//                world.setBlockState(mutable.set(x + i, 28, z + j), Blocks.AIR.getDefaultState(), 2);
-//                world.setBlockState(mutable.set(x + i, 27, z + j), Blocks.AIR.getDefaultState(), 2);
+//                world.setBlock(mutable.set(x + i, 28, z + j), Blocks.AIR.defaultBlockState(), 2);
+//                world.setBlock(mutable.set(x + i, 27, z + j), Blocks.AIR.defaultBlockState(), 2);
 //            }
 //        }
 
