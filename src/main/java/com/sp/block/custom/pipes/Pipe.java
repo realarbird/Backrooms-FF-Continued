@@ -1,33 +1,40 @@
 package com.sp.block.custom.pipes;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.FacingBlock;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.state.StateManager;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
+import com.mojang.serialization.MapCodec;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.DirectionalBlock;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 @SuppressWarnings("deprecation")
-public class Pipe extends FacingBlock {
+public class Pipe extends DirectionalBlock {
+    public static final MapCodec<Pipe> CODEC = simpleCodec(Pipe::new);
 
-    private static final VoxelShape SHAPE_EAST = Block.createCuboidShape(0.0, 2.0, 2.0, 16.0, 16.0, 14.0);
-    private static final VoxelShape SHAPE_WEST = Block.createCuboidShape(0.0, 2.0, 2.0, 16.0, 16.0, 14.0);
-    private static final VoxelShape SHAPE_NORTH = Block.createCuboidShape(2.0, 2.0, 0.0, 14.0, 14.0, 16.0);
-    private static final VoxelShape SHAPE_SOUTH = Block.createCuboidShape(2.0, 2.0, 0.0, 14.0, 14.0, 16.0);
-    private static final VoxelShape VERTICAL = Block.createCuboidShape(2.0, 0.0, 2.0, 14.0, 16.0, 14.0);
+    private static final VoxelShape SHAPE_EAST = Block.box(0.0, 2.0, 2.0, 16.0, 16.0, 14.0);
+    private static final VoxelShape SHAPE_WEST = Block.box(0.0, 2.0, 2.0, 16.0, 16.0, 14.0);
+    private static final VoxelShape SHAPE_NORTH = Block.box(2.0, 2.0, 0.0, 14.0, 14.0, 16.0);
+    private static final VoxelShape SHAPE_SOUTH = Block.box(2.0, 2.0, 0.0, 14.0, 14.0, 16.0);
+    private static final VoxelShape VERTICAL = Block.box(2.0, 0.0, 2.0, 14.0, 16.0, 14.0);
 
-    public Pipe(Settings settings) {
+    public Pipe(Properties settings) {
         super(settings);
     }
 
     @Override
-    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-        switch (state.get(FACING)) {
+    protected MapCodec<? extends DirectionalBlock> codec() {
+        return CODEC;
+    }
+
+    @Override
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        switch (state.getValue(FACING)) {
             case UP, DOWN -> {
                 return VERTICAL;
             }
@@ -48,21 +55,22 @@ public class Pipe extends FacingBlock {
 
 
     @Override
-    public BlockState rotate(BlockState state, BlockRotation rotation) {
-        return state.with(FACING, rotation.rotate(state.get(FACING)));
+    public BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
     }
 
     @Override
-    public BlockState mirror(BlockState state, BlockMirror mirror) {
-        return state.rotate(mirror.getRotation(state.get(FACING)));
+    public BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
     @Override
-    public BlockState getPlacementState(ItemPlacementContext ctx) {
-        return this.getDefaultState().with(FACING, ctx.getPlayerLookDirection().getOpposite());
+    public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+        return this.defaultBlockState().setValue(FACING, ctx.getNearestLookingDirection().getOpposite());
     }
+
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING);
     }
 }

@@ -1,45 +1,44 @@
 package com.sp.block.custom.pipes;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.block.enums.WallMountLocation;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.state.StateManager;
-import net.minecraft.state.property.DirectionProperty;
-import net.minecraft.state.property.EnumProperty;
-import net.minecraft.state.property.Properties;
-import net.minecraft.util.BlockMirror;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.shape.VoxelShape;
-import net.minecraft.world.BlockView;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.AttachFace;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
 @SuppressWarnings("deprecation")
 public class ThinPipe extends Block {
-    public static final DirectionProperty FACING = Properties.FACING;
-    public static final EnumProperty<WallMountLocation> FACE = Properties.WALL_MOUNT_LOCATION;
+    public static final EnumProperty<Direction> FACING = BlockStateProperties.FACING;
+    public static final EnumProperty<AttachFace> FACE = BlockStateProperties.ATTACH_FACE;
 
-    private static final VoxelShape FLOOR_X_AXIS_SHAPE = Block.createCuboidShape(0.0, 0.0, 6.0, 16.0, 2.0, 10.0);
-    private static final VoxelShape FLOOR_Z_AXIS_SHAPE = Block.createCuboidShape(6.0, 0.0, 0.0, 10.0, 2.0, 16.0);
-    private static final VoxelShape EAST_WALL_SHAPE = Block.createCuboidShape(0.0, 0.0, 6.0, 2.0, 16.0, 10.0);
-    private static final VoxelShape WEST_WALL_SHAPE = Block.createCuboidShape(14.0, 0.0, 6.0, 16.0, 16.0, 10.0);
-    private static final VoxelShape NORTH_WALL_SHAPE = Block.createCuboidShape(6.0, 0.0, 14.0, 10.0, 16.0, 16.0);
-    private static final VoxelShape SOUTH_WALL_SHAPE = Block.createCuboidShape(6.0, 0.0, 0.0, 10.0, 16.0, 2.0);
-    private static final VoxelShape CEILING_X_AXIS_SHAPE = Block.createCuboidShape(0.0, 14.0, 6.0, 16.0, 16.0, 10.0);
-    private static final VoxelShape CEILING_Z_AXIS_SHAPE = Block.createCuboidShape(6.0, 14.0, 0.0, 10.0, 16.0, 16.0);
+    private static final VoxelShape FLOOR_X_AXIS_SHAPE = Block.box(0.0, 0.0, 6.0, 16.0, 2.0, 10.0);
+    private static final VoxelShape FLOOR_Z_AXIS_SHAPE = Block.box(6.0, 0.0, 0.0, 10.0, 2.0, 16.0);
+    private static final VoxelShape EAST_WALL_SHAPE = Block.box(0.0, 0.0, 6.0, 2.0, 16.0, 10.0);
+    private static final VoxelShape WEST_WALL_SHAPE = Block.box(14.0, 0.0, 6.0, 16.0, 16.0, 10.0);
+    private static final VoxelShape NORTH_WALL_SHAPE = Block.box(6.0, 0.0, 14.0, 10.0, 16.0, 16.0);
+    private static final VoxelShape SOUTH_WALL_SHAPE = Block.box(6.0, 0.0, 0.0, 10.0, 16.0, 2.0);
+    private static final VoxelShape CEILING_X_AXIS_SHAPE = Block.box(0.0, 14.0, 6.0, 16.0, 16.0, 10.0);
+    private static final VoxelShape CEILING_Z_AXIS_SHAPE = Block.box(6.0, 14.0, 0.0, 10.0, 16.0, 16.0);
 
-    public ThinPipe(Settings settings) {
+    public ThinPipe(Properties settings) {
         super(settings);
     }
 
     @Override
-    public VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) {
-        switch (state.get(FACE)) {
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
+        switch (state.getValue(FACE)) {
             case FLOOR:
-                switch ((state.get(FACING)).getAxis()) {
+                switch ((state.getValue(FACING)).getAxis()) {
                     case X:
                         return FLOOR_X_AXIS_SHAPE;
                     case Z:
@@ -47,7 +46,7 @@ public class ThinPipe extends Block {
                         return FLOOR_Z_AXIS_SHAPE;
                 }
             case WALL:
-                switch (state.get(FACING)) {
+                switch (state.getValue(FACING)) {
                     case EAST:
                         return EAST_WALL_SHAPE;
                     case WEST:
@@ -60,7 +59,7 @@ public class ThinPipe extends Block {
                 }
             case CEILING:
             default:
-                switch ((state.get(FACING)).getAxis()) {
+                switch ((state.getValue(FACING)).getAxis()) {
                     case X:
                         return CEILING_X_AXIS_SHAPE;
                     case Z:
@@ -72,18 +71,18 @@ public class ThinPipe extends Block {
 
     @Nullable
     @Override
-    public BlockState getPlacementState(ItemPlacementContext ctx) {
-        for (Direction direction : ctx.getPlacementDirections()) {
+    public BlockState getStateForPlacement(BlockPlaceContext ctx) {
+        for (Direction direction : ctx.getNearestLookingDirections()) {
             BlockState blockState;
             if (direction.getAxis() == Direction.Axis.Y) {
-                blockState = this.getDefaultState()
-                        .with(FACE, direction == Direction.UP ? WallMountLocation.CEILING : WallMountLocation.FLOOR)
-                        .with(FACING, ctx.getHorizontalPlayerFacing());
+                blockState = this.defaultBlockState()
+                        .setValue(FACE, direction == Direction.UP ? AttachFace.CEILING : AttachFace.FLOOR)
+                        .setValue(FACING, ctx.getHorizontalDirection());
             } else {
-                blockState = this.getDefaultState().with(FACE, WallMountLocation.WALL).with(FACING, direction.getOpposite());
+                blockState = this.defaultBlockState().setValue(FACE, AttachFace.WALL).setValue(FACING, direction.getOpposite());
             }
 
-            if (blockState.canPlaceAt(ctx.getWorld(), ctx.getBlockPos())) {
+            if (blockState.canSurvive(ctx.getLevel(), ctx.getClickedPos())) {
                 return blockState;
             }
         }
@@ -92,17 +91,17 @@ public class ThinPipe extends Block {
     }
 
     @Override
-    public BlockState rotate(BlockState state, BlockRotation rotation) {
-        return state.with(FACING, rotation.rotate(state.get(FACING)));
+    public BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
     }
 
     @Override
-    public BlockState mirror(BlockState state, BlockMirror mirror) {
-        return state.rotate(mirror.getRotation(state.get(FACING)));
+    public BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
     @Override
-    protected void appendProperties(StateManager.Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING, FACE);
     }
 }
