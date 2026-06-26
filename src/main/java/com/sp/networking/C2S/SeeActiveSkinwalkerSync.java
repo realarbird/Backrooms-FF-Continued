@@ -1,21 +1,34 @@
 package com.sp.networking.C2S;
 
+import com.sp.SPBRevamped;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.PlayerComponent;
-import net.fabricmc.fabric.api.networking.v1.PacketSender;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayNetworkHandler;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public class SeeActiveSkinwalkerSync {
+public record SeeActiveSkinwalkerSync(boolean canSeeSkinwalker) implements CustomPacketPayload {
+    public static final Type<SeeActiveSkinwalkerSync> TYPE =
+            new Type<>(Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "see_skin"));
 
-    public static void receive(MinecraftServer server, ServerPlayerEntity player, ServerPlayNetworkHandler handler, PacketByteBuf buf, PacketSender responseSender){
+    public static final StreamCodec<RegistryFriendlyByteBuf, SeeActiveSkinwalkerSync> CODEC = StreamCodec.composite(
+            ByteBufCodecs.BOOL, SeeActiveSkinwalkerSync::canSeeSkinwalker,
+            SeeActiveSkinwalkerSync::new
+    );
 
-        boolean canSeeSkinwalker = buf.readBoolean();
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
 
-        server.execute(()->{
-            PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
+    public static void receive(SeeActiveSkinwalkerSync payload, ServerPlayNetworking.Context context) {
+        boolean canSeeSkinwalker = payload.canSeeSkinwalker();
+
+        context.server().execute(() -> {
+            PlayerComponent playerComponent = InitializeComponents.PLAYER.get(context.player());
             playerComponent.setCanSeeActiveSkinWalkerTarget(canSeeSkinwalker);
         });
     }

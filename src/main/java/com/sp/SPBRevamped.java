@@ -15,8 +15,14 @@ import com.sp.init.*;
 import com.sp.item.ModItemGroups;
 import com.sp.mixininterfaces.NewServerProperties;
 import com.sp.networking.InitializePackets;
+import com.sp.networking.S2C.InvokeBlackScreenPacket;
+import com.sp.networking.S2C.InvokeScreenShakePacket;
+import com.sp.networking.S2C.LevelTransitionLightsOut;
+import com.sp.networking.S2C.ReloadLightsPacket;
+import com.sp.networking.S2C.SoundPacket;
 import eu.midnightdust.lib.config.MidnightConfig;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityLevelChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -87,9 +93,7 @@ public class SPBRevamped implements ModInitializer {
 		LOGGER.info("\"WOOOOOOOOOOOOOOOOOOOOOOOooooooooooooooooooooooooo..........\" -He said as he fell into the backrooms, never to be seen again.");
 
 		ServerEntityLevelChangeEvents.AFTER_PLAYER_CHANGE_LEVEL.register(((player, origin, destination) -> {
-			// PORT: phase7 — custom packets now use CustomPacketPayload/StreamCodec; the PacketByteBuf
-			// channel API (PacketByteBufs + ServerPlayNetworking.send(player, Identifier, buf)) is gone.
-			// ServerPlayNetworking.send(player, InitializePackets.RELOAD_LIGHTS_PAYLOAD);
+			ServerPlayNetworking.send(player, new ReloadLightsPacket());
 		}));
 
 		ServerPlayerEvents.AFTER_RESPAWN.register(((oldPlayer, newPlayer, alive) -> {
@@ -129,38 +133,24 @@ public class SPBRevamped implements ModInitializer {
 		}));
 	}
 
-	// PORT: phase7 — the four send*Packet helpers below dispatched custom payloads via the removed
-	// PacketByteBuf channel API. Signatures are ported to mojmap types so future-phase callers compile;
-	// the bodies will be rewritten against the CustomPacketPayload/StreamCodec API in the networking phase.
+	// 26.2: custom packets are CustomPacketPayload records dispatched via
+	// ServerPlayNetworking.send(ServerPlayer, CustomPacketPayload).
 	public static void sendCameraShakePacket(ServerPlayer player, double speed, double trauma){
-		// PORT: phase7
-		// PacketByteBuf buffer = PacketByteBufs.create();
-		// buffer.writeDouble(speed);
-		// buffer.writeDouble(trauma);
-		// ServerPlayNetworking.send(player, InitializePackets.SCREEN_SHAKE_PAYLOAD);
+		ServerPlayNetworking.send(player, new InvokeScreenShakePacket(speed, trauma));
 	}
 
 	public static void sendBlackScreenPacket(ServerPlayer player, int duration, boolean shouldPauseSounds, boolean noEscape){
-		// PORT: phase7
-		// PacketByteBuf buffer = PacketByteBufs.create();
-		// buffer.writeInt(duration);
-		// buffer.writeBoolean(shouldPauseSounds);
-		// buffer.writeBoolean(noEscape);
-		// ServerPlayNetworking.send(player, InitializePackets.BLACK_SCREEN_PAYLOAD);
+		ServerPlayNetworking.send(player, new InvokeBlackScreenPacket(duration, shouldPauseSounds, noEscape));
 	}
 
 	public static void sendPersonalPlaySoundPacket(ServerPlayer player, SoundEvent sound, float volume, float pitch){
-		// PORT: phase7
-		// ServerPlayNetworking.send(player, InitializePackets.SOUND_PAYLOAD);
+		ServerPlayNetworking.send(player, new SoundPacket(Holder.direct(sound), volume, pitch));
 	}
 
 	public static void sendLevelTransitionLightsOutPacket(ServerPlayer player, int time) {
 		PlayerComponent component = InitializeComponents.PLAYER.get(player);
 		component.setTeleporting(true);
-		// PORT: phase7
-		// PacketByteBuf buffer = PacketByteBufs.create();
-		// buffer.writeInt(time);
-		// ServerPlayNetworking.send(player, InitializePackets.LEVEL_TRANSITION_LIGHTSOUT_PAYLOAD);
+		ServerPlayNetworking.send(player, new LevelTransitionLightsOut(time));
 	}
 
     public static int getExitSpawnRadius(Level world) {

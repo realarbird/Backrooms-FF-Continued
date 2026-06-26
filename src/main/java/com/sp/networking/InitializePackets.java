@@ -1,34 +1,40 @@
 package com.sp.networking;
 
-import com.sp.SPBRevamped;
 import com.sp.networking.C2S.*;
 import com.sp.networking.S2C.*;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.util.Identifier;
 
 public class InitializePackets {
-    public static final Identifier TARGET_ENTITY_SYNC = new Identifier(SPBRevamped.MOD_ID, "targ_ent");
-    public static final Identifier SEE_SKINWALKER_SYNC = new Identifier(SPBRevamped.MOD_ID, "see_skin");
-    public static final Identifier COMPONENT_SYNC = new Identifier(SPBRevamped.MOD_ID, "comp_sync");
 
-    public static final Identifier SCREEN_SHAKE = new Identifier(SPBRevamped.MOD_ID, "scr_shake");
-    public static final Identifier BLACK_SCREEN = new Identifier(SPBRevamped.MOD_ID, "blk_screen");
-    public static final Identifier RELOAD_LIGHTS = new Identifier(SPBRevamped.MOD_ID, "rl_lights");
-    public static final Identifier SOUND = new Identifier(SPBRevamped.MOD_ID, "snd");
-    public static final Identifier LEVEL_TRANSITION_LIGHTSOUT = new Identifier(SPBRevamped.MOD_ID, "ltos");
-
+    // 26.2: payload TYPES must be registered on both sides before they can be sent/received.
+    // This runs from the common entrypoint (SPBRevamped#onInitialize) so both C2S and S2C
+    // payload types exist on the server; the client re-runs onInitialize too.
     public static void registerC2SPackets() {
-        ServerPlayNetworking.registerGlobalReceiver(TARGET_ENTITY_SYNC, TargetEntitySync::receive);
-        ServerPlayNetworking.registerGlobalReceiver(SEE_SKINWALKER_SYNC, SeeActiveSkinwalkerSync::receive);
-        ServerPlayNetworking.registerGlobalReceiver(COMPONENT_SYNC, SyncServerComponent::receive);
+        // Register every payload type (C2S on serverboundPlay, S2C on clientboundPlay).
+        PayloadTypeRegistry.playC2S().register(TargetEntitySync.TYPE, TargetEntitySync.CODEC);
+        PayloadTypeRegistry.playC2S().register(SeeActiveSkinwalkerSync.TYPE, SeeActiveSkinwalkerSync.CODEC);
+        PayloadTypeRegistry.playC2S().register(SyncServerComponent.TYPE, SyncServerComponent.CODEC);
+
+        PayloadTypeRegistry.playS2C().register(InvokeScreenShakePacket.TYPE, InvokeScreenShakePacket.CODEC);
+        PayloadTypeRegistry.playS2C().register(InvokeBlackScreenPacket.TYPE, InvokeBlackScreenPacket.CODEC);
+        PayloadTypeRegistry.playS2C().register(ReloadLightsPacket.TYPE, ReloadLightsPacket.CODEC);
+        PayloadTypeRegistry.playS2C().register(SoundPacket.TYPE, SoundPacket.CODEC);
+        PayloadTypeRegistry.playS2C().register(LevelTransitionLightsOut.TYPE, LevelTransitionLightsOut.CODEC);
+
+        // Server-side receivers.
+        ServerPlayNetworking.registerGlobalReceiver(TargetEntitySync.TYPE, TargetEntitySync::receive);
+        ServerPlayNetworking.registerGlobalReceiver(SeeActiveSkinwalkerSync.TYPE, SeeActiveSkinwalkerSync::receive);
+        ServerPlayNetworking.registerGlobalReceiver(SyncServerComponent.TYPE, SyncServerComponent::receive);
     }
 
+    // Called from the client entrypoint (phase 6) to wire up clientbound receivers.
     public static void registerS2CPackets() {
-        ClientPlayNetworking.registerGlobalReceiver(SCREEN_SHAKE, InvokeScreenShakePacket::receive);
-        ClientPlayNetworking.registerGlobalReceiver(BLACK_SCREEN, InvokeBlackScreenPacket::receive);
-        ClientPlayNetworking.registerGlobalReceiver(RELOAD_LIGHTS, ReloadLightsPacket::receive);
-        ClientPlayNetworking.registerGlobalReceiver(SOUND, SoundPacket::receive);
-        ClientPlayNetworking.registerGlobalReceiver(LEVEL_TRANSITION_LIGHTSOUT, LevelTransitionLightsOut::receive);
+        ClientPlayNetworking.registerGlobalReceiver(InvokeScreenShakePacket.TYPE, InvokeScreenShakePacket::receive);
+        ClientPlayNetworking.registerGlobalReceiver(InvokeBlackScreenPacket.TYPE, InvokeBlackScreenPacket::receive);
+        ClientPlayNetworking.registerGlobalReceiver(ReloadLightsPacket.TYPE, ReloadLightsPacket::receive);
+        ClientPlayNetworking.registerGlobalReceiver(SoundPacket.TYPE, SoundPacket::receive);
+        ClientPlayNetworking.registerGlobalReceiver(LevelTransitionLightsOut.TYPE, LevelTransitionLightsOut::receive);
     }
 }

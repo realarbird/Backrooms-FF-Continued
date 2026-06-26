@@ -2,7 +2,7 @@ package com.sp.networking.callbacks;
 
 import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.EventFactory;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 
 public class ClientConnectionEvents {
 
@@ -14,7 +14,7 @@ public class ClientConnectionEvents {
 
     @FunctionalInterface
     public interface Disconnect {
-        void onLoginDisconnect(MinecraftClient client);
+        void onLoginDisconnect(Minecraft client);
     }
 
 }

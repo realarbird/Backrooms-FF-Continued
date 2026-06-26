@@ -1,24 +1,39 @@
 package com.sp.networking.S2C;
 
-import net.fabricmc.fabric.api.networking.v1.PacketSender;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.sound.SoundEvent;
+import com.sp.SPBRevamped;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.core.Holder;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
 
-public class SoundPacket {
+public record SoundPacket(Holder<SoundEvent> sound, float volume, float pitch) implements CustomPacketPayload {
+    public static final Type<SoundPacket> TYPE =
+            new Type<>(Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "snd"));
 
-    public static void receive(MinecraftClient client, ClientPlayNetworkHandler handler, PacketByteBuf buf, PacketSender responseSender){
-        RegistryEntry<SoundEvent> sound =  buf.readRegistryEntry(Registries.SOUND_EVENT.getIndexedEntries(), SoundEvent::fromBuf);
-        float volume = buf.readFloat();
-        float pitch = buf.readFloat();
+    public static final StreamCodec<RegistryFriendlyByteBuf, SoundPacket> CODEC = StreamCodec.composite(
+            SoundEvent.STREAM_CODEC, SoundPacket::sound,
+            ByteBufCodecs.FLOAT, SoundPacket::volume,
+            ByteBufCodecs.FLOAT, SoundPacket::pitch,
+            SoundPacket::new
+    );
 
-        client.execute(()->{
-            client.getSoundManager().play(PositionedSoundInstance.master(sound.value(), pitch, volume));
-        });
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
+    public static void receive(SoundPacket payload, ClientPlayNetworking.Context context) {
+        Holder<SoundEvent> sound = payload.sound();
+        float volume = payload.volume();
+        float pitch = payload.pitch();
+
+        context.client().execute(() ->
+                context.client().getSoundManager().play(SimpleSoundInstance.forUI(sound.value(), pitch, volume))
+        );
+    }
 }

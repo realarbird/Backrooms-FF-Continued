@@ -1,25 +1,33 @@
 package com.sp.networking.S2C;
 
-import com.sp.SPBRevampedClient;
-import foundry.veil.api.client.render.VeilRenderSystem;
-import foundry.veil.api.client.render.VeilRenderer;
-import net.fabricmc.fabric.api.networking.v1.PacketSender;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.network.PacketByteBuf;
+import com.sp.SPBRevamped;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public class ReloadLightsPacket {
+// Empty payload: a signal to the client to reload Veil's deferred light renderer.
+public record ReloadLightsPacket() implements CustomPacketPayload {
+    public static final Type<ReloadLightsPacket> TYPE =
+            new Type<>(Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "rl_lights"));
 
-    public static void receive(MinecraftClient client, ClientPlayNetworkHandler handler, PacketByteBuf buf, PacketSender responseSender){
+    public static final StreamCodec<RegistryFriendlyByteBuf, ReloadLightsPacket> CODEC =
+            StreamCodec.unit(new ReloadLightsPacket());
 
-        client.execute(()->{
-            VeilRenderer renderer = VeilRenderSystem.renderer();
-            renderer.getDeferredRenderer().getLightRenderer().free();
-
-            if(SPBRevampedClient.getCutsceneManager().started) {
-                SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(60, true, false);
-            }
-        });
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
+    public static void receive(ReloadLightsPacket payload, ClientPlayNetworking.Context context) {
+        context.client().execute(() -> {
+            // PORT: phase6 — Veil deferred light renderer + SPBRevampedClient cutscene manager.
+            // VeilRenderer renderer = VeilRenderSystem.renderer();
+            // renderer.getDeferredRenderer().getLightRenderer().free();
+            // if (SPBRevampedClient.getCutsceneManager().started) {
+            //     SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(60, true, false);
+            // }
+        });
+    }
 }

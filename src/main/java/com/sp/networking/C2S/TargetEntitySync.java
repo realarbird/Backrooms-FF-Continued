@@ -1,24 +1,40 @@
 package com.sp.networking.C2S;
 
+import com.sp.SPBRevamped;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.PlayerComponent;
-import net.fabricmc.fabric.api.networking.v1.PacketSender;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayNetworkHandler;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public class TargetEntitySync {
-    public static void receive(MinecraftServer server, ServerPlayerEntity player, ServerPlayNetworkHandler handler, PacketByteBuf buf, PacketSender responseSender){
-        int targetID = buf.readInt();
+// 26.2: PacketByteBuf channel API is gone; this is a CustomPacketPayload with a StreamCodec.
+public record TargetEntitySync(int targetID) implements CustomPacketPayload {
+    public static final Type<TargetEntitySync> TYPE =
+            new Type<>(Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "targ_ent"));
 
-        server.execute(()->{
-            PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
+    public static final StreamCodec<RegistryFriendlyByteBuf, TargetEntitySync> CODEC = StreamCodec.composite(
+            ByteBufCodecs.INT, TargetEntitySync::targetID,
+            TargetEntitySync::new
+    );
 
-            if(targetID == -1){
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
+
+    public static void receive(TargetEntitySync payload, ServerPlayNetworking.Context context) {
+        int targetID = payload.targetID();
+
+        context.server().execute(() -> {
+            PlayerComponent playerComponent = InitializeComponents.PLAYER.get(context.player());
+
+            if (targetID == -1) {
                 playerComponent.setTargetEntity(null);
             } else {
-                playerComponent.setTargetEntity(player.getWorld().getEntityById(targetID));
+                playerComponent.setTargetEntity(context.player().level().getEntity(targetID));
             }
         });
     }

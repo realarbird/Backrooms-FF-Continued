@@ -1,21 +1,36 @@
 package com.sp.networking.C2S;
 
+import com.sp.SPBRevamped;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.PlayerComponent;
-import net.fabricmc.fabric.api.networking.v1.PacketSender;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayNetworkHandler;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public class SyncServerComponent {
+public record SyncServerComponent(boolean value, String component) implements CustomPacketPayload {
+    public static final Type<SyncServerComponent> TYPE =
+            new Type<>(Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "comp_sync"));
 
-    public static void receive(MinecraftServer server, ServerPlayerEntity player, ServerPlayNetworkHandler handler, PacketByteBuf buf, PacketSender responseSender){
-        boolean readBoolean = buf.readBoolean();
-        String component = buf.readString();
+    public static final StreamCodec<RegistryFriendlyByteBuf, SyncServerComponent> CODEC = StreamCodec.composite(
+            ByteBufCodecs.BOOL, SyncServerComponent::value,
+            ByteBufCodecs.STRING_UTF8, SyncServerComponent::component,
+            SyncServerComponent::new
+    );
 
-        server.execute(()->{
-            PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
+
+    public static void receive(SyncServerComponent payload, ServerPlayNetworking.Context context) {
+        boolean readBoolean = payload.value();
+        String component = payload.component();
+
+        context.server().execute(() -> {
+            PlayerComponent playerComponent = InitializeComponents.PLAYER.get(context.player());
 
             switch (component) {
                 case "beingCaptured": playerComponent.setBeingCaptured(readBoolean); break;
@@ -28,5 +43,4 @@ public class SyncServerComponent {
             playerComponent.sync();
         });
     }
-
 }
