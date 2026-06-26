@@ -10,11 +10,11 @@ import de.maxhenkel.voicechat.api.VoicechatPlugin;
 import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.events.*;
 import de.maxhenkel.voicechat.api.opus.OpusDecoder;
-import de.maxhenkel.voicechat.voice.common.Utils;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.predicate.entity.EntityPredicates;
-import net.minecraft.util.math.random.Random;
+import de.maxhenkel.voicechat.voice.common.AudioUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EntitySelector;
+import net.minecraft.world.entity.player.Player;
 import org.lwjgl.openal.AL10;
 
 import java.util.*;
@@ -54,13 +54,13 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
     }
 
     private void SkinWalkerVoicesPitchDown(OpenALSoundEvent openALSoundEvent) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
 
         if (client.player == null) {
             return;
         }
 
-        if (client.player.getWorld() == null) {
+        if (client.player.level() == null) {
             return;
         }
 
@@ -71,14 +71,14 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
         }
 
         try {
-            List<SkinWalkerEntity> skinWalkerList = client.player.getWorld().getEntitiesByClass(SkinWalkerEntity.class, client.player.getBoundingBox().expand(50), EntityPredicates.VALID_LIVING_ENTITY);
+            List<SkinWalkerEntity> skinWalkerList = client.player.level().getEntitiesOfClass(SkinWalkerEntity.class, client.player.getBoundingBox().inflate(50), EntitySelector.LIVING_ENTITY_STILL_ALIVE);
 
             if (skinWalkerList.isEmpty()) {
                 return;
             }
 
             for (SkinWalkerEntity skinWalker : skinWalkerList) {
-                if (!skinWalker.getUuid().equals(channelID)) {
+                if (!skinWalker.getUUID().equals(channelID)) {
                     continue;
                 }
 
@@ -98,15 +98,15 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
             return;
         }
 
-        if (!(senderConnection.getPlayer().getPlayer() instanceof PlayerEntity player)) {
+        if (!(senderConnection.getPlayer().getPlayer() instanceof Player player)) {
             return;
         }
 
 
-        if (ticks.containsKey(player.getUuid())) {
-            ticks.put(player.getUuid(), ticks.get(player.getUuid()) + 1);
+        if (ticks.containsKey(player.getUUID())) {
+            ticks.put(player.getUUID(), ticks.get(player.getUUID()) + 1);
         } else {
-            ticks.put(player.getUuid(), 0);
+            ticks.put(player.getUUID(), 0);
         }
 
         byte[] encodedData = microphonePacketEvent.getPacket().getOpusEncodedData();
@@ -114,11 +114,11 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
         byte[] copyData = encodedData.clone();
 
         if (copyData.length != 0) {
-            if (!decoders.containsKey(player.getUuid())) {
-                decoders.put(player.getUuid(), microphonePacketEvent.getVoicechat().createDecoder());
+            if (!decoders.containsKey(player.getUUID())) {
+                decoders.put(player.getUUID(), microphonePacketEvent.getVoicechat().createDecoder());
             }
 
-            OpusDecoder decoder = decoders.get(player.getUuid());
+            OpusDecoder decoder = decoders.get(player.getUUID());
 
             short[] data = decoder.decode(encodedData);
 
@@ -128,15 +128,15 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
 
                 //Update the amount of time that the players are talking for the skinstealer to determine who to take
                 if(!player.isSpectator() && !player.isCreative()) {
-                    if (!speakingTime.containsKey(player.getUuid())) {
-                        speakingTime.put(player.getUuid(), 0.0f);
+                    if (!speakingTime.containsKey(player.getUUID())) {
+                        speakingTime.put(player.getUUID(), 0.0f);
                     }
 
-                    speakingTime.put(player.getUuid(), speakingTime.get(player.getUuid()) + 0.0001f);
+                    speakingTime.put(player.getUUID(), speakingTime.get(player.getUUID()) + 0.0001f);
 
                     //If the player is talking too loud, make them visible to the skinwalker
                     if (!component.isVisibleToEntity()) {
-                        double volume = Utils.dbToPerc(Utils.getHighestAudioLevel(data));
+                        double volume = AudioUtils.dbToPerc(AudioUtils.getHighestAudioLevel(data));
 
                         if (volume >= 0.8) {
                             component.setTalkingTooLoud(true);
@@ -144,7 +144,7 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
                         }
                     }
                 } else if(!component.isBeingCaptured() && !component.hasBeenCaptured()) {
-                    speakingTime.remove(player.getUuid());
+                    speakingTime.remove(player.getUUID());
                 }
             } else {
                 microphonePacketEvent.cancel();
@@ -152,8 +152,8 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
             }
 
             short[] totalData;
-            if (totalSoundData.containsKey(player.getUuid())) {
-                totalData = totalSoundData.get(player.getUuid());
+            if (totalSoundData.containsKey(player.getUUID())) {
+                totalData = totalSoundData.get(player.getUUID());
             } else {
                 totalData = new short[0];
             }
@@ -162,33 +162,33 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
             System.arraycopy(totalData, 0, result, 0, totalData.length);
             System.arraycopy(data, 0, result, totalData.length, data.length);
             totalData = result;
-            totalSoundData.put(player.getUuid(), totalData);
+            totalSoundData.put(player.getUUID(), totalData);
 
             return;
         }
 
-        decoders.get(player.getUuid()).resetState();
+        decoders.get(player.getUUID()).resetState();
 
-        if (ticks.get(player.getUuid()) > 40  && ticks.get(player.getUuid()) < 200) {
-            Random random = Random.create();
+        if (ticks.get(player.getUUID()) > 40  && ticks.get(player.getUUID()) < 200) {
+            RandomSource random = RandomSource.create();
 
             Vector<short[]> soundList = new Vector<>();
 
-            if (randomSpeakingList.containsKey(player.getUuid())) {
-                soundList = randomSpeakingList.getOrDefault(player.getUuid(), new Vector<>());
+            if (randomSpeakingList.containsKey(player.getUUID())) {
+                soundList = randomSpeakingList.getOrDefault(player.getUUID(), new Vector<>());
             }
 
             if (soundList.size() < 20) {
-                soundList.add(totalSoundData.get(player.getUuid()));
+                soundList.add(totalSoundData.get(player.getUUID()));
             } else {
-                soundList.set(random.nextBetween(0, randomSpeakingList.size() - 1), totalSoundData.get(player.getUuid()));
+                soundList.set(random.nextIntBetweenInclusive(0, randomSpeakingList.size() - 1), totalSoundData.get(player.getUUID()));
             }
 
-            randomSpeakingList.put(player.getUuid(), soundList);
+            randomSpeakingList.put(player.getUUID(), soundList);
         }
 
-        ticks.put(player.getUuid(), 0);
-        totalSoundData.remove(player.getUuid());
+        ticks.put(player.getUUID(), 0);
+        totalSoundData.remove(player.getUUID());
     }
 
     private void onServerStart(VoicechatServerStartedEvent voicechatServerStartedEvent) {
@@ -196,7 +196,7 @@ public class BackroomsVoicechatPlugin implements VoicechatPlugin {
     }
 
     private void playerConnect(PlayerConnectedEvent playerConnectedEvent) {
-        PlayerEntity player = (PlayerEntity) playerConnectedEvent.getConnection().getPlayer().getPlayer();
+        Player player = (Player) playerConnectedEvent.getConnection().getPlayer().getPlayer();
         if(!player.isSpectator() && !player.isCreative()) {
             speakingTime.put(playerConnectedEvent.getConnection().getPlayer().getUuid(), 0.0f);
         }

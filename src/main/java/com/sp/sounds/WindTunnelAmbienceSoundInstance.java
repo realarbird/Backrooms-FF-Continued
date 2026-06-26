@@ -3,20 +3,20 @@ package com.sp.sounds;
 import com.sp.init.ModSounds;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.sound.MovingSoundInstance;
-import net.minecraft.client.sound.SoundInstance;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.sound.SoundCategory;
+import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.player.Player;
 
 @Environment(EnvType.CLIENT)
-public class WindTunnelAmbienceSoundInstance extends MovingSoundInstance {
-    private final PlayerEntity player;
+public class WindTunnelAmbienceSoundInstance extends AbstractTickableSoundInstance {
+    private final Player player;
 
-    public WindTunnelAmbienceSoundInstance(PlayerEntity player) {
-        super(ModSounds.WINDTUNNEL_GRASS_AMBIENCE, SoundCategory.AMBIENT, SoundInstance.createRandom());
+    public WindTunnelAmbienceSoundInstance(Player player) {
+        super(ModSounds.WINDTUNNEL_GRASS_AMBIENCE, SoundSource.AMBIENT, SoundInstance.createUnseededRandom());
         this.player = player;
-        this.repeat = true;
-        this.repeatDelay = 0;
+        this.looping = true;
+        this.delay = 0;
         this.volume = 0.85F;
         this.relative = true;
     }
@@ -24,7 +24,7 @@ public class WindTunnelAmbienceSoundInstance extends MovingSoundInstance {
     @Override
     public void tick() {
         if(this.player.isRemoved()){
-            this.setDone();
+            this.stop();
         }
     }
 }

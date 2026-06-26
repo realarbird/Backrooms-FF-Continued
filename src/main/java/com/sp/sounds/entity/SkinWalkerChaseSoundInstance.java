@@ -4,34 +4,34 @@ import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.SkinWalkerComponent;
 import com.sp.entity.custom.SkinWalkerEntity;
 import com.sp.init.ModSounds;
-import foundry.veil.api.client.util.Easings;
-import net.minecraft.client.sound.MovingSoundInstance;
-import net.minecraft.client.sound.SoundInstance;
-import net.minecraft.sound.SoundCategory;
+import com.sp.util.Easings;
+import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.sounds.SoundSource;
 
-public class SkinWalkerChaseSoundInstance extends MovingSoundInstance {
+public class SkinWalkerChaseSoundInstance extends AbstractTickableSoundInstance {
     private final SkinWalkerEntity entity;
     private final SkinWalkerComponent component;
     private boolean beginFade;
     private int ticksToFade = 80;
 
     public SkinWalkerChaseSoundInstance(SkinWalkerEntity entity) {
-        super(ModSounds.SKINWALKER_CHASE, SoundCategory.HOSTILE, SoundInstance.createRandom());
+        super(ModSounds.SKINWALKER_CHASE, SoundSource.HOSTILE, SoundInstance.createUnseededRandom());
         this.entity = entity;
         this.component = InitializeComponents.SKIN_WALKER.get(entity);
         this.setPosition(entity);
-        this.repeat = true;
-        this.repeatDelay = 0;
+        this.looping = true;
+        this.delay = 0;
         this.volume = 100.0f;
     }
 
     @Override
-    public boolean shouldAlwaysPlay() {
+    public boolean canStartSilent() {
         return true;
     }
 
     @Override
-    public boolean isRepeatable() {
+    public boolean canPlaySound() {
         return true;
     }
 
@@ -53,7 +53,7 @@ public class SkinWalkerChaseSoundInstance extends MovingSoundInstance {
             this.volume = 10 * Easings.Easing.easeInSine.ease((float) this.ticksToFade/80);
 
             if(ticksToFade <= 0) {
-                this.setDone();
+                this.stop();
             }
         }
 

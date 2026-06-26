@@ -10,40 +10,41 @@ import com.sp.world.levels.custom.Level0BackroomsLevel;
 import com.sp.world.levels.custom.Level1BackroomsLevel;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.client.sound.MovingSoundInstance;
-import net.minecraft.client.sound.SoundInstance;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.world.World;
+import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
+import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.phys.Vec3;
 
 @Environment(EnvType.CLIENT)
-public class TinyFluorescentLightSoundInstance extends MovingSoundInstance {
+public class TinyFluorescentLightSoundInstance extends AbstractTickableSoundInstance {
     private final BlockEntity entity;
-    private final PlayerEntity player;
+    private final Player player;
 
-    public TinyFluorescentLightSoundInstance(BlockEntity entity, PlayerEntity player) {
-        super(ModSounds.FLUORESCENT_LIGHT_HUM2, SoundCategory.BLOCKS, SoundInstance.createRandom());
-        this.x = (float) entity.getPos().toCenterPos().x;
-        this.y = (float) entity.getPos().toCenterPos().y;
-        this.z = (float) entity.getPos().toCenterPos().z;
+    public TinyFluorescentLightSoundInstance(BlockEntity entity, Player player) {
+        super(ModSounds.FLUORESCENT_LIGHT_HUM2, SoundSource.BLOCKS, SoundInstance.createUnseededRandom());
+        this.x = (float) Vec3.atCenterOf(entity.getBlockPos()).x;
+        this.y = (float) Vec3.atCenterOf(entity.getBlockPos()).y;
+        this.z = (float) Vec3.atCenterOf(entity.getBlockPos()).z;
         this.entity = entity;
         this.player = player;
     }
 
     @Override
-    public boolean shouldAlwaysPlay() {
+    public boolean canStartSilent() {
         return true;
     }
 
     @Override
-    public boolean isRepeatable() {
+    public boolean canPlaySound() {
         return true;
     }
 
     @Override
     public void tick() {
-        World world = this.entity.getWorld();
+        Level world = this.entity.getLevel();
 
         if(world != null) {
             boolean blackedOut = false;
@@ -57,15 +58,15 @@ public class TinyFluorescentLightSoundInstance extends MovingSoundInstance {
             }
 
             if (!this.entity.isRemoved() &&
-                    entity.getPos().isWithinDistance(player.getPos(), 15.0f) &&
+                    player.position().closerThan(Vec3.atCenterOf(entity.getBlockPos()), 15.0f) &&
                     !blackedOut &&
-                    ((TinyFluorescentLightBlockEntity) entity).getCurrentState().get(ThinFluorescentLightBlock.ON) &&
-                    !((TinyFluorescentLightBlockEntity) entity).getCurrentState().get(ThinFluorescentLightBlock.BLACKOUT) &&
-                    !SPBRevampedClient.blackScreen) {
+                    ((TinyFluorescentLightBlockEntity) entity).getCurrentState().getValue(ThinFluorescentLightBlock.ON) &&
+                    !((TinyFluorescentLightBlockEntity) entity).getCurrentState().getValue(ThinFluorescentLightBlock.BLACKOUT) &&
+                    !SPBRevampedClient.blackScreen) { // PORT: phase6 — SPBRevampedClient not yet ported
                 this.pitch = 1.0F;
                 this.volume = 0.2F;
             } else {
-                this.setDone();
+                this.stop();
                 ((TinyFluorescentLightBlockEntity) entity).setPlayingSound(false);
             }
         }
