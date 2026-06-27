@@ -1,48 +1,14 @@
-accessWidener v2 named
-# PORT: Phase 6 mojmap entries (the rest of this file is still Yarn-named; accessWidenerPath stays
-# disabled in build.gradle until the remaining 6f mixin/render targets are converted, otherwise loom
-# remapping fails on the mixed names). These mojmap lines are the converted equivalents of their Yarn
-# counterparts below.
-#   net/minecraft/client/sounds/SoundEngine#instanceBySource  ==  Yarn SoundSystem#sounds (com.sp.util.ExtraUtils)
+accessWidener v2 official
+# PORT: Phase 6/7 — rebuilt fresh with mojmap names. Contains ONLY the entries the ported
+# non-mixin, non-datagen code actually needs to compile. Render/mixin-only entries (6f) will be
+# appended later. Each line was verified against the 26.2 merged-deobf jar via javap -p -s.
+
+# ChunkPos.x / ChunkPos.z are private final int fields, read by the chunk generators
+# (world/generation/chunk_generator/Level0|Level1|Level2|PoolroomsChunkGenerator) and the custom
+# levels (world/levels/custom/Level0BackroomsLevel, Level1BackroomsLevel) via chunk.getPos().x/.z.
+accessible field net/minecraft/world/level/ChunkPos x I
+accessible field net/minecraft/world/level/ChunkPos z I
+
+# SoundEngine.instanceBySource (private Multimap<SoundSource, SoundInstance>) — iterated by
+# com.sp.util.ExtraUtils#stopAllOtherSounds. Mojmap equivalent of the Yarn SoundSystem#sounds field.
 accessible field net/minecraft/client/sounds/SoundEngine instanceBySource Lcom/google/common/collect/Multimap;
-accessible method net/minecraft/client/render/GameRenderer getFov (Lnet/minecraft/client/render/Camera;FZ)D
-accessible class net/minecraft/client/render/WorldRenderer$ChunkInfo
-accessible field net/minecraft/client/render/WorldRenderer$ChunkInfo chunk Lnet/minecraft/client/render/chunk/ChunkBuilder$BuiltChunk;
-accessible field net/minecraft/client/render/WorldRenderer chunkInfos Lit/unimi/dsi/fastutil/objects/ObjectArrayList;
-accessible field net/minecraft/client/render/WorldRenderer blockBreakingProgressions Lit/unimi/dsi/fastutil/longs/Long2ObjectMap;
-accessible field net/minecraft/client/render/WorldRenderer bufferBuilders Lnet/minecraft/client/render/BufferBuilderStorage;
-accessible method net/minecraft/client/render/Camera setRotation (FF)V
-accessible field net/minecraft/entity/mob/MobEntity goalSelector Lnet/minecraft/entity/ai/goal/GoalSelector;
-accessible field net/minecraft/world/chunk/Chunk blockEntityNbts Ljava/util/Map;
-accessible field net/minecraft/entity/ai/goal/MeleeAttackGoal lastUpdateTime J
-accessible field net/minecraft/entity/ai/goal/MeleeAttackGoal path Lnet/minecraft/entity/ai/pathing/Path;
-accessible field net/minecraft/client/render/WorldRenderer frustum Lnet/minecraft/client/render/Frustum;
-accessible field net/minecraft/client/render/Frustum frustumIntersection Lorg/joml/FrustumIntersection;
-accessible field net/minecraft/client/sound/SoundSystem sounds Lcom/google/common/collect/Multimap;
-accessible field net/minecraft/client/sound/SoundManager soundSystem Lnet/minecraft/client/sound/SoundSystem;
-accessible class net/minecraft/client/render/block/BlockModelRenderer$NeighborData
-accessible class net/minecraft/client/render/block/BlockModelRenderer$BrightnessCache
-accessible class net/minecraft/client/render/block/BlockModelRenderer$Translation
-accessible field net/minecraft/client/render/block/BlockModelRenderer$NeighborData faces [Lnet/minecraft/util/math/Direction;
-accessible field net/minecraft/client/render/block/BlockModelRenderer BRIGHTNESS_CACHE Ljava/lang/ThreadLocal;
-accessible field net/minecraft/client/render/block/BlockModelRenderer$NeighborData nonCubicWeight Z
-accessible field net/minecraft/client/render/block/BlockModelRenderer$NeighborData field_4192 [Lnet/minecraft/client/render/block/BlockModelRenderer$NeighborOrientation;
-accessible field net/minecraft/client/render/block/BlockModelRenderer$NeighborData field_4185 [Lnet/minecraft/client/render/block/BlockModelRenderer$NeighborOrientation;
-accessible field net/minecraft/client/render/block/BlockModelRenderer$NeighborData field_4180 [Lnet/minecraft/client/render/block/BlockModelRenderer$NeighborOrientation;
-accessible field net/minecraft/client/render/block/BlockModelRenderer$NeighborData field_4188 [Lnet/minecraft/client/render/block/BlockModelRenderer$NeighborOrientation;
-accessible field net/minecraft/client/render/block/BlockModelRenderer$Translation firstCorner I
-accessible field net/minecraft/client/render/block/BlockModelRenderer$Translation secondCorner I
-accessible field net/minecraft/client/render/block/BlockModelRenderer$Translation thirdCorner I
-accessible field net/minecraft/client/render/block/BlockModelRenderer$Translation fourthCorner I
-accessible field net/minecraft/client/render/block/BlockModelRenderer$NeighborOrientation shape I
-accessible class net/minecraft/client/render/WorldRenderer$RenderableChunks
-accessible class net/minecraft/client/option/SimpleOption$Callbacks
-accessible class net/minecraft/client/render/VertexFormatElement$Type$SetupTask
-accessible class net/minecraft/client/render/VertexFormatElement$Type$ClearTask
-accessible class net/minecraft/client/render/chunk/ChunkBuilder$BuiltChunk$RebuildTask
-accessible class net/minecraft/client/render/chunk/ChunkBuilder$BuiltChunk$RebuildTask$RenderData
-accessible method net/minecraft/entity/player/PlayerInventory addStack (Lnet/minecraft/item/ItemStack;)I
-accessible field com/mojang/blaze3d/systems/RenderSystem$ShapeIndexBuffer id I
-accessible method com/mojang/blaze3d/systems/RenderSystem$ShapeIndexBuffer grow (I)V
-accessible method net/minecraft/client/texture/SpriteAtlasTexture getHeight ()I
-accessible method net/minecraft/client/texture/SpriteAtlasTexture getWidth ()I

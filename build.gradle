@@ -3,10 +3,9 @@ plugins {
 	id 'maven-publish'
 }
 
-// NOTE: accessWidener is restored in Phase 2, after its targets are converted from Yarn to mojmap names.
-//loom {
-//	accessWidenerPath = file("src/main/resources/spb-revamped.accesswidener")
-//}
+loom {
+	accessWidenerPath = file("src/main/resources/spb-revamped.accesswidener")
+}
 
 version = project.mod_version
 group = project.maven_group
@@ -86,8 +85,11 @@ dependencies {
 	implementation "maven.modrinth:simple-voice-chat:${project.voicechat_version}"
 	implementation "de.maxhenkel.voicechat:voicechat-api:${project.voicechat_api_version}"
 
-	// Compat (Sound Physics Remastered, Essential) are re-added in Phase 7 with their 26.2
-	// coordinates as modCompileOnly soft-dependencies (guarded at runtime via isModLoaded).
+	// Compat (Sound Physics Remastered) — compile-only soft-dependency so the
+	// mixin/soundphysicsremasteredcompat/* mixins resolve com.sonicether.* at compile time.
+	// (This build uses plain Gradle configs for its mod deps, not Loom's mod* configs.)
+	// Guarded at runtime via FabricLoader.isModLoaded("sound_physics_remastered").
+	compileOnly "maven.modrinth:sound-physics-remastered:${project.sound_physics_remastered_version}"
 }
 
 processResources {
