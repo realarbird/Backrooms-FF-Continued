@@ -2,6 +2,9 @@
   "intro.backrooms": "The Backrooms",
   "intro.credit": "A Mod By ",
 
+  "vhs.timestamp": "REC 00:00:00",
+  "vhs.battery": "BATT ▮▮▮▫",
+
   "itemgroup.spbrevamped": "Backrooms",
 
   "flashlight.hint": "Press %s to toggle your flashlight",

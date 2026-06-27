@@ -18,7 +18,8 @@
 			"com.sp.SPBRevamped"
 		],
 		"client": [
-			"com.sp.SPBRevampedClient"
+			"com.sp.SPBRevampedClient",
+			"com.sp.render.gui.BackroomsHudClientInit"
 		],
 		"fabric-datagen": [
 			"com.sp.SPBRevampedDataGenerator"

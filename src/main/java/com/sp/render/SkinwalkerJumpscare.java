@@ -1,62 +1,88 @@
 package com.sp.render;
 
-import com.sp.SPBRevampedClient;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.init.ModSounds;
-import com.sp.util.ExtraUtils;
-import foundry.veil.api.client.render.shader.program.ShaderProgram;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.util.math.random.Random;
+import com.sp.render.gui.BackroomsHudOverlay;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
 
+/**
+ * Skinwalker jumpscare timeline.
+ *
+ * <p>Port note (Phase 6c, Mac-safe rebuild): the original drove a full-screen creepy-face overlay by
+ * poking Veil {@code ShaderProgram} uniforms ({@code Jumpscare}, {@code CreepyFace1}, {@code CreepyFace2},
+ * {@code Rand}) on the {@code POST_VHS} program. Veil/GLSL is removed on 26.2 + macOS. The timeline,
+ * sound and packet-sync logic below are kept verbatim; the uniform pokes are replaced by static flags on
+ * {@link BackroomsHudOverlay}, which composites the faces as plain {@code blit} draws in the HUD layer.</p>
+ */
 public class SkinwalkerJumpscare {
     private static long startTime;
     private static boolean started = false;
-    private static Random random = Random.create(13);
-    private static Random random2 = Random.create(8767);
+    private static final RandomSource random = RandomSource.create(13);
+    private static final RandomSource random2 = RandomSource.create(8767);
 
-    private static PositionedSoundInstance jumpScareSound;
+    private static SimpleSoundInstance jumpScareSound;
 
-    public static void doJumpscare(ShaderProgram program, MinecraftClient client, PlayerComponent component){
-        if(!started){
+    /**
+     * Advances the jumpscare timeline for the current frame. Call every frame while
+     * {@link PlayerComponent#isBeingCaptured()} is true. Drives {@link BackroomsHudOverlay} flags instead
+     * of Veil uniforms.
+     */
+    public static void doJumpscare(Minecraft client, PlayerComponent component) {
+        if (!started) {
             startTime = System.currentTimeMillis();
             started = true;
-            if(client.player != null) {
-                jumpScareSound = new PositionedSoundInstance(ModSounds.JUMPSCARE, SoundCategory.HOSTILE, 1.0f, 1.0f, client.player.getRandom(), client.player.getBlockPos());
+            if (client.player != null) {
+                jumpScareSound = new SimpleSoundInstance(ModSounds.JUMPSCARE, SoundSource.HOSTILE, 1.0f, 1.0f, client.player.getRandom(), client.player.blockPosition());
                 client.getSoundManager().play(jumpScareSound);
             }
         }
 
-        ExtraUtils.stopAllOtherSounds(jumpScareSound.getId(), client.getSoundManager().soundSystem);
-        client.options.hudHidden = true;
-        program.setInt("Jumpscare", 1);
+        // PORT: phase7 — silence all other sounds during the jumpscare. The original called
+        // ExtraUtils.stopAllOtherSounds(jumpScareSound.getIdentifier(), soundEngine). On 26.2 the
+        // SoundManager#soundEngine field and SoundEngine#instanceToChannel map are private and need an
+        // accessor mixin (sound subsystem, Phase 7). Re-wire the suppression there.
+
+        // PORT: phase6f — hide the vanilla HUD for the duration. The Yarn Options#hudHidden field is gone
+        // in 26.2 (the hide-gui boolean is now a per-frame parameter to Gui#extractRenderState). Drive it
+        // through the shared client flag; a Gui#extractRenderState mixin reads it to suppress the HUD.
+        BackroomsHudOverlay.setHudHidden(true);
+
+        BackroomsHudOverlay.jumpscare = true;
 
         long currentTime = (System.currentTimeMillis() - startTime);
 
-        if(currentTime >= 2000 && currentTime < 12000) {
-            program.setInt("CreepyFace1", 1);
+        if (currentTime >= 2000 && currentTime < 12000) {
+            BackroomsHudOverlay.creepyFace1 = true;
         }
 
-        if(currentTime >= 12000) {
-            program.setInt("CreepyFace2", 1);
-            program.setVector("Rand",  random.nextFloat(), random2.nextFloat());
+        if (currentTime >= 12000) {
+            BackroomsHudOverlay.creepyFace2 = true;
+            BackroomsHudOverlay.faceRandX = random.nextFloat();
+            BackroomsHudOverlay.faceRandY = random2.nextFloat();
         }
 
-        if(currentTime >= 14000) {
+        if (currentTime >= 14000) {
             component.setBeingCaptured(false);
-            client.options.hudHidden = false;
+            BackroomsHudOverlay.setHudHidden(false);
             started = false;
             startTime = 0L;
 
-            SPBRevampedClient.sendComponentSyncPacket(component.isBeingCaptured(), "beingCaptured");
+            // PORT: phase6e — SPBRevampedClient is not yet ported; re-enable this sync once it compiles.
+            // SPBRevampedClient.sendComponentSyncPacket(component.isBeingCaptured(), "beingCaptured");
 
-            program.setInt("Jumpscare", 0);
-            program.setInt("CreepyFace1", 0);
-            program.setInt("CreepyFace2", 0);
-            program.setVector("Rand", 0, 0);
+            reset();
         }
-
     }
 
+    /** Clears all jumpscare HUD flags. Called when the timeline ends or the capture state is cleared. */
+    public static void reset() {
+        BackroomsHudOverlay.jumpscare = false;
+        BackroomsHudOverlay.creepyFace1 = false;
+        BackroomsHudOverlay.creepyFace2 = false;
+        BackroomsHudOverlay.faceRandX = 0.0f;
+        BackroomsHudOverlay.faceRandY = 0.0f;
+    }
 }

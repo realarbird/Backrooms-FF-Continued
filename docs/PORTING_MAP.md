@@ -429,3 +429,19 @@ These need individual rework, not a 1:1 rename:
 - `KeyboardInput.jumping` field (now `client.player.KeyboardInput`) — input reworked (`calculateImpulse`), field gone → DisableJumpMixin deferred.
 - `PlayerInventory.scrollInHotbar` (now `Inventory`) — GONE; selection is `getSelectedSlot()/setSelectedSlot()` (scroll handling moved to MouseHandler/Minecraft) → PlayerInventoryMixin deferred.
 - `client.util.Monitor.populateVideoModes` → `Monitor` is now a **record** built by static `tryCreate(long)`; `videoModes` is a final record component (no instance populate method) → MonitorMixin deferred. `VideoMode` → `com.mojang.blaze3d.platform.VideoMode` (getWidth/getHeight/getRefreshRate unchanged).
+
+### Phase 6c HUD overlay (VERIFIED via javap on fabric-rendering-v1-25.1.6+46a6d00c9e + merged-deobf 26.2 — TRUST THESE)
+- **`HudElement`** (`net.fabricmc.fabric.api.client.rendering.v1.hud`) is a functional interface with exactly: `void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor, net.minecraft.client.DeltaTracker)`. (NOT `render(...)`.)
+- **`HudElementRegistry`** (same pkg): `static void addLast(Identifier, HudElement)`, `addFirst(Identifier, HudElement)`, `attachElementBefore/After(Identifier, Identifier, HudElement)`, `removeElement(Identifier)`, `replaceElement(Identifier, Function<HudElement,HudElement>)`. All take **`net.minecraft.resources.Identifier`**. Register from a `ClientModInitializer`.
+- **`GuiGraphicsExtractor`** (`net.minecraft.client.gui`, the 26.2 `DrawContext`/`GuiGraphics` successor):
+  - `int guiWidth()`, `int guiHeight()`; `org.joml.Matrix3x2fStack pose()`; `enableScissor(int,int,int,int)`/`disableScissor()`.
+  - `fill(int x1,int y1,int x2,int y2,int argb)` and a `fill(RenderPipeline,...)` overload; `fillGradient(int x1,int y1,int x2,int y2,int argbTop,int argbBottom)`. **No `setShaderColor`** — bake alpha into the ARGB int.
+  - `text(Font, String|Component|FormattedCharSequence, int x, int y, int argb[, boolean shadow])`; `centeredText(...)`; `textWithWordWrap(...)`; `textWithBackdrop(...)`.
+  - `blit(Identifier id, int x, int y, int w, int h, float u0, float u1, float v0, float v1)` — **normalized** UVs (0..1); values >1 wrap (texture repeats) — used for tiling/scrolling. Note the arg order is **u0,u1,v0,v1** (both us, then both vs), NOT u0,v0,u1,v1.
+  - `blit(RenderPipeline pipeline, Identifier id, int x, int y, float u, float v, int w, int h, int texW, int texH, int color)` — the **pixel-coord + tint** form (successor to `DrawContext.drawTexture(tex,x,y,u,v,w,h)`); use `RenderPipelines.GUI_TEXTURED` and an ARGB `color` for alpha tinting.
+  - `blitSprite(RenderPipeline, Identifier|TextureAtlasSprite, ...)` for atlas sprites.
+- **`Matrix3x2fStack`** (`org.joml`, what `pose()` returns): `pushMatrix()`/`popMatrix()` (NOT `push()/pop()`), plus inherited `Matrix3x2f.translate(float,float)`/`scale(float[,float])` (2D — no z).
+- `RenderPipelines` GUI pipelines (`net.minecraft.client.renderer.RenderPipelines`): `GUI`, `GUI_TEXTURED`, `GUI_TEXTURED_PREMULTIPLIED_ALPHA`, `GUI_TEXT`, `GUI_INVERT`, `GUI_NAUSEA_OVERLAY`, etc.
+- `Minecraft.getInstance().font` (`net.minecraft.client.gui.Font`): `int width(String|FormattedText|FormattedCharSequence)`, public final `int lineHeight`. `Minecraft.player` is `LocalPlayer`; `Minecraft.level` is the client `Level`.
+- **`Options#hudHidden` is GONE in 26.2** — there is no public hide-gui boolean on `Options`/`Minecraft`/`Gui`. The hide-gui flag is now a **parameter** to `Gui.extractRenderState(DeltaTracker, boolean hideGui, boolean ...)`. Code that did `client.options.hudHidden = true` must route through a shared flag + a `Gui.extractRenderState` mixin (flagged for Phase 6f; used by SkinwalkerJumpscare + CutsceneManager).
+- `DeltaTracker`: `float getGameTimeDeltaTicks()`, `getGameTimeDeltaPartialTick(boolean)`, `getRealtimeDeltaTicks()`; constants `DeltaTracker.ZERO`/`ONE`.

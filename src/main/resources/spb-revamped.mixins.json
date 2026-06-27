@@ -49,7 +49,6 @@
     "grass.VertexBufferMixin",
     "grass.WindowMixin",
     "hudandresolution.DontRenderHandMixin",
-    "hudandresolution.InGameHudMixin",
     "hudandresolution.MonitorMixin",
     "hudandresolution.VideoOptionsScreenMixin",
     "lightmap.PoolroomsSkylightColor",
