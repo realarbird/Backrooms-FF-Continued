@@ -450,7 +450,8 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
                 if (currentTransition.teleport().to() == BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL) {
                     currentTransition.teleport().playerComponent().sync();
 
-                    if (this.player.level().getGameRules().get(ModGamerules.STUCK_IN_BACKROOMS)) {
+                    // 26.2: getGameRules() moved off Level onto ServerLevel; this runs server-side.
+                    if (((ServerLevel) this.player.level()).getGameRules().get(ModGamerules.STUCK_IN_BACKROOMS)) {
                         destination = this.player.level().getServer().getLevel(BackroomsLevels.LEVEL0_BACKROOMS_LEVEL.getWorldKey());
                         targetPos = BackroomsLevels.LEVEL0_BACKROOMS_LEVEL.getSpawnPos();
                     }
