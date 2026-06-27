@@ -6,45 +6,49 @@ import com.sp.cca_stuff.SmilerComponent;
 import com.sp.entity.client.model.SmilerModel;
 import com.sp.entity.custom.SmilerEntity;
 import com.sp.init.ModModelLayers;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.client.render.entity.MobEntityRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import org.jetbrains.annotations.Nullable;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.entity.MobRenderer;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 
-public class SmilerRenderer extends MobEntityRenderer<SmilerEntity, SmilerModel<SmilerEntity>> {
-    private static final Identifier defaultTexture = new Identifier(SPBRevamped.MOD_ID, "textures/entity/smiler/smiler.png");
-    private static final Identifier texture1 = new Identifier(SPBRevamped.MOD_ID, "textures/entity/smiler/smiler1.png");
-    private static final Identifier texture2 = new Identifier(SPBRevamped.MOD_ID, "textures/entity/smiler/smiler2.png");
+/**
+ * PORT: delta (1.20.1 -> 26.2). Migrated from the immediate-mode {@code render(...VertexConsumerProvider...)}
+ * model to the deferred render-state pipeline:
+ * <ul>
+ *   <li>Per-entity texture choice moved from {@code getTexture(entity)} into
+ *       {@link #extractRenderState} -> {@link SmilerRenderState#texture}; {@link #getTextureLocation}
+ *       reads it back.</li>
+ *   <li>The billboard "always face the camera" yaw is applied in {@link #submit} (replacing the old
+ *       {@code render} override). The camera position now comes from {@link CameraRenderState#pos}
+ *       instead of {@code MinecraftClient.gameRenderer.getCamera()}.</li>
+ *   <li>The eyes render layer ({@code RenderLayer::getEyes}) is carried on the model (see
+ *       {@code SmilerModel}); the old {@code getRenderLayer} override was a pass-through and is dropped.</li>
+ * </ul>
+ */
+public class SmilerRenderer extends MobRenderer<SmilerEntity, SmilerRenderState, SmilerModel> {
+    private static final Identifier defaultTexture = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/entity/smiler/smiler.png");
+    private static final Identifier texture1 = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/entity/smiler/smiler1.png");
+    private static final Identifier texture2 = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/entity/smiler/smiler2.png");
 
-    public SmilerRenderer(EntityRendererFactory.Context context) {
-        super(context, new SmilerModel<>(context.getPart(ModModelLayers.SMILER)), 0);
+    public SmilerRenderer(EntityRendererProvider.Context context) {
+        super(context, new SmilerModel(context.bakeLayer(ModModelLayers.SMILER)), 0);
     }
 
     @Override
-    public void render(SmilerEntity mobEntity, float f, float g, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i) {
-        Camera camera = MinecraftClient.getInstance().gameRenderer.getCamera();
-
-        matrixStack.translate(0,1,0);
-        float angle = lookAtEntityAroundYAxis(mobEntity.getEyePos(), camera.getPos());
-        matrixStack.multiply(new Quaternionf().rotateXYZ(0, (float) Math.toRadians(angle), 0));
-        matrixStack.translate(0,-1,0);
-
-
-        super.render(mobEntity, f, g, matrixStack, vertexConsumerProvider, i);
+    public SmilerRenderState createRenderState() {
+        return new SmilerRenderState();
     }
 
     @Override
-    public Identifier getTexture(SmilerEntity entity) {
+    public void extractRenderState(SmilerEntity entity, SmilerRenderState state, float partialTick) {
+        super.extractRenderState(entity, state, partialTick);
         SmilerComponent component = InitializeComponents.SMILER.get(entity);
-        return switch (component.getRandomTexture()) {
+        state.texture = switch (component.getRandomTexture()) {
             case 1 -> texture1;
             case 2 -> texture2;
             default -> defaultTexture;
@@ -52,14 +56,27 @@ public class SmilerRenderer extends MobEntityRenderer<SmilerEntity, SmilerModel<
     }
 
     @Override
-    protected @Nullable RenderLayer getRenderLayer(SmilerEntity entity, boolean showBody, boolean translucent, boolean showOutline) {
-        return super.getRenderLayer(entity, showBody, translucent, showOutline);
+    public Identifier getTextureLocation(SmilerRenderState state) {
+        return state.texture;
     }
 
-    public static float lookAtEntityAroundYAxis(Vec3d position1, Vec3d position2) {
-        double d = position2.getX() - position1.getX();
-        double e = position2.getZ() - position1.getZ();
-        float h = -(float)(MathHelper.atan2(e, d) * 180.0F / (float)Math.PI) - 90.0F;
+    @Override
+    public void submit(SmilerRenderState state, PoseStack matrixStack, SubmitNodeCollector collector, CameraRenderState cameraState) {
+        // Billboard the flat smiler face toward the camera around the Y axis.
+        Vec3 entityPos = new Vec3(state.x, state.y + state.eyeHeight, state.z);
+        float angle = lookAtEntityAroundYAxis(entityPos, cameraState.pos);
+
+        matrixStack.translate(0, 1, 0);
+        matrixStack.mulPose(new Quaternionf().rotateXYZ(0, (float) Math.toRadians(angle), 0));
+        matrixStack.translate(0, -1, 0);
+
+        super.submit(state, matrixStack, collector, cameraState);
+    }
+
+    public static float lookAtEntityAroundYAxis(Vec3 position1, Vec3 position2) {
+        double d = position2.x() - position1.x();
+        double e = position2.z() - position1.z();
+        float h = -(float) (Mth.atan2(e, d) * 180.0F / (float) Math.PI) - 90.0F;
 
         return h - 180.0F;
     }

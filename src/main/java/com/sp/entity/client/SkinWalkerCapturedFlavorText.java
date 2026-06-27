@@ -1,14 +1,22 @@
 package com.sp.entity.client;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Player;
 
+/**
+ * PORT: delta (1.20.1 -> 26.2) — pure mojmap rename. {@code MinecraftClient}->{@code Minecraft},
+ * {@code GameOptions}->{@code Options}, {@code PlayerEntity}->{@code Player}, {@code Text}->{@code Component}
+ * ({@code .formatted(...)} -> {@code .withStyle(...)}), {@code Formatting}->{@code ChatFormatting},
+ * {@code player.sendMessage(Text)} -> {@code player.sendSystemMessage(Component)}, the option key fields
+ * ({@code forwardKey}/etc.) -> {@code keyUp}/{@code keyDown}/{@code keyLeft}/{@code keyRight}/{@code keyJump}/
+ * {@code keyShift}, and {@code KeyBinding.isPressed()} -> {@code KeyMapping.isDown()}.
+ */
 public class SkinWalkerCapturedFlavorText {
-    private static final MinecraftClient client = MinecraftClient.getInstance();
-    private static final GameOptions options = client.options;
+    private static final Minecraft client = Minecraft.getInstance();
+    private static final Options options = client.options;
     private static boolean shownMovementText = false;
     public static boolean triedToOpenInventory = false;
     private static boolean shownInventoryText = false;
@@ -21,10 +29,10 @@ public class SkinWalkerCapturedFlavorText {
     private static int tick = 0;
 
 
-    public static void tickFlavorText(PlayerEntity player) {
+    public static void tickFlavorText(Player player) {
         if(isPressingMoveKeys()){
             if(!shownMovementText){
-                player.sendMessage(Text.translatable("skinwalker.flavor-text.move1").append(Text.translatable("skinwalker.flavor-text.move2").formatted(Formatting.RED)));
+                player.sendSystemMessage(Component.translatable("skinwalker.flavor-text.move1").append(Component.translatable("skinwalker.flavor-text.move2").withStyle(ChatFormatting.RED)));
                  shownMovementText = true;
                 textCount++;
             }
@@ -32,7 +40,7 @@ public class SkinWalkerCapturedFlavorText {
 
         if(triedToOpenInventory) {
             if(!shownInventoryText) {
-                player.sendMessage(Text.translatable("skinwalker.flavor-text.inventory").formatted(Formatting.RED));
+                player.sendSystemMessage(Component.translatable("skinwalker.flavor-text.inventory").withStyle(ChatFormatting.RED));
                 shownInventoryText = true;
                 textCount++;
             }
@@ -40,7 +48,7 @@ public class SkinWalkerCapturedFlavorText {
 
         if(triedToLeave) {
             if(!shownTriedToLeaveText) {
-                player.sendMessage(Text.translatable("skinwalker.flavor-text.leave").formatted(Formatting.RED));
+                player.sendSystemMessage(Component.translatable("skinwalker.flavor-text.leave").withStyle(ChatFormatting.RED));
                 shownTriedToLeaveText = true;
                 textCount++;
             }
@@ -48,7 +56,7 @@ public class SkinWalkerCapturedFlavorText {
 
         if(triedToChat) {
             if(!shownTriedToChatText) {
-                player.sendMessage(Text.translatable("skinwalker.flavor-text.chat").formatted(Formatting.RED));
+                player.sendSystemMessage(Component.translatable("skinwalker.flavor-text.chat").withStyle(ChatFormatting.RED));
                 shownTriedToChatText = true;
                 textCount++;
             }
@@ -59,16 +67,16 @@ public class SkinWalkerCapturedFlavorText {
                 tick++;
 
                 if(tick == 100){
-                    player.sendMessage(Text.translatable("skinwalker.flavor-text.taunt1").formatted(Formatting.RED));
+                    player.sendSystemMessage(Component.translatable("skinwalker.flavor-text.taunt1").withStyle(ChatFormatting.RED));
                 }
 
                 if(tick == 135){
-                    player.sendMessage(Text.translatable("skinwalker.flavor-text.taunt2").formatted(Formatting.GOLD));
+                    player.sendSystemMessage(Component.translatable("skinwalker.flavor-text.taunt2").withStyle(ChatFormatting.GOLD));
 
                 }
 
                 if(tick == 300){
-                    player.sendMessage(Text.translatable("skinwalker.flavor-text.taunt3").append(Text.translatable("skinwalker.flavor-text.taunt4")).formatted(Formatting.RED));
+                    player.sendSystemMessage(Component.translatable("skinwalker.flavor-text.taunt3").append(Component.translatable("skinwalker.flavor-text.taunt4")).withStyle(ChatFormatting.RED));
                     shownTextTaunt = true;
                 }
             }
@@ -78,7 +86,7 @@ public class SkinWalkerCapturedFlavorText {
     }
 
     private static boolean isPressingMoveKeys() {
-        return options.forwardKey.isPressed() || options.backKey.isPressed() || options.leftKey.isPressed() || options.rightKey.isPressed() || options.jumpKey.isPressed() || options.sneakKey.isPressed();
+        return options.keyUp.isDown() || options.keyDown.isDown() || options.keyLeft.isDown() || options.keyRight.isDown() || options.keyJump.isDown() || options.keyShift.isDown();
     }
 
 
