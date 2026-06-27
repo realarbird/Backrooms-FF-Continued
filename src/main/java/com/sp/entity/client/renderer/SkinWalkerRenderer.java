@@ -87,8 +87,11 @@ public class SkinWalkerRenderer extends GeoEntityRenderer<SkinWalkerEntity, Skin
         }
     }
 
+    // GeckoLib 5: the no-arg createRenderState() is final; the render-state factory subclasses override
+    // is createRenderState(T entity, Void relatedObject) (GeoRendererInternals). Returning the custom
+    // SkinWalkerRenderState here makes it flow through the deferred pipeline.
     @Override
-    public SkinWalkerRenderState createRenderState() {
+    public SkinWalkerRenderState createRenderState(SkinWalkerEntity entity, Void relatedObject) {
         return new SkinWalkerRenderState();
     }
 
