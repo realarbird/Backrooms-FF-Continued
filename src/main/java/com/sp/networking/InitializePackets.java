@@ -12,16 +12,17 @@ public class InitializePackets {
     // This runs from the common entrypoint (SPBRevamped#onInitialize) so both C2S and S2C
     // payload types exist on the server; the client re-runs onInitialize too.
     public static void registerC2SPackets() {
-        // Register every payload type (C2S on serverboundPlay, S2C on clientboundPlay).
-        PayloadTypeRegistry.playC2S().register(TargetEntitySync.TYPE, TargetEntitySync.CODEC);
-        PayloadTypeRegistry.playC2S().register(SeeActiveSkinwalkerSync.TYPE, SeeActiveSkinwalkerSync.CODEC);
-        PayloadTypeRegistry.playC2S().register(SyncServerComponent.TYPE, SyncServerComponent.CODEC);
+        // Register every payload type. 26.2 fabric-api: serverboundPlay() == C2S, clientboundPlay() == S2C
+        // (the playC2S()/playS2C() names from earlier API revisions were renamed).
+        PayloadTypeRegistry.serverboundPlay().register(TargetEntitySync.TYPE, TargetEntitySync.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(SeeActiveSkinwalkerSync.TYPE, SeeActiveSkinwalkerSync.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(SyncServerComponent.TYPE, SyncServerComponent.CODEC);
 
-        PayloadTypeRegistry.playS2C().register(InvokeScreenShakePacket.TYPE, InvokeScreenShakePacket.CODEC);
-        PayloadTypeRegistry.playS2C().register(InvokeBlackScreenPacket.TYPE, InvokeBlackScreenPacket.CODEC);
-        PayloadTypeRegistry.playS2C().register(ReloadLightsPacket.TYPE, ReloadLightsPacket.CODEC);
-        PayloadTypeRegistry.playS2C().register(SoundPacket.TYPE, SoundPacket.CODEC);
-        PayloadTypeRegistry.playS2C().register(LevelTransitionLightsOut.TYPE, LevelTransitionLightsOut.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(InvokeScreenShakePacket.TYPE, InvokeScreenShakePacket.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(InvokeBlackScreenPacket.TYPE, InvokeBlackScreenPacket.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(ReloadLightsPacket.TYPE, ReloadLightsPacket.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(SoundPacket.TYPE, SoundPacket.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(LevelTransitionLightsOut.TYPE, LevelTransitionLightsOut.CODEC);
 
         // Server-side receivers.
         ServerPlayNetworking.registerGlobalReceiver(TargetEntitySync.TYPE, TargetEntitySync::receive);
