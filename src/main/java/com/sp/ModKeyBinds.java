@@ -1,7 +1,11 @@
 package com.sp;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+// PORT: delta - Yarn used fabric-api's fabric-key-binding-api-v1 (KeyBindingHelper). In 26.2 that
+// module is renamed fabric-key-mapping-api-v1; the helper class is
+// net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper and the register method is
+// registerKeyMapping(KeyMapping) (was registerKeyBinding(KeyBinding)).
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -18,10 +22,10 @@ public class ModKeyBinds {
     public static KeyMapping toggleEvent;
 
     public static void initializeKeyBinds() {
-        toggleFlashlight = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.spb-revamped.toggle_flashlight", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, KEYBINDS_CATEGORY));
+        toggleFlashlight = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.spb-revamped.toggle_flashlight", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, KEYBINDS_CATEGORY));
 
         if (Minecraft.getInstance().getUser().getName().equals("SppacePotato") || Minecraft.getInstance().getUser().getName().equals("HerrChaotic") || FabricLoader.getInstance().isDevelopmentEnvironment()) {
-            toggleEvent = KeyBindingHelper.registerKeyBinding(new KeyMapping("key.spb-revamped.toggle_event", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_SEMICOLON, KEYBINDS_CATEGORY));
+            toggleEvent = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.spb-revamped.toggle_event", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_SEMICOLON, KEYBINDS_CATEGORY));
         }
     }
 }
