@@ -213,7 +213,8 @@ public class Level1MazeGenerator extends MazeGenerator {
             boolean place = true;
             RandomSource random = RandomSource.create();
             BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
-            StructureTemplateManager structureTemplateManager = world.getServer().getStructureTemplateManager();
+            // 26.2: MinecraftServer.getStructureTemplateManager() renamed to getStructureManager().
+            StructureTemplateManager structureTemplateManager = world.getServer().getStructureManager();
             Optional<StructureTemplate> optional;
 
             Identifier roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level1/pillars");
