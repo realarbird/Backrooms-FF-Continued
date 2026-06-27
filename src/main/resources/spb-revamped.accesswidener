@@ -1,4 +1,10 @@
 accessWidener v2 named
+# PORT: Phase 6 mojmap entries (the rest of this file is still Yarn-named; accessWidenerPath stays
+# disabled in build.gradle until the remaining 6f mixin/render targets are converted, otherwise loom
+# remapping fails on the mixed names). These mojmap lines are the converted equivalents of their Yarn
+# counterparts below.
+#   net/minecraft/client/sounds/SoundEngine#instanceBySource  ==  Yarn SoundSystem#sounds (com.sp.util.ExtraUtils)
+accessible field net/minecraft/client/sounds/SoundEngine instanceBySource Lcom/google/common/collect/Multimap;
 accessible method net/minecraft/client/render/GameRenderer getFov (Lnet/minecraft/client/render/Camera;FZ)D
 accessible class net/minecraft/client/render/WorldRenderer$ChunkInfo
 accessible field net/minecraft/client/render/WorldRenderer$ChunkInfo chunk Lnet/minecraft/client/render/chunk/ChunkBuilder$BuiltChunk;
