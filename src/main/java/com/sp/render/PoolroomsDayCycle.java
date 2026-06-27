@@ -1,10 +1,10 @@
 package com.sp.render;
 
 import com.sp.init.BackroomsLevels;
+import com.sp.util.Easings;
 import com.sp.world.levels.custom.PoolroomsBackroomsLevel;
-import foundry.veil.api.client.util.Easings;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.Level;
 import org.joml.Vector3f;
 
 public class PoolroomsDayCycle {
@@ -19,7 +19,7 @@ public class PoolroomsDayCycle {
     static float midnightAngle = 70.0f;
     static float sunriseAngle = 20.0f;
 
-    public static float advanceDayTime(World world) {
+    public static float advanceDayTime(Level world) {
         if(world != null) {
             if (!((BackroomsLevels.getLevel(world).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL)) instanceof PoolroomsBackroomsLevel level)) {
                 return 0;
@@ -35,7 +35,7 @@ public class PoolroomsDayCycle {
                     }
 
                     float timer = (float) (System.currentTimeMillis() - startTime) / 8000;
-                    dayTime = MathHelper.lerp(Easings.Easing.easeInOutQuad.ease(timer), prevDayTime, targetDayTime);
+                    dayTime = Mth.lerp(Easings.Easing.easeInOutQuad.ease(timer), prevDayTime, targetDayTime);
 
                     if (timer >= 1.0) {
                         done = true;
@@ -67,22 +67,22 @@ public class PoolroomsDayCycle {
     public static float getSunAngle() {
 
         if(dayTime <= 0.25) {
-            return MathHelper.lerp((dayTime - 0.0f) / 0.25f, noonAngle, sunSetAngle);
+            return Mth.lerp((dayTime - 0.0f) / 0.25f, noonAngle, sunSetAngle);
         }
         else if(dayTime <= 0.35) {
-            return MathHelper.lerp((dayTime-0.25f) / 0.15f, sunSetAngle, 220.0f);
+            return Mth.lerp((dayTime-0.25f) / 0.15f, sunSetAngle, 220.0f);
         }
         else if(dayTime <= 0.5) {
-            return MathHelper.lerp((dayTime-0.35f) / 0.15f, -40.0f, midnightAngle);
+            return Mth.lerp((dayTime-0.35f) / 0.15f, -40.0f, midnightAngle);
         }
         else if(dayTime <= 0.65) {
-            return MathHelper.lerp((dayTime-0.5f) / 0.15f, midnightAngle, 220.0f);
+            return Mth.lerp((dayTime-0.5f) / 0.15f, midnightAngle, 220.0f);
         }
         else if(dayTime <= 0.75){
-            return MathHelper.lerp((dayTime-0.65f) / 0.1f, -40.0f, sunriseAngle);
+            return Mth.lerp((dayTime-0.65f) / 0.1f, -40.0f, sunriseAngle);
         }
         else if(dayTime <= 1.0){
-            return MathHelper.lerp((dayTime-0.75f) / 0.25f, sunriseAngle, noonAngle);
+            return Mth.lerp((dayTime-0.75f) / 0.25f, sunriseAngle, noonAngle);
         }
 
         return 90.0f;
@@ -117,7 +117,7 @@ public class PoolroomsDayCycle {
         return whiteColor;
     }
 
-    public static float getDayTime(World world){
+    public static float getDayTime(Level world){
         return advanceDayTime(world);
     }
 
