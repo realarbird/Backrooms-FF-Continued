@@ -7,13 +7,6 @@ import com.sp.entity.ik.parts.ik_chains.IKChain;
 import com.sp.entity.ik.parts.sever_limbs.ServerLimb;
 import com.sp.entity.ik.util.MathUtil;
 import com.sp.entity.ik.util.PrAnCommonClass;
-// PORT: phase6 - render-pipeline imports (RenderType/MultiBufferSource/PoseStack) + WalkerLegDebugRenderer deferred
-// import com.sp.entity.ik.components.debug_renderers.WalkerLegDebugRenderer;
-// import com.sp.entity.ik.model.GeckoLib.MowzieGeoBone;
-// import net.minecraft.client.render.RenderLayer;
-// import net.minecraft.client.render.VertexConsumer;
-// import net.minecraft.client.render.VertexConsumerProvider;
-// import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
@@ -181,9 +174,6 @@ public class IKWalkerComponent<C extends IKChain, E extends IKAnimatable<E>> ext
         return super.hasMovedOverLastTick(entity);
     }
 
-    // PORT: phase6 - debug rendering uses the reworked deferred render pipeline + WalkerLegDebugRenderer
-    // @Override
-    // public void renderDebug(MatrixStack poseStack, E animatable, RenderLayer renderType, VertexConsumerProvider bufferSource, VertexConsumer buffer, float partialTick, int packedLight, int packedOverlay) {
-    //     new WalkerLegDebugRenderer<E, C>().renderDebug(this, animatable, poseStack, renderType, bufferSource, buffer, partialTick, packedLight, packedOverlay);
-    // }
+    // PORT: delta - the renderDebug hook (and its WalkerLegDebugRenderer) was DROPPED in Phase 6b; the
+    // Yarn render pipeline was not ported. Dead method + Yarn render imports removed; solver logic intact.
 }

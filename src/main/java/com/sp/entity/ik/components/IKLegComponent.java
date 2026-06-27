@@ -7,12 +7,6 @@ import com.sp.entity.ik.parts.ik_chains.EntityLegWithFoot;
 import com.sp.entity.ik.parts.ik_chains.IKChain;
 import com.sp.entity.ik.parts.sever_limbs.ServerLimb;
 import com.sp.entity.ik.util.PrAnCommonClass;
-// PORT: phase6 - render-pipeline imports (RenderType/MultiBufferSource/PoseStack) + LegDebugRenderer deferred
-// import com.sp.entity.ik.components.debug_renderers.LegDebugRenderer;
-// import net.minecraft.client.render.RenderLayer;
-// import net.minecraft.client.render.VertexConsumer;
-// import net.minecraft.client.render.VertexConsumerProvider;
-// import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ClipContext;
@@ -171,11 +165,8 @@ public class IKLegComponent<C extends IKChain, E extends IKAnimatable<E>> extend
         }
     }
 
-    // PORT: phase6 - debug rendering uses the reworked deferred render pipeline + LegDebugRenderer
-    // @Override
-    // public void renderDebug(MatrixStack poseStack, E animatable, RenderLayer renderType, VertexConsumerProvider bufferSource, VertexConsumer buffer, float partialTick, int packedLight, int packedOverlay) {
-    //     new LegDebugRenderer<E, C>().renderDebug(this, animatable, poseStack, renderType, bufferSource, buffer, partialTick, packedLight, packedOverlay);
-    // }
+    // PORT: delta - the renderDebug hook (and its LegDebugRenderer) was DROPPED in Phase 6b; the Yarn
+    // render pipeline was not ported. Dead method + Yarn render imports removed; IK solver logic intact.
 
     double getMaxLegFormTargetDistance(Entity entity) {
         if (/*this.stillStandCounter >= this.settings.get(0).standStillCounter() && */hasMovedOverLastTick(entity)) {
