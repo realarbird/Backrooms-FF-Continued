@@ -162,7 +162,7 @@ Legend for "Target exists?": ✓ class present in 26.2 / ✗ class gone / ⚠ cl
 
 | File | @Mixin target | Mojmap | Injection | Exists? | Verdict | Subsystem | Note |
 |---|---|---|---|---|---|---|---|
-| PoolroomsSkylightColor | `client.render.LightmapTextureManager` | `client.renderer.LightTexture` | `@Redirect update INVOKE Vector3f.lerp(...) ordinal=0` | ⚠ class moved + method | VEIL/RENDER | render (lightmap) | `LightmapTextureManager`→`LightTexture`; `update` reworked. Poolrooms day-cycle sky tint. Phase 6 (verify `update`/`updateLightTexture`). |
+| PoolroomsSkylightColor | ~~`client.render.LightmapTextureManager`~~ → **`client.renderer.LightmapRenderStateExtractor`** | `client.renderer.LightmapRenderStateExtractor` | ~~`@Redirect update INVOKE Vector3f.lerp ordinal=0`~~ → **`@Inject(method="extract", at=@At("TAIL"))`** | ✅ RETARGETED (Phase 6d) | VEIL/RENDER | render (lightmap) | **Phase 6d DONE & javac-clean.** `LightmapTextureManager`/`LightTexture` DO NOT EXIST in 26.2 — lightmap split into `Lightmap` (GPU) + `LightmapRenderStateExtractor.extract(LightmapRenderState,float)` (color compute) + `state.LightmapRenderState` (data). The old `Vector3f.lerp` anchor is GONE (the new `extract` has zero `lerp` calls; `skyLightColor` comes from `EnvironmentAttributeProbe`/`ARGB.vector3fFromRGB24`). New mixin TAIL-injects `extract` and multiplies `state.skyLightColor` (cast `Vector3f`) by `PoolroomsDayCycle.getLightColor()` for the Poolrooms dimension. // delta: tints the precomputed sky color rather than redirecting a lerp; visual intent preserved. |
 
 ### `lightshadows/` — all Veil deferred-light / shadow renderer
 
