@@ -6,28 +6,40 @@ import com.sp.cca_stuff.PlayerComponent;
 import com.sp.compat.modmenu.ConfigStuff;
 import com.sp.init.BackroomsLevels;
 import com.sp.init.ModSounds;
-import com.sp.mixin.cutscene.PathAccessor;
-import com.sp.networking.InitializePackets;
+import com.sp.render.gui.BackroomsHudOverlay;
 import com.sp.util.MathStuff;
-import foundry.veil.api.client.anim.Frame;
-import foundry.veil.api.client.anim.Keyframe;
-import foundry.veil.api.client.anim.Path;
-import foundry.veil.api.client.util.Easings;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 
 /**
- * Will likely use in a future API if I ever feel like making it
+ * Level 0 fall cutscene (A16 KEEP). Gameplay/timing/black-screen logic preserved; ported Yarn→mojmap.
+ *
+ * <p>PORT: delta (A16) — the Veil camera-path layer ({@code foundry.veil.api.client.anim.Path/Frame/
+ * Keyframe} + the {@code cutscene/PathAccessor} mixin) is DROPPED and replaced by the small in-repo
+ * {@link CameraPath} keyframe container below. The original interpolation was a plain
+ * segmented <i>linear</i> lerp over the keyframe positions/rotations
+ * ({@code MathHelper.lerp(mod(timer*frames, 1), prev, current)}) — the per-keyframe easings and the
+ * Veil tangent vectors were never actually applied — so {@link CameraPath} reproduces exactly that
+ * (no Veil, no {@code Easings} needed for the path itself). Cutscene timing, triggers, sounds, the
+ * fall/BackroomsBySP sequence and packet sync are unchanged.
+ *
+ * <p>PORT: delta — 26.2 removed {@code Options#hudHidden}; HUD suppression now goes through
+ * {@link BackroomsHudOverlay#setHudHidden(boolean)} (the repo's established no-Veil HUD flag, read by
+ * the 6f Gui mixin). {@code refreshPositionAndAngles}→{@code absSnapTo}, {@code cameraEntity}→
+ * {@code setCameraEntity}, {@code PositionedSoundInstance.master}→{@code SimpleSoundInstance.forUI},
+ * {@code pauseAll}/{@code resumeAll}→{@code pauseAllExcept()}/{@code resume()},
+ * {@code getRegistryKey}→{@code dimension}.
+ *
+ * <p>PORT: phase6e-b — {@code SPBRevampedClient.blackScreen/youCantEscape/sendComponentSyncPacket}
+ * are wired in the 6e-b dispatch.
  */
 @SuppressWarnings("DataFlowIssue")
 public class CutsceneManager {
@@ -41,14 +53,14 @@ public class CutsceneManager {
     private final int duration2;
     public BlackScreen blackScreen;
     private Entity camera;
-    private final Path cameraPathPos;
-    private final Path cameraPathRotX;
-    private final Path cameraPathRotY;
-    private final Path cameraPathRotZ;
+    private final CameraPath cameraPathPos;
+    private final CameraPath cameraPathRotX;
+    private final CameraPath cameraPathRotY;
+    private final CameraPath cameraPathRotZ;
     public float cameraRotZ;
-    private final MinecraftClient client;
+    private final Minecraft client;
 
-    public CutsceneManager(){
+    public CutsceneManager() {
         this.started = false;
         this.isPlaying = false;
         this.fall = false;
@@ -57,33 +69,33 @@ public class CutsceneManager {
         this.duration = 7000;
         this.duration2 = 5000;
         this.blackScreen = new BlackScreen();
-        this.client = MinecraftClient.getInstance();
+        this.client = Minecraft.getInstance();
         this.cameraRotZ = 0;
-        this.cameraPathPos = new Path(List.of(
-                new Keyframe(new Vec3d(0.5,220,0.5), Vec3d.ZERO, Vec3d.ZERO, MathStuff.millisecToTick(this.duration), Easings.Easing.easeInSine),
-                new Keyframe(new Vec3d(0.5,27,0.5), Vec3d.ZERO, Vec3d.ZERO,0, Easings.Easing.linear)
-        ), false, false);
-        this.cameraPathRotX = new Path(List.of(
-                new Keyframe(Vec3d.ZERO, new Vec3d(80,0,0), Vec3d.ZERO,MathStuff.millisecToTick(this.duration) / 2, Easings.Easing.easeInOutSine),
-                new Keyframe(Vec3d.ZERO, new Vec3d(60,0,0), Vec3d.ZERO,MathStuff.millisecToTick(this.duration) / 2, Easings.Easing.easeInOutSine),
-                new Keyframe(Vec3d.ZERO, new Vec3d(110,0,0), Vec3d.ZERO,0, Easings.Easing.easeInOutSine)
-        ), false, false);
-        this.cameraPathRotY = new Path(List.of(
-                new Keyframe(Vec3d.ZERO, new Vec3d(0,0,0), Vec3d.ZERO, MathStuff.millisecToTick(this.duration), Easings.Easing.linear),
-                new Keyframe(Vec3d.ZERO, new Vec3d(0,120,0), Vec3d.ZERO,0, Easings.Easing.linear)
-        ), false, false);
-        this.cameraPathRotZ = new Path(List.of(
-                new Keyframe(Vec3d.ZERO, new Vec3d(0,0,20), Vec3d.ZERO, MathStuff.millisecToTick(this.duration) / 2, Easings.Easing.easeInOutSine),
-                new Keyframe(Vec3d.ZERO, new Vec3d(0,0,-20), Vec3d.ZERO,MathStuff.millisecToTick(this.duration) / 2, Easings.Easing.easeInOutSine),
-                new Keyframe(Vec3d.ZERO, new Vec3d(0,0,0), Vec3d.ZERO,0, Easings.Easing.easeInOutSine)
-        ), false, false);
+        this.cameraPathPos = new CameraPath(List.of(
+                new Keyframe(new Vec3(0.5, 220, 0.5), Vec3.ZERO),
+                new Keyframe(new Vec3(0.5, 27, 0.5), Vec3.ZERO)
+        ));
+        this.cameraPathRotX = new CameraPath(List.of(
+                new Keyframe(Vec3.ZERO, new Vec3(80, 0, 0)),
+                new Keyframe(Vec3.ZERO, new Vec3(60, 0, 0)),
+                new Keyframe(Vec3.ZERO, new Vec3(110, 0, 0))
+        ));
+        this.cameraPathRotY = new CameraPath(List.of(
+                new Keyframe(Vec3.ZERO, new Vec3(0, 0, 0)),
+                new Keyframe(Vec3.ZERO, new Vec3(0, 120, 0))
+        ));
+        this.cameraPathRotZ = new CameraPath(List.of(
+                new Keyframe(Vec3.ZERO, new Vec3(0, 0, 20)),
+                new Keyframe(Vec3.ZERO, new Vec3(0, 0, -20)),
+                new Keyframe(Vec3.ZERO, new Vec3(0, 0, 0))
+        ));
     }
 
 
-    public void tick(){
-        if(client.player != null && client.world != null) {
+    public void tick() {
+        if (client.player != null && client.level != null) {
             PlayerComponent playerComponent = InitializeComponents.PLAYER.get(client.player);
-            if(playerComponent.isDoingCutscene() && client.world.getRegistryKey() == BackroomsLevels.LEVEL0_WORLD_KEY){
+            if (playerComponent.isDoingCutscene() && client.level.dimension() == BackroomsLevels.LEVEL0_WORLD_KEY) {
                 this.pause();
                 this.Fall();
                 this.BackroomsBySP();
@@ -94,15 +106,15 @@ public class CutsceneManager {
         }
     }
 
-    private void pause(){
-        if(!this.backroomsBySP && !this.fall) {
+    private void pause() {
+        if (!this.backroomsBySP && !this.fall) {
             if (!this.started) {
                 this.blackScreen.showBlackScreen(60, true, false);
                 this.startTime = System.currentTimeMillis();
                 this.started = true;
             }
             float timer = (float) (System.currentTimeMillis() - this.startTime) / 2900;
-            client.options.hudHidden = true;
+            BackroomsHudOverlay.setHudHidden(true);
             if (timer >= 1.0) {
                 this.fall = true;
             }
@@ -110,14 +122,13 @@ public class CutsceneManager {
     }
 
     private void Fall() {
-        if(!this.backroomsBySP && this.fall) {
+        if (!this.backroomsBySP && this.fall) {
             if (!this.isPlaying) {
                 this.prevLightRenderDistance = ConfigStuff.lightRenderDistance;
                 ConfigStuff.lightRenderDistance = 1000;
                 this.startTime = System.currentTimeMillis();
                 this.isPlaying = true;
-//                SPBRevampedClient.getCameraShake().setCameraShake(MathStuff.millisecToTick(this.duration), 1, Easings.Easing.linear, true);
-                client.getSoundManager().play(PositionedSoundInstance.master(ModSounds.FALLING, 1.0f));
+                client.getSoundManager().play(SimpleSoundInstance.forUI(ModSounds.FALLING, 1.0f));
             }
             float timer = (float) (System.currentTimeMillis() - this.startTime) / this.duration;
             if (this.camera == null) {
@@ -128,105 +139,142 @@ public class CutsceneManager {
                 this.backroomsBySP = true;
                 this.startTime = System.currentTimeMillis() + 2500L;
                 this.fall = false;
-                camera.refreshPositionAndAngles(3, 21, 1.5, 15, (float) 90);
+                camera.absSnapTo(3, 21, 1.5, 15, (float) 90);
                 ConfigStuff.lightRenderDistance = this.prevLightRenderDistance;
             } else {
-                client.options.hudHidden = true;
-                Vec3d newCameraPos = lerpedCameraPos(timer);
-                Vec3d newCameraRot = lerpedCameraRot(timer);
+                BackroomsHudOverlay.setHudHidden(true);
+                Vec3 newCameraPos = lerpedCameraPos(timer);
+                Vec3 newCameraRot = lerpedCameraRot(timer);
 
                 this.cameraRotZ = (float) newCameraRot.z;
-                camera.refreshPositionAndAngles(newCameraPos.x, newCameraPos.y, newCameraPos.z, (float) newCameraRot.y, (float) newCameraRot.x);
-                client.cameraEntity = camera;
+                camera.absSnapTo(newCameraPos.x, newCameraPos.y, newCameraPos.z, (float) newCameraRot.y, (float) newCameraRot.x);
+                client.setCameraEntity(camera);
             }
         }
     }
 
-    private void BackroomsBySP(){
-        if(this.backroomsBySP) {
+    private void BackroomsBySP() {
+        if (this.backroomsBySP) {
             float timer = (float) (System.currentTimeMillis() - this.startTime) / this.duration2;
 
-            if(timer >= 1.0){
+            if (timer >= 1.0) {
                 this.blackScreen.showBlackScreen(40, true, false);
                 this.reset();
             } else {
-                client.options.hudHidden = false;
-                camera.refreshPositionAndAngles(3, 21, 1.5, 5, (float) 83);
+                BackroomsHudOverlay.setHudHidden(false);
+                camera.absSnapTo(3, 21, 1.5, 5, (float) 83);
                 this.cameraRotZ = 100;
-                client.cameraEntity = camera;
+                client.setCameraEntity(camera);
             }
         }
     }
 
-    private Vec3d lerpedCameraRot(float timer){
+    private Vec3 lerpedCameraRot(float timer) {
+        double interpolateX = MathStuff.mod(timer * cameraPathRotX.size(), 1);
+        double currentFrameRotX = cameraPathRotX.frameAtProgress(timer).rotation().x;
+        double prevFrameRotX = cameraPathRotX.previousFrameAtProgress(timer).rotation().x;
 
-        double interpolateX = MathStuff.mod(timer * ((PathAccessor) cameraPathRotX).getFrames().size(), 1);
-        double currentFrameRotX = cameraPathRotX.frameAtProgress(timer).getRotation().x;
-        double prevFrameRotX = previousFrameAtProgress(cameraPathRotX, timer).getRotation().x;
+        double interpolateY = MathStuff.mod(timer * cameraPathRotY.size(), 1);
+        double currentFrameRotY = cameraPathRotY.frameAtProgress(timer).rotation().y;
+        double prevFrameRotY = cameraPathRotY.previousFrameAtProgress(timer).rotation().y;
 
-        double interpolateY = MathStuff.mod(timer * ((PathAccessor) cameraPathRotY).getFrames().size(), 1);
-        double currentFrameRotY = cameraPathRotY.frameAtProgress(timer).getRotation().y;
-        double prevFrameRotY = previousFrameAtProgress(cameraPathRotY, timer).getRotation().y;
+        double interpolateZ = MathStuff.mod(timer * cameraPathRotZ.size(), 1);
+        double currentFrameRotZ = cameraPathRotZ.frameAtProgress(timer).rotation().z;
+        double prevFrameRotZ = cameraPathRotZ.previousFrameAtProgress(timer).rotation().z;
 
-        double interpolateZ = MathStuff.mod(timer * ((PathAccessor) cameraPathRotZ).getFrames().size(), 1);
-        double currentFrameRotZ = cameraPathRotZ.frameAtProgress(timer).getRotation().z;
-        double prevFrameRotZ = previousFrameAtProgress(cameraPathRotZ, timer).getRotation().z;
-
-        return new Vec3d(
-                MathHelper.lerp(interpolateX, prevFrameRotX, currentFrameRotX),
-                MathHelper.lerp(interpolateY, prevFrameRotY, currentFrameRotY),
-                MathHelper.lerp(interpolateZ, prevFrameRotZ, currentFrameRotZ)
+        return new Vec3(
+                Mth.lerp(interpolateX, prevFrameRotX, currentFrameRotX),
+                Mth.lerp(interpolateY, prevFrameRotY, currentFrameRotY),
+                Mth.lerp(interpolateZ, prevFrameRotZ, currentFrameRotZ)
         );
     }
 
-    private Vec3d lerpedCameraPos(float timer){
-        double interpolatePos = MathStuff.mod(timer * ((PathAccessor) cameraPathPos).getFrames().size(), 1);
-        Vec3d currentFramePos = cameraPathPos.frameAtProgress(timer).getPosition();
-        Vec3d prevFramePos = previousFrameAtProgress(cameraPathPos, timer).getPosition();
+    private Vec3 lerpedCameraPos(float timer) {
+        double interpolatePos = MathStuff.mod(timer * cameraPathPos.size(), 1);
+        Vec3 currentFramePos = cameraPathPos.frameAtProgress(timer).position();
+        Vec3 prevFramePos = cameraPathPos.previousFrameAtProgress(timer).position();
 
-        return new Vec3d(
-                MathHelper.lerp(interpolatePos, prevFramePos.x, currentFramePos.x),
-                MathHelper.lerp(interpolatePos, prevFramePos.y, currentFramePos.y),
-                MathHelper.lerp(interpolatePos, prevFramePos.z, currentFramePos.z)
+        return new Vec3(
+                Mth.lerp(interpolatePos, prevFramePos.x, currentFramePos.x),
+                Mth.lerp(interpolatePos, prevFramePos.y, currentFramePos.y),
+                Mth.lerp(interpolatePos, prevFramePos.z, currentFramePos.z)
         );
     }
 
-    public void reset(){
+    public void reset() {
         PlayerComponent playerComponent = InitializeComponents.PLAYER.get(client.player);
         this.isPlaying = false;
         this.started = false;
         this.fall = false;
         this.backroomsBySP = false;
-        if(this.camera != null) {
+        if (this.camera != null) {
             this.camera.remove(Entity.RemovalReason.DISCARDED);
             this.camera = null;
         }
-        client.cameraEntity = client.player;
-        client.options.hudHidden = false;
+        client.setCameraEntity(client.player);
+        BackroomsHudOverlay.setHudHidden(false);
         this.startTime = 0L;
         playerComponent.setDoingCutscene(false);
 
         SPBRevampedClient.sendComponentSyncPacket(playerComponent.isDoingCutscene(), "cutscene");
-
     }
 
-    private void initCamera(){
-        this.camera = new ItemEntity(client.world, 1.5, 300, 1.5, ItemStack.EMPTY);
-        this.camera.refreshPositionAndAngles(1.5, 300, 1.5, 0, 90);
+    private void initCamera() {
+        this.camera = new ItemEntity(client.level, 1.5, 300, 1.5, ItemStack.EMPTY);
+        this.camera.absSnapTo(1.5, 300, 1.5, 0, 90);
     }
 
-    private Frame previousFrameAtProgress(Path path, double progress){
-        List<Frame> frames = ((PathAccessor) path).getFrames();
-        int index = (int) (frames.size() * progress) - 1;
-        if(index < 0){
-            return frames.get(0);
+    /**
+     * A single camera keyframe: a position and a rotation (yaw/pitch/roll packed into a {@link Vec3}).
+     * PORT: replaces Veil {@code anim.Keyframe} — only position + rotation are used by the linear lerp.
+     */
+    public record Keyframe(Vec3 position, Vec3 rotation) {
+    }
+
+    /**
+     * Minimal in-repo replacement for Veil {@code anim.Path} + {@code PathAccessor} (A16).
+     *
+     * <p>Reproduces the original behaviour exactly: progress in {@code [0,1]} is split into
+     * {@code frames.size()} equal segments; {@code frameAtProgress} picks the frame at
+     * {@code floor(progress * size)} (clamped) and {@code previousFrameAtProgress} the one before it.
+     * Callers do the actual linear interpolation between the two frames.
+     */
+    private static final class CameraPath {
+        private final List<Keyframe> frames;
+
+        CameraPath(List<Keyframe> frames) {
+            this.frames = frames;
         }
-        return frames.get(index);
+
+        int size() {
+            return frames.size();
+        }
+
+        Keyframe frameAtProgress(double progress) {
+            int index = (int) (frames.size() * progress);
+            if (index < 0) {
+                return frames.get(0);
+            }
+            if (index >= frames.size()) {
+                return frames.get(frames.size() - 1);
+            }
+            return frames.get(index);
+        }
+
+        Keyframe previousFrameAtProgress(double progress) {
+            int index = (int) (frames.size() * progress) - 1;
+            if (index < 0) {
+                return frames.get(0);
+            }
+            if (index >= frames.size()) {
+                return frames.get(frames.size() - 1);
+            }
+            return frames.get(index);
+        }
     }
 
 
-
-    public class BlackScreen{
+    public class BlackScreen {
         public boolean isBlackScreen;
         public boolean noEscape;
         private long duration;
@@ -234,47 +282,45 @@ public class CutsceneManager {
         private boolean shouldPauseSounds;
 
         //Duration in ticks
-        public BlackScreen(){
+        public BlackScreen() {
             this.startTime = 0L;
             this.isBlackScreen = false;
             this.duration = 0;
         }
 
-        public void showBlackScreen(int time, boolean shouldPauseSounds, boolean noEscape){
+        public void showBlackScreen(int time, boolean shouldPauseSounds, boolean noEscape) {
             this.duration = time * 50L;
             this.isBlackScreen = true;
             this.noEscape = noEscape;
             this.startTime = System.currentTimeMillis();
             this.shouldPauseSounds = shouldPauseSounds;
-            client.options.hudHidden = true;
+            BackroomsHudOverlay.setHudHidden(true);
         }
 
         //Tick
-        public void tick(){
-            if(isBlackScreen){
-                MinecraftClient client = MinecraftClient.getInstance();
+        public void tick() {
+            if (isBlackScreen) {
+                Minecraft client = Minecraft.getInstance();
                 float timer = (float) (System.currentTimeMillis() - this.startTime) / this.duration;
 
                 if (timer >= 1.0) {
                     SPBRevampedClient.blackScreen = false;
                     SPBRevampedClient.youCantEscape = false;
                     this.isBlackScreen = false;
-                    client.options.hudHidden = false;
+                    BackroomsHudOverlay.setHudHidden(false);
                     this.startTime = 0;
-                    client.getSoundManager().resumeAll();
+                    client.getSoundManager().resume();
                 } else {
-                    if(shouldPauseSounds) {
-                        client.getSoundManager().pauseAll();
+                    if (shouldPauseSounds) {
+                        client.getSoundManager().pauseAllExcept();
                     }
-                    if(noEscape){
+                    if (noEscape) {
                         SPBRevampedClient.youCantEscape = true;
                     }
-                    client.options.hudHidden = true;
+                    BackroomsHudOverlay.setHudHidden(true);
                     SPBRevampedClient.blackScreen = true;
                 }
             }
         }
-
     }
-
 }
