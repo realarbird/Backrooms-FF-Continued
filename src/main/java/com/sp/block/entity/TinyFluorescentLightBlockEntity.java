@@ -3,9 +3,6 @@ package com.sp.block.entity;
 import com.sp.block.custom.FluorescentLightBlock;
 import com.sp.init.ModBlockEntities;
 import com.sp.init.ModBlocks;
-// PORT: phase6 - Veil deferred rendering removed/reworked
-//import foundry.veil.api.client.render.VeilRenderSystem;
-//import foundry.veil.api.client.render.deferred.light.PointLight;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
@@ -19,7 +16,6 @@ import static com.sp.clientWrapper.ClientWrapper.doClientSideTinyFluorescentsTic
 public class TinyFluorescentLightBlockEntity extends BlockEntity {
     BlockState currentState;
     public boolean playingSound;
-    public Object pointLight; // PORT: phase6 - was foundry.veil.api.client.render.deferred.light.PointLight
     public boolean prevOn;
     public final int randInt;
     public int ticks = 0;
@@ -36,13 +32,7 @@ public class TinyFluorescentLightBlockEntity extends BlockEntity {
 
     @Override
     public void setRemoved() {
-        if (this.getLevel() != null && this.getLevel().isClientSide()){
-            if(pointLight != null) {
-                // PORT: phase6 - VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().removeLight(pointLight);
-                pointLight = null;
-            }
-        }
-
+        // PORT: phase6 (A4) — Veil point light removed; illumination is now the block's vanilla light level.
         super.setRemoved();
     }
 

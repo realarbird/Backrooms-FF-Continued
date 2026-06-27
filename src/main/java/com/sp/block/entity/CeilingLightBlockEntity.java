@@ -1,21 +1,17 @@
 package com.sp.block.entity;
 
 import com.sp.init.ModBlockEntities;
-// PORT: phase6 - Veil deferred rendering removed/reworked
-//import foundry.veil.api.client.render.VeilRenderSystem;
-//import foundry.veil.api.client.render.deferred.light.AreaLight;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
-//import org.joml.Quaternionf;
-//import org.joml.Vector3d;
 
+// PORT: phase6 (A4) — Veil deferred AreaLight removed. The ceiling fixture now illuminates via the
+// block's own vanilla light level (see ModBlocks.CEILINGLIGHT lightLevel), so this BE no longer manages
+// any per-tick light source. The kept fields (random/ticks/on) are retained for the (already-disabled)
+// flicker behavior reference; the tick body is now a no-op for lighting. // PORT: delta — no flicker.
 public class CeilingLightBlockEntity extends BlockEntity {
-    // PORT: phase6 - AreaLight light;
-    Object light; // PORT: phase6 - was foundry.veil.api.client.render.deferred.light.AreaLight
     float brightness;
     float angle;
     int ticks;
@@ -29,76 +25,7 @@ public class CeilingLightBlockEntity extends BlockEntity {
         this.on = true;
     }
 
-    @Override
-    public void setRemoved() {
-        if (this.light != null && level.isClientSide()) {
-            // PORT: phase6 - VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().removeLight(this.light);
-            this.light = null;
-        }
-        super.setRemoved();
-    }
-
     public void tick(Level world, BlockPos pos, BlockState state) {
-        if (!world.isClientSide()) {
-            return;
-        }
-
-        if (this.light != null) {
-            return;
-        }
-
-        Vec3 position = Vec3.atCenterOf(pos).add(-0.5, -0.06, 0);
-        this.brightness = 2.58f;
-        this.angle = 60.4f;
-        // PORT: phase6 - this.light = new AreaLight();
-        //
-        // VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().addLight(this.light
-        //         .setBrightness(this.brightness)
-        //         .setSize(0.9, 0.0)
-        //         .setAngle((float) Math.toRadians(this.angle))
-        //         .setOrientation(new Quaternionf().rotateXYZ((float) Math.toRadians(-90d), 0, 0))
-        //         .setPosition(new Vector3d(position.x, position.y, position.z))
-        //         .setDistance(15)
-        // );
-
-//            if(!state.get(CeilingLight.STOPPED)) {
-//                ticks++;
-//
-//                if (this.light == null && this.on) {
-//                    Vec3d position = pos.toCenterPos().add(-0.5, -0.06, 0);
-//                    this.brightness = 2.58f;
-//                    this.angle = 60.4f;
-//                    this.light = new AreaLight();
-//                    VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().addLight(this.light
-//                            .setBrightness(this.brightness)
-//                            .setSize(0.9, 0.0)
-//                            .setAngle((float) Math.toRadians(this.angle))
-//                            .setOrientation(new Quaternionf().rotateXYZ((float) Math.toRadians(-90d), 0, 0))
-//                            .setPosition(new Vector3d(position.x, position.y, position.z))
-//                            .setDistance(15)
-//                    );
-//                } else if (this.light != null) {
-//                    if (ticks % this.randomInt == 0) {
-//                        if (random.nextBoolean()) {
-//                            this.on = false;
-//                        } else {
-//                            this.on = true;
-//                        }
-//                    }
-//                }
-//
-//                if (this.light != null) {
-//                    if (!this.on) {
-//                        this.brightness = Math.max(this.brightness - 0.5f, 0.0f);
-//                        this.angle = Math.max(this.angle - 4.0f, 0.0f);
-//                    } else {
-//                        this.brightness = 2.58f;
-//                        this.angle = 60.4f;
-//                    }
-//
-//                    this.light.setBrightness(this.brightness).setAngle((float) Math.toRadians(this.angle));
-//                }
-//            } else
-
+        // Lighting is handled by the block's vanilla light level; nothing to do per-tick.
     }
 }

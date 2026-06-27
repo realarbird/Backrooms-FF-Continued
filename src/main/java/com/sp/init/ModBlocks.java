@@ -36,7 +36,10 @@ public class ModBlocks {
     public static final Block GHOST_CEILING_TILE = registerBlock("ghost_ceiling_tile", Block::new, BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_PLANKS).destroyTime(-1f).forceSolidOn().noTerrainParticles().noCollision());
 
 
-    public static final Block FLUORESCENT_LIGHT = registerBlock("fluorescent_light", FluorescentLightBlock::new, BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).destroyTime(-1f).noTerrainParticles());
+    // PORT: phase6 (A4) — Veil deferred fixture lights replaced by vanilla state-aware light emission.
+    // Emits full light when ON and not in BLACKOUT; the block-entity tick toggles ON/BLACKOUT (incl. flicker).
+    public static final Block FLUORESCENT_LIGHT = registerBlock("fluorescent_light", FluorescentLightBlock::new, BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).destroyTime(-1f).noTerrainParticles()
+            .lightLevel(state -> (state.getValue(FluorescentLightBlock.ON) && !state.getValue(FluorescentLightBlock.BLACKOUT)) ? 15 : 0));
 
 
     public static final Block WALL_ARROW_1 = registerBlock("arrow1", WallText::new, BlockBehaviour.Properties.ofFullCopy(Blocks.STONE).destroyTime(-1f).noTerrainParticles().noOcclusion().noCollision().sound(SprintBlockSoundGroup.SILENT));
@@ -72,9 +75,14 @@ public class ModBlocks {
 
 
     //////Level 2 and 3 Stuff//////
-    public static final Block THIN_FLUORESCENT_LIGHT = registerBlock("thin_fluorescent_light", ThinFluorescentLightBlock::new, BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).destroyTime(-1f).noTerrainParticles());
+    // PORT: phase6 (A4) — state-aware vanilla light emission (was Veil deferred point light).
+    public static final Block THIN_FLUORESCENT_LIGHT = registerBlock("thin_fluorescent_light", ThinFluorescentLightBlock::new, BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).destroyTime(-1f).noTerrainParticles()
+            .lightLevel(state -> (state.getValue(ThinFluorescentLightBlock.ON) && !state.getValue(ThinFluorescentLightBlock.BLACKOUT)) ? 15 : 0));
 
-    public static final Block EMERGENCY_LIGHT = registerBlock("emergency_light", EmergencyLightBlock::new, BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).destroyTime(-1f).noTerrainParticles());
+    // PORT: phase6 (A4) — the emergency fixture has no on/off block-state (the Veil version swept rotating
+    // area+point lights). Approximated as a steady fixture glow. // PORT: delta — no rotating sweep.
+    public static final Block EMERGENCY_LIGHT = registerBlock("emergency_light", EmergencyLightBlock::new, BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).destroyTime(-1f).noTerrainParticles()
+            .lightLevel(state -> 12));
 
     public static final Block BOTTOM_TRIM = registerBlock("bottom_trim", BottomTrim::new, BlockBehaviour.Properties.ofFullCopy(Blocks.STONE).destroyTime(-1f).noCollision().noOcclusion().noTerrainParticles().sound(SprintBlockSoundGroup.SILENT));
 
@@ -148,7 +156,10 @@ public class ModBlocks {
 
     public static final Block POOL_TILE_SLOPE = registerBlock("slope", PoolTileSlopeBlock::new, BlockBehaviour.Properties.ofFullCopy(Blocks.STONE).destroyTime(-1f).noTerrainParticles().noOcclusion().sound(SprintBlockSoundGroup.CONCRETE));
 
-    public static final Block CEILINGLIGHT = registerBlock("ceiling_light", CeilingLight::new, BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).destroyTime(-1f).noTerrainParticles());
+    // PORT: phase6 (A4) — Veil area light replaced by a steady vanilla fixture glow (the Veil flicker
+    // path was already commented out in the block-entity). // PORT: delta — no per-tick flicker.
+    public static final Block CEILINGLIGHT = registerBlock("ceiling_light", CeilingLight::new, BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).destroyTime(-1f).noTerrainParticles()
+            .lightLevel(state -> 15));
 
 
     ///////Infinite Fields Stuff//////
@@ -178,7 +189,9 @@ public class ModBlocks {
 
     public static final Block WINDOW = registerBlock("window", WindowBlock::new, BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).destroyTime(-1f).noTerrainParticles().sound(SprintBlockSoundGroup.GLASS));
 
-    public static final Block TINY_FLUORESCENT_LIGHT = registerBlock("tiny_fluorescent_light", TinyFluorescentLightBlock::new, BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).destroyTime(-1f).noTerrainParticles());
+    // PORT: phase6 (A4) — state-aware vanilla light emission (was Veil deferred point light).
+    public static final Block TINY_FLUORESCENT_LIGHT = registerBlock("tiny_fluorescent_light", TinyFluorescentLightBlock::new, BlockBehaviour.Properties.ofFullCopy(Blocks.GLASS).destroyTime(-1f).noTerrainParticles()
+            .lightLevel(state -> (state.getValue(TinyFluorescentLightBlock.ON) && !state.getValue(TinyFluorescentLightBlock.BLACKOUT)) ? 15 : 0));
 
     public static final Block FLOOR_TILING = registerBlock("floor_tiling", Block::new, BlockBehaviour.Properties.ofFullCopy(ModBlocks.CONCRETE_BLOCK_11).destroyTime(-1f).noTerrainParticles().sound(SprintBlockSoundGroup.CONCRETE));
 

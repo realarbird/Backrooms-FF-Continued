@@ -5,9 +5,6 @@ import com.sp.init.BackroomsLevels;
 import com.sp.init.ModBlockEntities;
 import com.sp.init.ModBlocks;
 import com.sp.world.levels.BackroomsLevelWithLights;
-// PORT: phase6 - Veil deferred rendering removed/reworked
-//import foundry.veil.api.client.render.VeilRenderSystem;
-//import foundry.veil.api.client.render.deferred.light.PointLight;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
@@ -22,7 +19,6 @@ public class FluorescentLightBlockEntity extends BlockEntity {
     public RandomSource random = RandomSource.create();
     public java.util.Random random1 = new java.util.Random();
     public boolean playingSound;
-    public Object pointLight; // PORT: phase6 - was foundry.veil.api.client.render.deferred.light.PointLight
     public boolean prevOn;
     public final int randInt;
     public int ticks = 0;
@@ -39,22 +35,10 @@ public class FluorescentLightBlockEntity extends BlockEntity {
     public void setRemoved() {
         super.setRemoved();
 
-        if (level == null) {
-            return;
+        // PORT: phase6 (A4) — Veil point light removed; illumination is now the block's vanilla light level.
+        if (level != null && level.isClientSide()) {
+            this.setPlayingSound(false);
         }
-
-        if (!level.isClientSide()) {
-            return;
-        }
-
-        this.setPlayingSound(false);
-
-        if (this.pointLight == null) {
-            return;
-        }
-
-        // PORT: phase6 - VeilRenderSystem.renderer().getDeferredRenderer().getLightRenderer().removeLight(this.pointLight);
-        this.pointLight = null;
     }
 
     public void tick(Level world, BlockPos pos, BlockState state) {
