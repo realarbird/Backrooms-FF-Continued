@@ -1,74 +1,31 @@
 package com.sp.entity.ik.model.GeckoLib;
 
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import net.minecraft.util.math.Vec3d;
-import org.jetbrains.annotations.Nullable;
-import software.bernie.geckolib.cache.object.BakedGeoModel;
-import software.bernie.geckolib.cache.object.GeoBone;
-import software.bernie.geckolib.cache.object.GeoCube;
-import software.bernie.geckolib.cache.object.GeoQuad;
-import software.bernie.geckolib.loading.json.raw.Bone;
-import software.bernie.geckolib.loading.json.raw.Cube;
-import software.bernie.geckolib.loading.json.raw.ModelProperties;
-import software.bernie.geckolib.loading.object.BakedModelFactory;
-import software.bernie.geckolib.loading.object.BoneStructure;
-import software.bernie.geckolib.loading.object.GeometryTree;
-import software.bernie.geckolib.util.RenderUtils;
-
-import java.util.List;
-
 /**
  * Provided by Bob Mowzie from <a href="https://www.curseforge.com/minecraft/mc-mods/mowzies-mobs">Mowzie's Mobs</a>
+ * <p>
+ * PORT: delta (GeckoLib 4 -> 5) — DEFUNCT. In GeckoLib 4 this implemented
+ * {@code software.bernie.geckolib.loading.object.BakedModelFactory} and was registered via
+ * {@code GeckoLibUtil.addCustomBakedModelFactory(MOD_ID, new MowzieModelFactory())} so that the
+ * model-bake step would produce {@link MowzieGeoBone} instances (a mutable {@code GeoBone} subclass)
+ * instead of vanilla bones, giving the IK system bones it could write transforms onto.
+ * <p>
+ * GeckoLib 5 removed this customization point entirely:
+ * <ul>
+ *   <li>{@code BakedModelFactory}, {@code loading.object.{GeometryTree,BoneStructure}},
+ *       {@code loading.json.raw.{Bone,Cube,ModelProperties}} and {@code util.RenderUtils.arrayToVec}
+ *       no longer exist — the model loader was rewritten ({@code com.geckolib.loading.definition.*}).</li>
+ *   <li>{@code GeckoLibUtil.addCustomBakedModelFactory(...)} is gone — there is no hook to swap in a
+ *       custom {@code GeoBone} type at bake time.</li>
+ *   <li>{@code GeoBone}/{@code CuboidGeoBone} are now immutable/final and cannot be subclassed.</li>
+ * </ul>
+ * Consequently there is no per-bone factory to rebuild. The IK bridge instead wraps the baked,
+ * immutable bones at access time ({@link GeoModelAccessor} -> {@link MowzieGeoBone}); see those classes.
+ * <p>
+ * This class is retained only as a defunct placeholder so the now-removed registration call in
+ * {@code SPBRevamped} resolves until that entrypoint is rewired (sub-phase 6e), at which point the
+ * registration line and this class should be deleted. It performs no work.
  */
-public class MowzieModelFactory implements BakedModelFactory {
-
-    @Override
-    public BakedGeoModel constructGeoModel(GeometryTree geometryTree) {
-        List<GeoBone> bones = new ObjectArrayList<>();
-
-        for (BoneStructure boneStructure : geometryTree.topLevelBones().values()) {
-            bones.add(constructBone(boneStructure, geometryTree.properties(), null));
-        }
-
-        return new BakedGeoModel(bones, geometryTree.properties());
-    }
-
-    @Override
-    public GeoBone constructBone(BoneStructure boneStructure, ModelProperties properties, @Nullable GeoBone parent) {
-        Bone bone = boneStructure.self();
-        MowzieGeoBone newBone = new MowzieGeoBone(parent, bone.name(), bone.mirror(), bone.inflate(), bone.neverRender(), bone.reset());
-        Vec3d rotation = RenderUtils.arrayToVec(bone.rotation());
-        Vec3d pivot = RenderUtils.arrayToVec(bone.pivot());
-
-        newBone.updateRotation((float) Math.toRadians(-rotation.x), (float) Math.toRadians(-rotation.y), (float) Math.toRadians(rotation.z));
-        newBone.updatePivot((float) -pivot.x, (float) pivot.y, (float) pivot.z);
-
-        for (Cube cube : bone.cubes()) {
-            newBone.getCubes().add(constructCube(cube, properties, newBone));
-        }
-
-        for (BoneStructure child : boneStructure.children().values()) {
-            newBone.getChildBones().add(constructBone(child, properties, newBone));
-        }
-
-        return newBone;
-    }
-
-    @Override
-    public GeoCube constructCube(Cube cube, ModelProperties properties, GeoBone bone) {
-        boolean mirror = cube.mirror() == Boolean.TRUE;
-        double inflate = cube.inflate() != null ? cube.inflate() / 16f : (bone.getInflate() == null ? 0 : bone.getInflate() / 16f);
-        Vec3d size = RenderUtils.arrayToVec(cube.size());
-        Vec3d origin = RenderUtils.arrayToVec(cube.origin());
-        Vec3d rotation = RenderUtils.arrayToVec(cube.rotation());
-        Vec3d pivot = RenderUtils.arrayToVec(cube.pivot());
-        origin = new Vec3d(-(origin.x + size.x) / 16d, origin.y / 16d, origin.z / 16d);
-        Vec3d vertexSize = size.multiply(1 / 16d, 1 / 16d, 1 / 16d);
-
-        pivot = pivot.multiply(-1, 1, 1);
-        rotation = new Vec3d(Math.toRadians(-rotation.x), Math.toRadians(-rotation.y), Math.toRadians(rotation.z));
-        GeoQuad[] quads = buildQuads(cube.uv(), new VertexSet(origin, vertexSize, inflate), cube, (float) properties.textureWidth(), (float) properties.textureHeight(), mirror);
-
-        return new GeoCube(quads, pivot, rotation, size, inflate, mirror);
+public final class MowzieModelFactory {
+    public MowzieModelFactory() {
     }
 }
