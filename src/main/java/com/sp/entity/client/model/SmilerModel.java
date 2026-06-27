@@ -1,42 +1,41 @@
 package com.sp.entity.client.model;
 
-import com.sp.entity.custom.SmilerEntity;
-import net.minecraft.client.model.*;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumer;
-import net.minecraft.client.render.entity.model.SinglePartEntityModel;
-import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.model.EntityModel;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 
-public class SmilerModel<T extends SmilerEntity> extends SinglePartEntityModel<T> {
-	private final ModelPart bone;
-
-
+/**
+ * PORT: delta (1.20.1 -> 26.2). This is a vanilla model (not GeckoLib). 26.2 removed
+ * {@code SinglePartEntityModel}; models now extend {@code EntityModel<S extends EntityRenderState>} and
+ * pose against a render-state ({@code setupAnim(S)}) instead of {@code setAngles(entity, ...)}. The
+ * single billboard "bone" part and its eyes render layer ({@code RenderLayer::getEyes} ->
+ * {@code RenderTypes::eyes}) are preserved; rendering goes through the inherited
+ * {@code Model.renderToBuffer(...)} (the explicit {@code render(...)} override is no longer needed).
+ * The mesh build moved from {@code ModelData}/{@code ModelPartBuilder}/{@code Dilation} to
+ * {@code MeshDefinition}/{@code CubeListBuilder}/{@code CubeDeformation}.
+ */
+public class SmilerModel extends EntityModel<LivingEntityRenderState> {
 	public SmilerModel(ModelPart root) {
-		super(RenderLayer::getEyes);
-		this.bone = root.getChild("bone");
+		super(root.getChild("bone"), RenderTypes::eyes);
 	}
 
-	public static TexturedModelData getTexturedModelData() {
-		ModelData modelData = new ModelData();
-		ModelPartData modelPartData = modelData.getRoot();
-		ModelPartData bone = modelPartData.addChild("bone", ModelPartBuilder.create().uv(1, 0).cuboid(-22.0F, -22.0F, 0.0F, 44.0F, 44.0F, 0.0F, new Dilation(0.0F)), ModelTransform.pivot(0.0F, 2.0F, 0.0F));
-		return TexturedModelData.of(modelData, 96, 96);
-	}
-
-	@Override
-	public void setAngles(T entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
-	}
-
-
-	@Override
-	public void render(MatrixStack matrices, VertexConsumer vertexConsumer, int light, int overlay, float red, float green, float blue, float alpha) {
-		bone.render(matrices, vertexConsumer, light, overlay, red, green, blue, alpha);
+	public static LayerDefinition getTexturedModelData() {
+		MeshDefinition meshDefinition = new MeshDefinition();
+		PartDefinition root = meshDefinition.getRoot();
+		root.addOrReplaceChild("bone",
+				CubeListBuilder.create().texOffs(1, 0).addBox(-22.0F, -22.0F, 0.0F, 44.0F, 44.0F, 0.0F, new CubeDeformation(0.0F)),
+				PartPose.offset(0.0F, 2.0F, 0.0F));
+		return LayerDefinition.create(meshDefinition, 96, 96);
 	}
 
 	@Override
-	public ModelPart getPart() {
-		return bone;
+	public void setupAnim(LivingEntityRenderState state) {
 	}
-
-
 }

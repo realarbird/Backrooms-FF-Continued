@@ -1,74 +1,38 @@
 package com.sp.entity.client.model;
 
 import com.sp.SPBRevamped;
-import com.sp.cca_stuff.InitializeComponents;
-import com.sp.cca_stuff.SkinWalkerComponent;
 import com.sp.entity.custom.SkinWalkerEntity;
-import com.sp.entity.ik.model.GeckoLib.GeoModelAccessor;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.util.Identifier;
-import software.bernie.geckolib.core.animation.AnimationState;
-import software.bernie.geckolib.model.GeoModel;
+import net.minecraft.resources.Identifier;
 
+import com.geckolib.model.GeoModel;
+import com.geckolib.renderer.base.GeoRenderState;
+
+/**
+ * PORT: delta (GeckoLib 4 -> 5). {@code getModelResource}/{@code getTextureResource} now receive a
+ * {@link GeoRenderState} rather than the live entity, so the slim/default/final-form model choice and
+ * the captured-player-skin texture choice (which need component + client-world state) are computed in
+ * {@code SkinWalkerRenderer.extractRenderState(...)} and stashed on the render-state via
+ * {@link SkinWalkerRenderData}. This model just reads them back. The animation resource is still keyed
+ * on the animatable. The former {@code setCustomAnimations(...)} IK tick now runs from the renderer.
+ */
 public class SkinWalkerModel extends GeoModel<SkinWalkerEntity> {
-	private final Identifier SLIM_MODEL = new Identifier(SPBRevamped.MOD_ID, "geo/entity/skin_walker_slim.geo.json");
-	private final Identifier DEFAULT_MODEL = new Identifier(SPBRevamped.MOD_ID, "geo/entity/skin_walker_default.geo.json");
-	private final Identifier FINAL_MODEL = new Identifier(SPBRevamped.MOD_ID, "geo/entity/skin_walker_final_default.geo.json");
+	private final Identifier PLACEHOLDER_TEXTURE = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/entity/skinwalker/placeholder.png");
+	private final Identifier DEFAULT_MODEL = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "geo/entity/skin_walker_default.geo.json");
 
-	private final Identifier PLACEHOLDER_TEXTURE = new Identifier(SPBRevamped.MOD_ID, "textures/entity/skinwalker/placeholder.png");
-	private final Identifier STEVE_TEXTURE = new Identifier("textures/entity/player/wide/steve.png");
-
-	private final Identifier ANIMATION = new Identifier(SPBRevamped.MOD_ID, "animations/entity/skinwalker.animation.json");
+	private final Identifier ANIMATION = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "animations/entity/skinwalker.animation.json");
 
 	@Override
-	public void setCustomAnimations(SkinWalkerEntity animatable, long instanceId, AnimationState<SkinWalkerEntity> animationState) {
-		super.setCustomAnimations(animatable, instanceId, animationState);
-		SkinWalkerComponent component = InitializeComponents.SKIN_WALKER.get(animatable);
-
-		if(component.isInTrueForm()) {
-			animatable.tickComponentsClient(animatable, new GeoModelAccessor(this));
-		}
+	public Identifier getModelResource(GeoRenderState renderState) {
+		return renderState.getOrDefaultGeckolibData(SkinWalkerRenderData.MODEL, DEFAULT_MODEL);
 	}
 
 	@Override
-	public Identifier getModelResource(SkinWalkerEntity animatable) {
-		SkinWalkerComponent component = InitializeComponents.SKIN_WALKER.get(animatable);
-
-		if(!component.isInTrueForm()) {
-			MinecraftClient client = MinecraftClient.getInstance();
-			if (client.world != null) {
-				AbstractClientPlayerEntity player = (AbstractClientPlayerEntity) client.world.getPlayerByUuid(component.getTargetPlayerUUID());
-				if (player != null) {
-					if (player.getModel().equals("slim")) {
-						return SLIM_MODEL;
-					}
-				}
-			}
-
-			return DEFAULT_MODEL;
-		}
-
-		return FINAL_MODEL;
-	}
-
-	@Override
-	public Identifier getTextureResource(SkinWalkerEntity animatable) {
-		MinecraftClient client = MinecraftClient.getInstance();
-		SkinWalkerComponent component = InitializeComponents.SKIN_WALKER.get(animatable);
-		if(client.world != null){
-			AbstractClientPlayerEntity player = (AbstractClientPlayerEntity) client.world.getPlayerByUuid(component.getTargetPlayerUUID());
-			if(player != null) {
-				return player.getSkinTexture();
-			}
-		}
-
-		return PLACEHOLDER_TEXTURE;
+	public Identifier getTextureResource(GeoRenderState renderState) {
+		return renderState.getOrDefaultGeckolibData(SkinWalkerRenderData.TEXTURE, PLACEHOLDER_TEXTURE);
 	}
 
 	@Override
 	public Identifier getAnimationResource(SkinWalkerEntity animatable) {
 		return ANIMATION;
 	}
-
 }
