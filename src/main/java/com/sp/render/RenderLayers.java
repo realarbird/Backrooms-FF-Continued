@@ -1,109 +1,77 @@
 package com.sp.render;
 
 import com.sp.SPBRevamped;
-import foundry.veil.api.client.render.VeilRenderBridge;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderPhase;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.texture.SpriteAtlasTexture;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Util;
+import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.resources.Identifier;
 
-import java.util.function.Function;
+import java.util.HashMap;
+import java.util.Map;
 
-public class RenderLayers extends RenderLayer {
+/**
+ * Block / entity render-layer mapping (A6 / B6 / B7 — Mac-safe rebuild).
+ *
+ * <p>PORT: phase6 delta — the 1.20.1 version built custom Veil GLSL render layers via
+ * {@code VeilRenderBridge.shaderState(...)} + {@code RenderLayer.of(...)}:
+ * a PBR chunk layer ({@code pbr/pbr}, B6 DROP), a poolrooms-sky layer ({@code sky}, B7 DROP),
+ * a fluorescent-light layer ({@code light/fluorescent_light}, A4 → emissive texture / vanilla
+ * light level), and a distorted-entity layer ({@code distorted_entity}, B7 DROP).
+ *
+ * <p>26.2 removed both the custom-GLSL path (no {@code ShaderProgram}/Veil) AND the public
+ * block-layer {@code RenderType} factories — terrain layers are now the {@code ChunkSectionLayer}
+ * enum (SOLID/CUTOUT/TRANSLUCENT) driven by each block model's {@code "render_type"} JSON field,
+ * and Fabric 26.2 dropped {@code BlockRenderLayerMap}. There is therefore no Mac-safe way to
+ * register a <i>custom</i> chunk render layer from Java. The surviving accessors below map to the
+ * nearest vanilla {@link RenderType} so callers still resolve; blocks render with vanilla
+ * cutout/translucent layers (set in their model JSON), with no PBR normal/specular and no animated
+ * sky/distortion shader.
+ *
+ * <p>The two atlas {@link Identifier} constants are retained: the custom-atlas mixin
+ * ({@code mixin/customatlas/BakedModelManagerMixin}, rebuilt in phase 6f) still references them to
+ * register the normal/height sprite atlases used for sprite packing.
+ */
+public final class RenderLayers {
 
-    public static final Identifier NORMAL_ATLAS_TEXTURE = new Identifier(SPBRevamped.MOD_ID, "textures/atlas/normal.png");
-    public static final Identifier HEIGHT_ATLAS_TEXTURE = new Identifier(SPBRevamped.MOD_ID, "textures/atlas/height.png");
+    public static final Identifier NORMAL_ATLAS_TEXTURE =
+            Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/atlas/normal.png");
+    public static final Identifier HEIGHT_ATLAS_TEXTURE =
+            Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/atlas/height.png");
 
-    private static final RenderPhase.ShaderProgram LIGHT_SHADER = VeilRenderBridge.shaderState(new Identifier(SPBRevamped.MOD_ID, "light/fluorescent_light"));
-    private static final RenderPhase.ShaderProgram DISTORTED_ENTITY_SHADER = VeilRenderBridge.shaderState(new Identifier(SPBRevamped.MOD_ID, "distorted_entity"));
-    private static final RenderPhase.ShaderProgram POOLROOMS_SKY_SHADER = VeilRenderBridge.shaderState(new Identifier(SPBRevamped.MOD_ID, "sky"));
-    private static final RenderPhase.ShaderProgram PBR_SHADER = VeilRenderBridge.shaderState(new Identifier(SPBRevamped.MOD_ID, "pbr/pbr"));
+    // PORT: phase6 delta (B6) — the custom PBR chunk layer is dropped. Blocks that were tagged PBR now
+    // use vanilla cutout/translucent terrain layers (their model JSON "render_type"). We expose a
+    // vanilla translucent entity layer keyed on the block atlas so the (phase-6f) renderlayer mixins
+    // that still call getPbrLayer() resolve to a real RenderType.
+    private static final RenderType VANILLA_BLOCK_TRANSLUCENT =
+            RenderTypes.entityTranslucent(net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS);
 
-    private static final RenderLayer PBR_LAYER = RenderLayer.of(
-            "pbr",
-            com.sp.render.VertexFormats.PBR,
-            VertexFormat.DrawMode.QUADS,
-            2097152,
-            false,
-            false,
-            RenderLayer.MultiPhaseParameters.builder()
-                    .lightmap(ENABLE_LIGHTMAP)
-                    .program(PBR_SHADER)
-                    .texture(RenderPhase.Textures.create()
-                            .add(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE, false, true)
-                            .add(NORMAL_ATLAS_TEXTURE, false, true)
-                            .add(HEIGHT_ATLAS_TEXTURE, false, false)  // Sampler2 gets replaced with the lightmap texture for some reason
-                            .add(HEIGHT_ATLAS_TEXTURE, false, true)   // Which is why I added it twice
-                            .build()
-                    )
-                    .build(true)
-    );
+    // PORT: phase6 delta (B7) — the custom poolrooms-sky GLSL layer is dropped. Mapped to the same
+    // vanilla translucent layer; the sky look itself is handled by the day-cycle lightmap tint (A5).
+    private static final RenderType VANILLA_POOLROOMS_SKY = VANILLA_BLOCK_TRANSLUCENT;
 
-    public static final RenderLayer FLUORESCENT_LIGHT = RenderLayer.of(
-            "fluorescent_light",
-            VertexFormats.POSITION,
-            VertexFormat.DrawMode.QUADS,
-            256,
-            false,
-            false,
-            RenderLayer.MultiPhaseParameters.builder()
-                    .program(LIGHT_SHADER)
-                    .build(false)
-    );
+    // PORT: phase6 delta (B7/A7) — the distorted-entity GLSL layer is dropped. Falls back to vanilla
+    // entity cutout-cull (memoized per texture) so the SkinWalker head etc. still render, just without
+    // the screen-space distortion.
+    private static final Map<Identifier, RenderType> DISTORTED_ENTITY_CACHE = new HashMap<>();
 
-    private static final RenderLayer POOLROOMS_SKY = RenderLayer.of(
-            "poolrooms_sky",
-            VertexFormats.POSITION,
-            VertexFormat.DrawMode.QUADS,
-            256,
-            false,
-            false,
-            RenderLayer.MultiPhaseParameters.builder()
-                    .program(POOLROOMS_SKY_SHADER)
-                    .build(true)
-    );
-
-
-
-    private static final Function<Identifier, RenderLayer> DISTORTED_ENTITY = Util.memoize((texture) -> {
-        MultiPhaseParameters multiPhaseParameters = RenderLayer.MultiPhaseParameters.builder()
-                .program(DISTORTED_ENTITY_SHADER)
-                .texture(new RenderPhase.Texture(texture, false, false))
-                .transparency(RenderPhase.NO_TRANSPARENCY)
-                .lightmap(ENABLE_LIGHTMAP)
-                .overlay(ENABLE_OVERLAY_COLOR)
-                .build(true);
-        return of("distorted_entity", VertexFormats.POSITION_COLOR_TEXTURE_OVERLAY_LIGHT_NORMAL, VertexFormat.DrawMode.QUADS, 256, true, false, multiPhaseParameters);
-    });
-
-        /*RenderLayer.of(
-            "distored_entity",
-            VertexFormats.POSITION,
-            VertexFormat.DrawMode.QUADS,
-            256,
-            false,
-            false,
-            RenderLayer.MultiPhaseParameters.builder()
-                    .program(DISTORTED_ENTITY)
-                    .build(true)
-    );
-    */
-
-    public static RenderLayer getDistortedEntity(Identifier texture) {
-        return DISTORTED_ENTITY.apply(texture);
+    private RenderLayers() {
     }
 
-    public static RenderLayer getPbrLayer() {
-        return PBR_LAYER;
-    }
-    public static RenderLayer getPoolroomsSky() {
-        return POOLROOMS_SKY;
+    public static synchronized RenderType getDistortedEntity(Identifier texture) {
+        return DISTORTED_ENTITY_CACHE.computeIfAbsent(texture, RenderTypes::entityCutoutCull);
     }
 
-    public RenderLayers(String name, VertexFormat vertexFormat, VertexFormat.DrawMode drawMode, int expectedBufferSize, boolean hasCrumbling, boolean translucent, Runnable startAction, Runnable endAction) {
-        super(name, vertexFormat, drawMode, expectedBufferSize, hasCrumbling, translucent, startAction, endAction);
+    /**
+     * PORT: phase6 delta (B6) — formerly the custom PBR chunk layer; now a vanilla translucent layer.
+     */
+    public static RenderType getPbrLayer() {
+        return VANILLA_BLOCK_TRANSLUCENT;
+    }
+
+    /**
+     * PORT: phase6 delta (B7) — formerly the custom poolrooms-sky GLSL layer; now a vanilla
+     * translucent layer (sky tint handled by the A5 day-cycle lightmap redirect).
+     */
+    public static RenderType getPoolroomsSky() {
+        return VANILLA_POOLROOMS_SKY;
     }
 }

@@ -1,71 +1,56 @@
 package com.sp.render.pbr;
 
-import com.sp.SPBRevamped;
-import com.sp.init.ModBlocks;
-import it.unimi.dsi.fastutil.Function;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
-import net.minecraft.block.Block;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.RenderLayers;
-import net.minecraft.registry.Registries;
+import net.minecraft.world.level.block.Block;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * In case I need a certain block to be bound to a certain ID. Kinda like how iris does it.<br>
- * Also keeps me from making a new render layer every time I need to access only a specific block. <br>
- * Lets me easily access certain blocks when running the shaders.
+ * PORT: phase6 (B6) — block→id map for the (dropped) custom GLSL pipeline.
+ *
+ * <p>The original assigned every block an integer id (mirroring iris) so the PBR/light/distortion
+ * GLSL shaders could branch per block, and seeded the ids from each block's vanilla render layer via
+ * {@code RenderLayers.getBlockLayer(...)}. On macOS the entire custom-shader pipeline is dropped, so
+ * these ids have no consumer.
+ *
+ * <p>This class is reduced to a minimal no-op stub. It is kept (rather than deleted) only because
+ * {@code SPBRevampedClient} (phase 6e-b) and the world-render mixin (phase 6f) still reference its API
+ * ({@link #init}, {@link #init()}, {@link #registerBlockID}, {@link #getBlockID}). Registered
+ * callbacks are still invoked (against an empty map) so those call sites run harmlessly; the map is
+ * never read by any shader.
+ *
+ * <p>PORT: delta — id seeding from the vanilla block render layer is dropped ({@code
+ * RenderLayers.getBlockLayer} no longer exists in 26.2; terrain layers moved to the
+ * {@code ChunkSectionLayer} enum + model JSON). {@link #getBlockID} always returns {@code -1}.
  */
 public class BlockIdMap {
-    private static Object2IntMap<Block> BlockIDs = new Object2IntOpenHashMap<>();
-    private static List<BlockIDCallback> BlockIDCallbacks = new ArrayList<>();
+    private static final Object2IntMap<Block> BLOCK_IDS = new Object2IntOpenHashMap<>();
+    private static final List<BlockIDCallback> BLOCK_ID_CALLBACKS = new ArrayList<>();
     public static boolean init = false;
-    private static int numOfBlocks;
 
     public static void init() {
-        BlockIDs.clear();
+        BLOCK_IDS.clear();
         init = true;
 
-        //For every block, assign an ID
-        for(Block block : Registries.BLOCK){
-            RenderLayer renderLayer = RenderLayers.getBlockLayer(block.getDefaultState());
-            if(renderLayer == RenderLayer.getSolid()){
-                BlockIDs.put(block, 0);
-            } else if(renderLayer == RenderLayer.getCutout()){
-                BlockIDs.put(block, 1);
-            } else if(renderLayer == RenderLayer.getCutoutMipped()){
-                BlockIDs.put(block, 2);
-            } else if(renderLayer == RenderLayer.getTranslucent()){
-                BlockIDs.put(block, 3);
-            }
-            numOfBlocks++;
-        }
-
-        SPBRevamped.LOGGER.info("Loaded {} Default Block IDs", numOfBlocks);
-
-        for (BlockIDCallback blockIDCallback : BlockIDCallbacks) {
-            blockIDCallback.apply(BlockIDs);
+        // PORT: delta (B6) — per-block id seeding from the vanilla render layer dropped; no shader reads these.
+        for (BlockIDCallback blockIDCallback : BLOCK_ID_CALLBACKS) {
+            blockIDCallback.apply(BLOCK_IDS);
         }
     }
 
     public static int getBlockID(Block block) {
-        if (BlockIDs.isEmpty() || !init) {
-            return -1;
-        }
-
-        return BlockIDs.getOrDefault(block, -1);
+        // PORT: delta (B6) — ids no longer drive any shader; always -1.
+        return -1;
     }
 
     /**
-     * Register a callback that will be called when the block IDs are initialized or updated.
-     * Anything under 23 is already taken by either another modded block or a vanilla rendering layers <i>like the world border for example.</i>
-     *
-     * @param function The callback function to register.
+     * Register a callback invoked when the block ids are (re)initialized. Retained for API
+     * compatibility with the phase-6e-b client entrypoint; the supplied map is no longer consumed.
      */
     public static void registerBlockID(BlockIDCallback function) {
-        BlockIDCallbacks.add(function);
+        BLOCK_ID_CALLBACKS.add(function);
     }
 
     @FunctionalInterface
