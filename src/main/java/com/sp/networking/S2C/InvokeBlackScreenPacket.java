@@ -29,9 +29,8 @@ public record InvokeBlackScreenPacket(int duration, boolean shouldPauseSounds, b
         boolean shouldPauseSounds = payload.shouldPauseSounds();
         boolean noEscape = payload.noEscape();
 
-        context.client().execute(() -> {
-            // PORT: phase6 — SPBRevampedClient cutscene manager / black screen is a client/render class.
-            // SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(duration, shouldPauseSounds, noEscape);
-        });
+        context.client().execute(() ->
+                com.sp.SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(duration, shouldPauseSounds, noEscape)
+        );
     }
 }

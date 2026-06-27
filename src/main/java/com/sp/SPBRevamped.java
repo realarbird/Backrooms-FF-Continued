@@ -9,7 +9,6 @@ import com.sp.command.SkinwalkerCommand;
 import com.sp.compat.modmenu.ConfigStuff;
 import com.sp.entity.custom.SkinWalkerEntity;
 import com.sp.entity.custom.SmilerEntity;
-import com.sp.entity.ik.model.GeckoLib.MowzieModelFactory;
 import com.sp.entity.ik.util.PrAnCommonClass;
 import com.sp.init.*;
 import com.sp.item.ModItemGroups;
@@ -39,8 +38,6 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.level.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.bernie.geckolib.GeckoLib;
-import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -79,11 +76,11 @@ public class SPBRevamped implements ModInitializer {
 		CommandRegistrationCallback.EVENT.register(GimmeMyInventoryBack::register);
 		CommandRegistrationCallback.EVENT.register(SkinwalkerCommand::register);
 
-		// Thanks Bob Mowzie
-		// PORT: phase4 — GeckoLib 5 relocated to com.geckolib and removed addCustomBakedModelFactory/initialize();
-		// the Mowzie custom-model registration needs the GeckoLib 5 API. Reinstate during the GeckoLib phase.
-		GeckoLibUtil.addCustomBakedModelFactory(MOD_ID, new MowzieModelFactory());
-		GeckoLib.initialize();
+		// PORT: delta (phase6e-b) — GeckoLib 5.5.2 (pkg com.geckolib) REMOVED both
+		// GeckoLibUtil.addCustomBakedModelFactory(MOD_ID, new MowzieModelFactory()) and GeckoLib.initialize();
+		// there is no v5 hook to swap in a custom baked-model factory, and v5 self-initializes. The
+		// MowzieModelFactory class is deleted (it was non-functional under GeckoLib 5 — see 6b). The Mowzie
+		// IK↔Geo bone bridge is handled by MowzieGeoBone/GeoModelAccessor against the v5 GeoBone API instead.
 
 		PrAnCommonClass.init();
 

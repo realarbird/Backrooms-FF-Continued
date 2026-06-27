@@ -69,7 +69,7 @@ public class BackroomsHudOverlay implements HudElement {
             return;
         }
 
-        // Camera-effect master gate. PORT: phase6e — wired through a stub until SPBRevampedClient ports.
+        // Camera-effect master gate (SPBRevampedClient.shouldRenderCameraEffect()).
         if (!shouldRenderCameraEffect()) {
             return;
         }
@@ -191,29 +191,27 @@ public class BackroomsHudOverlay implements HudElement {
     }
 
     // ----------------------------------------------------------------------------------------------------
-    // PORT: phase6e — state accessor stubs.
-    // These read from SPBRevampedClient / ClientWrapper / the cutscene manager, none of which are ported
-    // yet. Phase 6e should replace each body with the real source (noted per-method) and delete the stub
-    // defaults. Until then the overlay renders with conservative defaults (enabled, not black, not escape).
+    // State accessors (Phase 6e-b: wired to SPBRevampedClient).
+    // The master camera-effect gate reads SPBRevampedClient directly (single source of truth, valid even
+    // before the first client tick). The black-screen / you-cant-escape / camera-effect flags are mirrored
+    // each client tick by SPBRevampedClient's END_CLIENT_TICK handler (see SPBRevampedClient#onInitializeClient):
+    //   blackScreen        = SPBRevampedClient.blackScreen || (player.isInWall() && !cutscene.isPlaying) || component.isBeingReleased()
+    //   youCantEscape      = SPBRevampedClient.youCantEscape
+    //   cameraEffectEnabled= SPBRevampedClient.shouldRenderCameraEffect()
     // ----------------------------------------------------------------------------------------------------
 
-    /** PORT: phase6e — back with {@code SPBRevampedClient.shouldRenderCameraEffect()}. */
     private static boolean shouldRenderCameraEffect() {
-        return cameraEffectEnabled;
+        return com.sp.SPBRevampedClient.shouldRenderCameraEffect();
     }
 
-    /**
-     * PORT: phase6e — back with
-     * {@code SPBRevampedClient.blackScreen || (player.isInsideWall() && !cutscene.isPlaying) || component.isBeingReleased()}.
-     */
+    /** Black-screen state, composited by the client tick (see class header). */
     private static boolean isBlackScreen() {
         return blackScreen;
     }
 
-    // Phase-6e-writable shared flags (wired by the client tick once SPBRevampedClient ports). Defaults
-    // keep the overlay visible so 6c can be verified standalone.
+    // Shared flags mirrored each client tick by SPBRevampedClient. The defaults keep the overlay
+    // renderable if read before the first tick.
     public static volatile boolean cameraEffectEnabled = true;
     public static volatile boolean blackScreen = false;
-    /** PORT: phase6e — set from SPBRevampedClient.youCantEscape (used by the jumpscare stage). */
     public static volatile boolean youCantEscape = false;
 }

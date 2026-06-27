@@ -39,13 +39,12 @@ public record LevelTransitionLightsOut(int time) implements CustomPacketPayload 
 
                 //Turn off the lights
                 playerComponent.player.playSound(ModSounds.LIGHTS_OUT, 1, 1);
-                // PORT: phase6 — SPBRevampedClient cutscene/black screen is a client/render class.
-                // SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(time, false, false);
+                com.sp.SPBRevampedClient.getCutsceneManager().blackScreen.showBlackScreen(time, false, false);
 
                 //PlaySound after black screen is over
                 executorService.schedule(() -> {
                     playerComponent.player.playSound(ModSounds.LIGHTS_ON, 1, 1);
-                    // PORT: phase6 — SPBRevampedClient.sendComponentSyncPacket(false, "teleporting");
+                    com.sp.SPBRevampedClient.sendComponentSyncPacket(false, "teleporting");
                     executorService.shutdown();
                 }, (time * 100L) / 2, TimeUnit.MILLISECONDS);
             }

@@ -28,9 +28,8 @@ public record InvokeScreenShakePacket(double speed, double trauma) implements Cu
         double trauma = payload.trauma();
 
         context.client().execute(() -> {
-            // PORT: phase6 — SPBRevampedClient camera shake is a client/render class.
-            // SPBRevampedClient.getCameraShake().noiseSpeed = speed;
-            // SPBRevampedClient.getCameraShake().trauma = trauma;
+            com.sp.SPBRevampedClient.getCameraShake().noiseSpeed = speed;
+            com.sp.SPBRevampedClient.getCameraShake().trauma = trauma;
         });
     }
 }

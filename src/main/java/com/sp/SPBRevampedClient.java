@@ -1,28 +1,26 @@
 package com.sp;
 
-import com.sp.block.client.renderer.FluorescentLightBlockEntityRenderer;
-import com.sp.block.client.renderer.ThinFluorescentLightBlockEntityRenderer;
-import com.sp.block.client.renderer.TinyFluorescentLightBlockEntityRenderer;
 import com.sp.cca_stuff.InitializeComponents;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.cca_stuff.WorldEvents;
-import com.sp.compat.modmenu.ConfigDefinitions;
 import com.sp.compat.modmenu.ConfigStuff;
 import com.sp.entity.client.model.SmilerModel;
 import com.sp.entity.client.renderer.SkinWalkerRenderer;
 import com.sp.entity.client.renderer.SmilerRenderer;
 import com.sp.entity.client.renderer.WalkerRenderer;
 import com.sp.init.*;
+import com.sp.networking.C2S.SeeActiveSkinwalkerSync;
+import com.sp.networking.C2S.SyncServerComponent;
 import com.sp.networking.InitializePackets;
 import com.sp.networking.callbacks.ClientConnectionEvents;
-import com.sp.render.*;
+import com.sp.render.FlashlightRenderer;
+import com.sp.render.PoolroomsDayCycle;
 import com.sp.render.bird.BirdQuality;
-import com.sp.render.bird.BirdRenderer;
 import com.sp.render.bird.FlockManager;
 import com.sp.render.camera.CameraShake;
 import com.sp.render.camera.CutsceneManager;
 import com.sp.render.grass.GrassRenderer;
-import com.sp.render.gui.StaminaBar;
+import com.sp.render.gui.BackroomsHudOverlay;
 import com.sp.render.gui.TitleText;
 import com.sp.render.pbr.BlockIdMap;
 import com.sp.render.pbr.PbrRegistry;
@@ -33,72 +31,67 @@ import com.sp.world.levels.custom.InfiniteGrassBackroomsLevel;
 import com.sp.world.levels.custom.Level2BackroomsLevel;
 import com.sp.world.levels.custom.PoolroomsBackroomsLevel;
 import de.maxhenkel.voicechat.voice.client.ClientManager;
-import foundry.veil.api.client.render.VeilRenderSystem;
-import foundry.veil.api.client.render.VeilRenderer;
-import foundry.veil.api.client.render.deferred.VeilDeferredRenderer;
-import foundry.veil.api.client.render.deferred.light.renderer.LightRenderer;
-import foundry.veil.api.client.render.post.PostPipeline;
-import foundry.veil.api.client.render.post.PostProcessingManager;
-import foundry.veil.api.client.render.shader.definition.ShaderPreDefinitions;
-import foundry.veil.api.client.render.shader.program.MutableUniformAccess;
-import foundry.veil.api.client.render.shader.program.ShaderProgram;
-import foundry.veil.api.event.VeilRenderLevelStageEvent.Stage;
-import foundry.veil.platform.VeilEventPlatform;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.blockrenderlayer.v1.BlockRenderLayerMap;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.fabricmc.fabric.api.client.rendering.v1.ModelLayerRegistry;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.block.entity.BlockEntityRendererFactories;
-import net.minecraft.client.toast.SystemToast;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.resource.ResourceManager;
-import net.minecraft.resource.ResourceType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.World;
-import org.joml.*;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Vector;
 
 
+/**
+ * Mac-safe client entrypoint (Phase 6e-b). Ported Yarn(1.20.1)→mojmap(26.2) and rebuilt without Veil.
+ *
+ * <p>PORT: delta — every Veil hook is removed:
+ * <ul>
+ *   <li>the {@code VeilEventPlatform.onVeilRenderTypeStageRender}/{@code preVeilPostProcessing} render-stage
+ *       events (which drove the shadow-map renderer, the VHS/SSAO/everything/mixed/glitch GLSL programs,
+ *       motion-vector uniforms and the per-stage flashlight/grass/bird draws) are GONE. 26.2 has no
+ *       Mac-safe per-render-stage hook (no {@code WorldRenderEvents} in this fabric-api build, and the
+ *       deferred {@code submit()} pipeline has no immediate-mode draw), so the salvageable, non-GLSL
+ *       parts (flashlight light-block projection, skinwalker line-of-sight sync, bird flock tick,
+ *       camera-shake sampling, camera-effect HUD flags) were moved onto {@link ClientTickEvents}.</li>
+ *   <li>the VHS post chain is now the Mac-safe {@link BackroomsHudOverlay} HUD element (Phase 6c) — this
+ *       class only feeds it state flags ({@code shouldRenderCameraEffect}, {@code blackScreen},
+ *       {@code youCantEscape}).</li>
+ *   <li>the Veil deferred light renderer enable/disable/reset calls are dropped; dynamic light is now
+ *       vanilla {@code Blocks.LIGHT} via {@link FlashlightRenderer} (Phase 6d).</li>
+ *   <li>{@code ShadowMapRenderer}, {@code SSAOSamples}, {@code PreviousUniforms}, {@code SkinwalkerJumpscare}
+ *       uniform pokes, {@code BirdRenderer} (Veil compute) — all Veil/GLSL, dropped (HUD-flag equivalents
+ *       live in {@link BackroomsHudOverlay}).</li>
+ *   <li>{@code GeckoLibUtil.addCustomBakedModelFactory(MOD_ID, new MowzieModelFactory())} removed —
+ *       GeckoLib 5 has no such API and {@code MowzieModelFactory} was deleted (6b/6e-b).</li>
+ *   <li>the original macOS-incompatibility toast is removed: this IS the Mac-safe build.</li>
+ * </ul>
+ *
+ * <p>PORT: phase6f — the {@code mixin/CameraMixin} applies {@link CameraShake#shakeYaw}/{@code shakePitch}
+ * and {@code CameraRoll} to the camera; nothing here drives the camera rotation directly anymore. The
+ * F3/debug-overlay suppression that was {@code options.debugEnabled = false} also moves to a 6f mixin
+ * ({@code DisableF3Mixin}) — 26.2's {@code DebugScreenOverlay} has no public setter.</p>
+ */
 public class SPBRevampedClient implements ClientModInitializer {
     private GrassRenderer grassRenderer;
-    private BirdRenderer birdRenderer;
     private static final CutsceneManager cutsceneManager = new CutsceneManager();
     private static final CameraShake cameraShake = new CameraShake();
     private final FlashlightRenderer flashlightRenderer = new FlashlightRenderer();
 
-    private static final Identifier VHS_POST = new Identifier(SPBRevamped.MOD_ID, "vhs");
-
-    private static final Identifier SSAO = new Identifier(SPBRevamped.MOD_ID, "vhs/ssao");
-    private static final Identifier EVERYTHING_SHADER = new Identifier(SPBRevamped.MOD_ID, "vhs/everything");
-    private static final Identifier POST_VHS = new Identifier(SPBRevamped.MOD_ID, "vhs/vhs_post");
-    private static final Identifier MIXED_SHADER = new Identifier(SPBRevamped.MOD_ID, "vhs/mixed");
-    private static final Identifier GLITCH_SHADER = new Identifier(SPBRevamped.MOD_ID, "vhs/glitch");
-
     static boolean inBackrooms = false;
     public static boolean isLightning = false;
-    public static Camera camera;
-    public static Vector3f cameraBobOffset;
 
     public static TickTimer tickTimer = new TickTimer();
     public static boolean blackScreen;
@@ -106,15 +99,12 @@ public class SPBRevampedClient implements ClientModInitializer {
 
     private static boolean shouldBeUnmuted = false;
 
-    private static final Random random = Random.create();
-    private static final Random random2 = Random.create(34563264);
-
     public static boolean shouldRenderWarp = false;
 
     @Override
     public void onInitializeClient() {
-        HudRenderCallback.EVENT.register(new TitleText());
-        HudRenderCallback.EVENT.register(new StaminaBar());
+        // HUD elements (BackroomsHudOverlay / StaminaBar / TitleText) are registered by
+        // com.sp.render.gui.BackroomsHudClientInit (a separate client entrypoint) — not re-registered here.
 
         InitializePackets.registerS2CPackets();
 
@@ -122,49 +112,34 @@ public class SPBRevampedClient implements ClientModInitializer {
 
         FlockManager.init();
 
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.POOLROOMS_SKY_BLOCK, RenderLayers.getPoolroomsSky());
+        // PORT: delta (A6) — the Fabric `BlockRenderLayerMap` (block→RenderType mapping) used in 1.20.1 was
+        // REMOVED from fabric-api in 26.2; block render type is now DATA-DRIVEN via the `"render_type"` field
+        // in each block's blockstate/model JSON. The original cutout mappings (BOTTOM_TRIM, the WALL_TEXT_*/
+        // WALL_ARROW_*/WALL_SMALL_*/WALL_DRAWING_* signs, RUG_1/2, RED_METAL_CASING), the WINDOW translucent
+        // mapping, and the POOLROOMS_SKY_BLOCK layer therefore have no Java registration here — they belong in
+        // the model JSON (asset task, out of scope for this Java-only phase). RenderLayers.getPoolroomsSky()
+        // (a vanilla translucent layer) is the value those JSONs should use for the sky block.
 
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.BOTTOM_TRIM, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_TEXT_1, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_TEXT_2, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_TEXT_3, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_TEXT_4, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_TEXT_5, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_TEXT_6, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_TEXT_7, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_TEXT_8, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_TEXT_99, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_ARROW_1, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_ARROW_2, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_ARROW_3, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_ARROW_4, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_SMALL_1, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_SMALL_2, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_DRAWING_DOOR, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WALL_DRAWING_WINDOW, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.RUG_1, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.RUG_2, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.RED_METAL_CASING, RenderLayer.getCutout());
-        BlockRenderLayerMap.INSTANCE.putBlock(ModBlocks.WINDOW, RenderLayer.getTranslucent());
-
-        BlockEntityRendererFactories.register(ModBlockEntities.FLUORESCENT_LIGHT_BLOCK_ENTITY, FluorescentLightBlockEntityRenderer::new);
-        BlockEntityRendererFactories.register(ModBlockEntities.THIN_FLUORESCENT_LIGHT_BLOCK_ENTITY, ThinFluorescentLightBlockEntityRenderer::new);
-        BlockEntityRendererFactories.register(ModBlockEntities.TINY_FLUORESCENT_LIGHT_BLOCK_ENTITY, TinyFluorescentLightBlockEntityRenderer::new);
+        // PORT: phase6d — the 3 fluorescent-light BlockEntityRenderers were DELETED (light is now a flat
+        // emissive texture + vanilla light level). Their BlockEntityRenderers.register(...) calls are
+        // removed; no surviving BER needs registration.
 
         EntityRendererRegistry.register(ModEntities.SKIN_WALKER_ENTITY, SkinWalkerRenderer::new);
         EntityRendererRegistry.register(ModEntities.WALKER_ENTITY, WalkerRenderer::new);
         EntityRendererRegistry.register(ModEntities.SMILER_ENTITY, SmilerRenderer::new);
 
-        EntityModelLayerRegistry.registerModelLayer(ModModelLayers.SMILER, SmilerModel::getTexturedModelData);
+        // PORT: EntityModelLayerRegistry.registerModelLayer → ModelLayerRegistry.registerModelLayer in
+        // this fabric-api build; the supplier is a TexturedLayerDefinitionProvider (createLayerDefinition()).
+        ModelLayerRegistry.registerModelLayer(ModModelLayers.SMILER, SmilerModel::getTexturedModelData);
 
-        ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
+        ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(new SimpleSynchronousResourceReloadListener() {
             @Override
             public Identifier getFabricId() {
-                return new Identifier(SPBRevamped.MOD_ID, "after_resources");
+                return Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "after_resources");
             }
 
             @Override
-            public void reload(ResourceManager manager) {
+            public void onResourceManagerReload(ResourceManager manager) {
                 BlockIdMap.registerBlockID((blockIdMap) -> {
                     blockIdMap.put(ModBlocks.POOL_TILES, 18);
                     blockIdMap.put(ModBlocks.CEILINGLIGHT, 15);
@@ -184,7 +159,6 @@ public class SPBRevampedClient implements ClientModInitializer {
 
                 PbrRegistry.registerPBR(ModBlocks.CONCRETE_BLOCK_11, new PbrRegistry.PbrMaterial(true, 0.4f,8.0f,  1024));
                 PbrRegistry.registerPBR(ModBlocks.BRICKS,            new PbrRegistry.PbrMaterial(true, 0.45f,5.0f,   2048));
-                //PbrRegistry.registerPBR(ModBlocks.DIRT,             new PbrRegistry.PbrMaterial(true, 0.5f,3.0f,   128));
                 PbrRegistry.registerPBR(ModBlocks.CHAINFENCE,        new PbrRegistry.PbrMaterial(true, 0.21f,2.8f,   1024));
                 PbrRegistry.registerPBR(ModBlocks.WOODEN_CRATE,      new PbrRegistry.PbrMaterial(true, 0.9f, 1.0f,   1024));
                 PbrRegistry.registerPBR(ModBlocks.ROAD,              new PbrRegistry.PbrMaterial(true, 0.37f,8.0f,   1024));
@@ -192,303 +166,37 @@ public class SPBRevampedClient implements ClientModInitializer {
                 PbrRegistry.registerPBR(ModBlocks.PAVEMENT,          new PbrRegistry.PbrMaterial(true, 0.37f,8.0f,   1024));
 
                 BlockIdMap.init = false;
-
-                if (System.getProperty("os.name").toLowerCase().contains("mac")) {
-                    SPBRevamped.LOGGER.error("This mod is not compatible with MacOS. Please use Windows or Linux (wayland).");
-                    MinecraftClient.getInstance().getToastManager().add(new SystemToast(SystemToast.Type.UNSECURE_SERVER_WARNING, Text.of("Potential Incompatibility found"), Text.of("This mod is not compatible with MacOS. Please use Windows or Linux (wayland).")));
-                }
             }
         });
 
-
-        VeilEventPlatform.INSTANCE.onVeilRenderTypeStageRender((stage, levelRenderer, bufferSource, poseStack, projectionMatrix, renderTick, partialTicks, camera, frustum) -> {
-            //*Setting for later use
-            if(camera != null){
-                SPBRevampedClient.camera = camera;
-            }
-
-            MinecraftClient client = MinecraftClient.getInstance();
-            World clientWorld = client.world;
-            if (clientWorld != null) {
-                //*Only render the shadow map when in the poolrooms
-                if (clientWorld.getRegistryKey() == BackroomsLevels.POOLROOMS_WORLD_KEY) {
-                    if (stage == Stage.AFTER_SKY) {
-                        if (camera != null) {
-                            ShadowMapRenderer.renderShadowMap(camera, partialTicks, clientWorld);
-                        }
-                    }
-                }
-
-                if (!cutsceneManager.fall) {
-                    if (clientWorld.getRegistryKey() == BackroomsLevels.LEVEL0_WORLD_KEY) {
-                        if (stage == Stage.AFTER_SKY) {
-                            if (camera != null) {
-                                ShadowMapRenderer.renderLevel0ShadowMap(camera, clientWorld);
-                            }
-                        }
-                    }
-                }
-
-                if (clientWorld.getRegistryKey() == BackroomsLevels.INFINITE_FIELD_WORLD_KEY) {
-                    if (stage == Stage.AFTER_SOLID_BLOCKS) {
-                        if (this.grassRenderer == null) {
-                            this.grassRenderer = new GrassRenderer();
-                        }
-
-                        if (this.birdRenderer == null) {
-                            this.birdRenderer = new BirdRenderer();
-                        }
-
-                        this.grassRenderer.render();
-
-
-                        if (ConfigStuff.birdQuality != BirdQuality.DISABLED) {
-                            ShaderProgram shader = VeilRenderSystem.renderer().getShaderManager().getShader(BirdRenderer.computeShaderPath);
-                            if (shader != null) {
-                                List<Vector3f> vector3fcs = FlockManager.getFlockCenters().stream().map((vec3d -> new Vector3f((float) vec3d.x, (float) vec3d.y, (float) vec3d.z))).toList();
-                                shader.setVectors("FlockCenters", vector3fcs.toArray(new Vector3fc[0]));
-                                shader.setInt("FlockAmount", ConfigStuff.birdQuality.getFlockCount());
-                                this.birdRenderer.render();
-                            }
-                        }
-                    }
-                } else if (clientWorld.getRegistryKey() == BackroomsLevels.LEVEL324_WORLD_KEY) {
-                    if (stage == Stage.AFTER_SOLID_BLOCKS) {
-                        if (this.grassRenderer == null) {
-                            this.grassRenderer = new GrassRenderer();
-                        }
-
-                        this.grassRenderer.render();
-                    }
-                } else if (this.grassRenderer != null) {
-                    this.grassRenderer.close();
-                    this.grassRenderer = null;
-                } else if (this.birdRenderer != null) {
-                    this.birdRenderer.close();
-                    this.birdRenderer = null;
-                }
-            }
-
-
-
-            //*Enable the VHS shader
-            PostProcessingManager postProcessingManager = VeilRenderSystem.renderer().getPostProcessingManager();
-            if (stage == Stage.AFTER_LEVEL) {
-                //*Flashlight
-                flashlightRenderer.renderFlashlightForEveryPlayer(partialTicks);
-
-
-                PostPipeline Pipeline = postProcessingManager.getPipeline(VHS_POST);
-                if (Pipeline != null) {
-                    if (shouldRenderCameraEffect()) {
-                        if(!postProcessingManager.isActive(VHS_POST)) {
-                            postProcessingManager.add(VHS_POST);
-                        }
-                    } else if (postProcessingManager.isActive(VHS_POST)) {
-                        postProcessingManager.remove(VHS_POST);
-                    }
-                }
-
-
-                if (client.player != null) {
-                    if (clientWorld != null) {
-                        PlayerComponent playerComponent = InitializeComponents.PLAYER.get(client.player);
-                        WorldEvents events = InitializeComponents.EVENTS.get(clientWorld);
-                        Entity activeSkinwalker = events.getActiveSkinwalkerTarget();
-
-
-                        if (activeSkinwalker != null) {
-                            Box box = activeSkinwalker.getVisibilityBoundingBox().expand(0.1);
-                            boolean inFrustum = frustum.isVisible(box);
-
-                            if (inFrustum && client.player.canSee(activeSkinwalker)) {
-                                if (!playerComponent.canSeeActiveSkinWalkerTarget()) {
-                                    playerComponent.setCanSeeActiveSkinWalkerTarget(true);
-
-                                    PacketByteBuf buffer = PacketByteBufs.create();
-                                    buffer.writeBoolean(true);
-                                    ClientPlayNetworking.send(InitializePackets.SEE_SKINWALKER_SYNC, buffer);
-                                }
-                            } else {
-                                if (playerComponent.canSeeActiveSkinWalkerTarget()) {
-                                    playerComponent.setCanSeeActiveSkinWalkerTarget(false);
-
-                                    PacketByteBuf buffer = PacketByteBufs.create();
-                                    buffer.writeBoolean(false);
-                                    ClientPlayNetworking.send(InitializePackets.SEE_SKINWALKER_SYNC, buffer);
-                                }
-                            }
-                        }
-                    }
-
-                    if (!client.player.isSpectator() && !client.player.isCreative()) {
-                        client.options.debugEnabled = false;
-                    }
-
-                }
-            }
-
-        });
-
-        VeilEventPlatform.INSTANCE.preVeilPostProcessing(((name, pipeline, context) -> {
-            MinecraftClient client = MinecraftClient.getInstance();
-            PlayerEntity player = MinecraftClient.getInstance().player;
-            VeilRenderer renderer = VeilRenderSystem.renderer();
-            ShaderPreDefinitions definitions = renderer.getShaderDefinitions();
-
-            if (!shouldRenderCameraEffect()) {
-                if(definitions.getDefinition("WARP") != null) {
-                    definitions.remove("WARP");
-                }
-            }
-
-            if (player != null && client.world != null) {
-                PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
-
-                if (VHS_POST.equals(name)) {
-                    ShaderProgram shaderProgram = context.getShader(POST_VHS);
-                    if (shaderProgram != null) {
-                        if(youCantEscape) {
-                            shaderProgram.setInt("youCantEscape", 1);
-                        } else {
-                            shaderProgram.setInt("youCantEscape", 0);
-                        }
-
-                        if (playerComponent.isBeingCaptured()) {
-                            SkinwalkerJumpscare.doJumpscare(shaderProgram, client, playerComponent);
-                        } else {
-                            shaderProgram.setInt("Jumpscare", 0);
-                            shaderProgram.setInt("CreepyFace1", 0);
-                            shaderProgram.setInt("CreepyFace2", 0);
-                            shaderProgram.setVector("Rand", 0, 0);
-                        }
-
-                        if (PreviousUniforms.prevModelViewMat != null && PreviousUniforms.prevProjMat != null) {
-                            shaderProgram.setMatrix("prevViewMat", PreviousUniforms.prevModelViewMat);
-                            shaderProgram.setMatrix("prevProjMat", PreviousUniforms.prevProjMat);
-                            shaderProgram.setVector("prevCameraPos", PreviousUniforms.prevCameraPos);
-                        }
-
-                        shaderProgram.setFloat("MotionBlurStrength", ConfigStuff.motionBlurStrength);
-                        shaderProgram.setFloat("DistortionStrength", ConfigStuff.VHSDistortionMultiplier);
-                    }
-
-                    shaderProgram = context.getShader(SSAO);
-                    if (shaderProgram != null) {
-                        shaderProgram.setVectors("samples", SSAOSamples.getSSAOSamples());
-                    }
-
-                    shaderProgram = context.getShader(EVERYTHING_SHADER);
-                    if (shaderProgram != null) {
-                        if (client.world.getRegistryKey() == BackroomsLevels.LEVEL1_WORLD_KEY) {
-                            shaderProgram.setInt("FogToggle", 1);
-                        } else {
-                            shaderProgram.setInt("FogToggle", 0);
-                        }
-
-
-                        if(blackScreen || (player.isInsideWall() && !getCutsceneManager().isPlaying) || playerComponent.isBeingReleased()) {
-                            shaderProgram.setInt("blackScreen", 1);
-                        } else {
-                            shaderProgram.setInt("blackScreen", 0);
-                        }
-
-                        if (client.world.getRegistryKey() == BackroomsLevels.LEVEL1_WORLD_KEY) {
-                            shaderProgram.setInt("TogglePuddles", 1);
-                        } else {
-                            shaderProgram.setInt("TogglePuddles", 0);
-                        }
-
-
-                        shaderProgram.setVector("shadowColor", PoolroomsDayCycle.getLightColor());
-                    }
-
-                    shaderProgram = context.getShader(MIXED_SHADER);
-                    if (shaderProgram != null) {
-                        shaderProgram.setVector("Rand", random.nextFloat() * 2.0f - 1.0f, random2.nextFloat() * 2.0f - 1.0f);
-
-                        shaderProgram.setVector("shadowColor", PoolroomsDayCycle.getLightColor());
-
-                        shaderProgram.setInt("isLightning", isLightning ? 1 : 0);
-
-                    }
-
-                    shaderProgram = context.getShader(GLITCH_SHADER);
-                    if (shaderProgram != null) {
-                        shaderProgram.setFloat("glitchTime", playerComponent.getGlitchTimer());
-                    }
-
-                }
-
-                BackroomsLevels.getLevel(client.world).ifPresent((backroomsLevel -> {
-                    if (backroomsLevel instanceof Level2BackroomsLevel level) {
-                        if (level.isWarping() || !finishedWarp(client.world)) {
-                            definitions.define("WARP");
-                        } else {
-                            definitions.remove("WARP");
-                        }
-                    }
-                }));
-
-                ConfigDefinitions.definitions.forEach((s, aBoolean) -> {
-                    if(aBoolean.get()) {
-                        definitions.define(s);
-                    } else {
-                        definitions.remove(s);
-                    }
-                });
-
-                BackroomsLevels.definitions.forEach((s, registryKey) -> {
-                    if (client.world.getRegistryKey() == registryKey) {
-                        definitions.define(s);
-                    } else {
-                        definitions.remove(s);
-                    }
-                });
-
-                PreviousUniforms.update();
-            }
-        }));
-
-        ClientPlayConnectionEvents.JOIN.register(((handler,sender, client) -> {
-            VeilDeferredRenderer renderer = VeilRenderSystem.renderer().getDeferredRenderer();
-            renderer.reset();
-
-            if (client.world != null) {
+        ClientPlayConnectionEvents.JOIN.register(((handler, sender, client) -> {
+            // PORT: phase6 — Veil deferred-renderer reset() dropped (no Veil renderer).
+            if (client.level != null) {
                 HelpfulHintManager.sendMessages(client.player);
 
                 //*Just in case it become unsynced
-                BackroomsLevels.getLevel(client.world).ifPresent((backroomsLevel -> {
+                BackroomsLevels.getLevel(client.level).ifPresent((backroomsLevel -> {
                     if (backroomsLevel instanceof PoolroomsBackroomsLevel poolroomsBackroomsLevel) {
                         PoolroomsDayCycle.dayTime = poolroomsBackroomsLevel.getTimeOfDay();
                     }
                 }));
-
             }
-
         }));
 
-        //*For some reason veil lights aren't removed when you leave the game
         ClientConnectionEvents.DISCONNECT.register(client -> {
-            ClientPlayerEntity player = client.player;
+            LocalPlayer player = client.player;
             if (player != null) {
                 PlayerComponent playerComponent = InitializeComponents.PLAYER.get(player);
                 playerComponent.setFlashLightOn(false);
-                flashlightRenderer.tryToRemoveFlashlight(player);
                 flashlightRenderer.clearFlashlights();
                 playerComponent.setDoingCutscene(false);
             }
 
             cutsceneManager.reset();
 
-            if(this.grassRenderer != null) {
+            if (this.grassRenderer != null) {
                 this.grassRenderer.close();
                 this.grassRenderer = null;
-            }
-
-            if (this.birdRenderer != null) {
-                this.birdRenderer.close();
-                this.birdRenderer = null;
             }
         });
 
@@ -498,34 +206,34 @@ public class SPBRevampedClient implements ClientModInitializer {
                 this.grassRenderer.close();
                 this.grassRenderer = null;
             }
-
-            if (this.birdRenderer != null) {
-                this.birdRenderer.close();
-                this.birdRenderer = null;
-            }
         });
 
 
-        ClientTickEvents.END_WORLD_TICK.register((client) ->{
+        // PORT: ClientTickEvents.END_WORLD_TICK → END_LEVEL_TICK (renamed in 26.2 fabric-api); the lambda
+        // now receives the ClientLevel, which this body does not use (it reads Minecraft.getInstance()).
+        ClientTickEvents.END_LEVEL_TICK.register((clientLevel) -> {
             Vector<TickTimer> tickTimers = TickTimer.getAllInstances();
-            if (!tickTimers.isEmpty()){
-                for(TickTimer timer : tickTimers){
+            if (!tickTimers.isEmpty()) {
+                for (TickTimer timer : tickTimers) {
                     timer.addCurrentTick();
                 }
             }
 
             //Fixes Minecraft spectating not loading chunks bug
-            MinecraftClient client1 = MinecraftClient.getInstance();
-            PlayerEntity player = client1.player;
+            Minecraft client1 = Minecraft.getInstance();
+            Player player = client1.player;
             if (player != null) {
                 if (player != client1.getCameraEntity() && client1.getCameraEntity() != null) {
-                    Vec3d pos = client1.getCameraEntity().getPos();
-                    player.setPosition(pos);
+                    Vec3 pos = client1.getCameraEntity().position();
+                    player.setPos(pos.x, pos.y, pos.z);
                 }
             }
         });
 
-        ClientTickEvents.END_CLIENT_TICK.register((client) ->{
+        ClientTickEvents.END_CLIENT_TICK.register((client) -> {
+            // Cutscene drives the camera path + black-screen state (was ticked off the Veil render stage).
+            cutsceneManager.tick();
+
             if (cutsceneManager.isPlaying) {
                 if (!ClientManager.getPlayerStateManager().isMuted()) {
                     shouldBeUnmuted = true;
@@ -536,56 +244,66 @@ public class SPBRevampedClient implements ClientModInitializer {
                 shouldBeUnmuted = false;
             }
 
-            PlayerEntity playerClient = client.player;
-            if (playerClient != null){
+            Player playerClient = client.player;
+            if (playerClient != null && client.level != null) {
                 //*Main Set in Backrooms
-                setInBackrooms(BackroomsLevels.isInBackrooms(playerClient.getWorld().getRegistryKey()));
+                setInBackrooms(BackroomsLevels.isInBackrooms(playerClient.level().dimension()));
 
-                if (client.world != null) {
-                    VeilRenderer renderer = VeilRenderSystem.renderer();
-                    VeilDeferredRenderer deferredRenderer = renderer.getDeferredRenderer();
-                    LightRenderer lightRenderer = deferredRenderer.getLightRenderer();
-
-                    if (shouldRenderCameraEffect() && isInBackrooms()) {
-                        HelpfulHintManager.disableSuffocateHint();
-
-                        BackroomsLevel level = BackroomsLevels.getLevel(client.player.getWorld()).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL);
-
-                        if (!level.hasVanillaLighting()) {
-                            lightRenderer.disableVanillaLight();
-                        } else {
-                            lightRenderer.enableVanillaLight();
-                        }
-
-                        lightRenderer.disableAmbientOcclusion();
-                    } else {
-                        lightRenderer.enableVanillaLight();
-                        lightRenderer.enableAmbientOcclusion();
-                    }
-
-                    getCurrentBackroomsLevel().ifPresent((backroomsLevel -> {
-                        if ((backroomsLevel instanceof InfiniteGrassBackroomsLevel/* || backroomsLevel instanceof Level324Backroomslevel*/) && ConfigStuff.birdQuality != BirdQuality.DISABLED) {
-                            FlockManager.tick();
-                        }
-                    }));
+                // Camera shake (sampled each tick; the 6f CameraMixin applies shakeYaw/shakePitch + roll).
+                if (client.gameRenderer != null && client.gameRenderer.mainCamera() != null) {
+                    cameraShake.tick(client.gameRenderer.mainCamera());
                 }
+
+                // PORT: delta — flashlight light-block projection was a per-render-stage Veil draw;
+                // it is now ticked here (vanilla Blocks.LIGHT, Phase 6d).
+                float partialTicks = client.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+                flashlightRenderer.renderFlashlightForEveryPlayer(partialTicks);
+
+                PlayerComponent localComponent = InitializeComponents.PLAYER.get(playerClient);
+
+                // Feed the Mac-safe VHS HUD overlay (Phase 6c) its state.
+                BackroomsHudOverlay.cameraEffectEnabled = shouldRenderCameraEffect();
+                BackroomsHudOverlay.blackScreen = blackScreen
+                        || (playerClient.isInWall() && !getCutsceneManager().isPlaying)
+                        || localComponent.isBeingReleased();
+                BackroomsHudOverlay.youCantEscape = youCantEscape;
+                // Intro title overlay gating (was driven by the Veil HUD path).
+                TitleText.introActive = cutsceneManager.backroomsBySP;
+                TitleText.introBlackScreen = cutsceneManager.blackScreen.isBlackScreen;
+
+                // PORT: delta — skinwalker visibility sync. The original tested the Veil frustum +
+                // line-of-sight from the render stage; with no per-frame frustum here it is reduced to a
+                // line-of-sight check on the client tick (the box-in-frustum gate is dropped).
+                WorldEvents events = InitializeComponents.EVENTS.get(client.level);
+                Entity activeSkinwalker = events.getActiveSkinwalkerTarget();
+                if (activeSkinwalker != null) {
+                    boolean visible = playerClient.hasLineOfSight(activeSkinwalker);
+                    if (visible) {
+                        if (!localComponent.canSeeActiveSkinWalkerTarget()) {
+                            localComponent.setCanSeeActiveSkinWalkerTarget(true);
+                            ClientPlayNetworking.send(new SeeActiveSkinwalkerSync(true));
+                        }
+                    } else if (localComponent.canSeeActiveSkinWalkerTarget()) {
+                        localComponent.setCanSeeActiveSkinWalkerTarget(false);
+                        ClientPlayNetworking.send(new SeeActiveSkinwalkerSync(false));
+                    }
+                }
+
+                if (shouldRenderCameraEffect() && isInBackrooms()) {
+                    HelpfulHintManager.disableSuffocateHint();
+                }
+
+                getCurrentBackroomsLevel().ifPresent((backroomsLevel -> {
+                    if (backroomsLevel instanceof InfiniteGrassBackroomsLevel && ConfigStuff.birdQuality != BirdQuality.DISABLED) {
+                        FlockManager.tick();
+                    }
+                }));
             }
         });
 
     }
 
-    public static void setShadowUniforms(MutableUniformAccess access, World world) {
-        Matrix4f level0ViewMat = ShadowMapRenderer.createShadowModelView(camera.getPos().x, camera.getPos().y, camera.getPos().z, true).peek().getPositionMatrix();
-        Matrix4f viewMat = ShadowMapRenderer.createShadowModelView(camera.getPos().x, camera.getPos().y, camera.getPos().z, world, true).peek().getPositionMatrix();
-
-        access.setMatrix("level0ViewMatrix", level0ViewMat);
-        access.setMatrix("viewMatrix", viewMat);
-        access.setMatrix("IShadowViewMatrix", viewMat.invert());
-
-        access.setMatrix("orthographMatrix", ShadowMapRenderer.createProjMat());
-    }
-
-    public static float getWarpTimer(World world) {
+    public static float getWarpTimer(Level world) {
         if (!(BackroomsLevels.getLevel(world).orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL) instanceof Level2BackroomsLevel level)) {
             return 0;
         }
@@ -595,7 +313,7 @@ public class SPBRevampedClient implements ClientModInitializer {
             float x = tickTimer.getCurrentTick();
             float w = 0.03141592f;
             float result = MathStuff.mod((x * w) * 0.002f, w);
-            if (result == 0 || (!level.isWarping() && result == 0.03141592f/2)) {
+            if (result == 0 || (!level.isWarping() && result == 0.03141592f / 2)) {
                 tickTimer.resetToZero();
             }
             return result;
@@ -606,16 +324,13 @@ public class SPBRevampedClient implements ClientModInitializer {
         }
     }
 
-    public static boolean finishedWarp(World world) {
+    public static boolean finishedWarp(Level world) {
         float warp = getWarpTimer(world);
-        return warp == 0 || warp == 0.03141592f/2;
+        return warp == 0 || warp == 0.03141592f / 2;
     }
 
-    public static void sendComponentSyncPacket(boolean writeBoolean, String component) {
-        PacketByteBuf buffer = PacketByteBufs.create();
-        buffer.writeBoolean(writeBoolean);
-        buffer.writeString(component);
-        ClientPlayNetworking.send(InitializePackets.COMPONENT_SYNC, buffer);
+    public static void sendComponentSyncPacket(boolean value, String component) {
+        ClientPlayNetworking.send(new SyncServerComponent(value, component));
     }
 
     public static boolean isInBackrooms() {
@@ -639,14 +354,14 @@ public class SPBRevampedClient implements ClientModInitializer {
     }
 
     public static Optional<BackroomsLevel> getCurrentBackroomsLevel() {
-        return BackroomsLevels.getLevel(MinecraftClient.getInstance().world);
+        return BackroomsLevels.getLevel(Minecraft.getInstance().level);
     }
 
     public static boolean isInLevel(BackroomsLevel level) {
-        if (MinecraftClient.getInstance().world == null) {
+        if (Minecraft.getInstance().level == null) {
             return false;
         }
 
-        return BackroomsLevels.isInBackroomsLevel(MinecraftClient.getInstance().world, level);
+        return BackroomsLevels.isInBackroomsLevel(Minecraft.getInstance().level, level);
     }
 }

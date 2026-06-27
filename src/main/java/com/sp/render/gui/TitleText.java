@@ -1,6 +1,7 @@
 package com.sp.render.gui;
 
 import com.sp.SPBRevamped;
+import com.sp.render.camera.CutsceneManager;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.ChatFormatting;
@@ -33,10 +34,8 @@ public class TitleText implements HudElement {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, DeltaTracker delta) {
-        // PORT: phase6e — gate on SPBRevampedClient.getCutsceneManager(): show only while
-        // cutscene.backroomsBySP is true and the black-screen is NOT up. The cutscene manager is not ported
-        // yet (Veil anim Path / MinecraftClient). Until then this is driven by the shared static flags
-        // below, which 6e wires to the real cutscene state.
+        // Show only during the opening cutscene's backroomsBySP beat, while the black-screen is NOT up
+        // (backed by SPBRevampedClient.getCutsceneManager() — see shouldShowIntro()).
         if (!shouldShowIntro()) {
             return;
         }
@@ -72,16 +71,16 @@ public class TitleText implements HudElement {
     }
 
     // ----------------------------------------------------------------------------------------------------
-    // PORT: phase6e — cutscene-state stub.
-    // Replace with: SPBRevampedClient.getCutsceneManager().backroomsBySP
-    //               && !SPBRevampedClient.getCutsceneManager().blackScreen.isBlackScreen
+    // Cutscene-state gate (Phase 6e-b). Backed directly by the cutscene manager:
+    //   SPBRevampedClient.getCutsceneManager().backroomsBySP && !...blackScreen.isBlackScreen
+    // (SPBRevampedClient also mirrors these onto introActive/introBlackScreen each client tick.)
     // ----------------------------------------------------------------------------------------------------
     private static boolean shouldShowIntro() {
-        return introActive && !introBlackScreen;
+        CutsceneManager cutscene = com.sp.SPBRevampedClient.getCutsceneManager();
+        return cutscene.backroomsBySP && !cutscene.blackScreen.isBlackScreen;
     }
 
-    /** PORT: phase6e — set from cutscene.backroomsBySP. */
+    // Mirrored each client tick by SPBRevampedClient (kept for any external readers).
     public static volatile boolean introActive = false;
-    /** PORT: phase6e — set from cutscene.blackScreen.isBlackScreen. */
     public static volatile boolean introBlackScreen = false;
 }
