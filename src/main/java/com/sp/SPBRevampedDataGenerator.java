@@ -3,7 +3,7 @@ package com.sp;
 import com.sp.datagen.ModModelProvider;
 import net.fabricmc.fabric.api.datagen.v1.DataGeneratorEntrypoint;
 import net.fabricmc.fabric.api.datagen.v1.FabricDataGenerator;
-import net.minecraft.registry.RegistryBuilder;
+import net.minecraft.core.RegistrySetBuilder;
 
 public class SPBRevampedDataGenerator implements DataGeneratorEntrypoint {
 	@Override
@@ -13,6 +13,6 @@ public class SPBRevampedDataGenerator implements DataGeneratorEntrypoint {
 	}
 
 	@Override
-	public void buildRegistry(RegistryBuilder registryBuilder) {
+	public void buildRegistry(RegistrySetBuilder registrySetBuilder) {
 	}
 }

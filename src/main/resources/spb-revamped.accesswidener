@@ -12,3 +12,12 @@ accessible field net/minecraft/world/level/ChunkPos z I
 # SoundEngine.instanceBySource (private Multimap<SoundSource, SoundInstance>) — iterated by
 # com.sp.util.ExtraUtils#stopAllOtherSounds. Mojmap equivalent of the Yarn SoundSystem#sounds field.
 accessible field net/minecraft/client/sounds/SoundEngine instanceBySource Lcom/google/common/collect/Multimap;
+
+# PORT: Phase 3 datagen — 26.2 made the BlockModelGenerators helpers private (Yarn 1.20.1 exposed
+# them publicly as registerSimpleCubeAll / registerCubeAllModelTexturePool). com.sp.datagen.ModModelProvider
+# calls createTrivialCube(Block) (was registerSimpleCubeAll) and family(Block).slab(...) (was the
+# BlockTexturePool). The BlockFamilyProvider inner class is package-private and must be referenceable;
+# slab(Block) on it is already public. Verified via javap -p -s against the 26.2 merged-deobf jar.
+accessible method net/minecraft/client/data/models/BlockModelGenerators createTrivialCube (Lnet/minecraft/world/level/block/Block;)V
+accessible method net/minecraft/client/data/models/BlockModelGenerators family (Lnet/minecraft/world/level/block/Block;)Lnet/minecraft/client/data/models/BlockModelGenerators$BlockFamilyProvider;
+accessible class net/minecraft/client/data/models/BlockModelGenerators$BlockFamilyProvider
