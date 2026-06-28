@@ -79,6 +79,10 @@ public class SkinwalkerJumpscare {
 
     /** Clears all jumpscare HUD flags. Called when the timeline ends or the capture state is cleared. */
     public static void reset() {
+        // Reset the timeline too, so a later capture replays from the start (otherwise the stale
+        // started/startTime would make doJumpscare immediately hit the end and skip the face).
+        started = false;
+        startTime = 0L;
         BackroomsHudOverlay.jumpscare = false;
         BackroomsHudOverlay.creepyFace1 = false;
         BackroomsHudOverlay.creepyFace2 = false;

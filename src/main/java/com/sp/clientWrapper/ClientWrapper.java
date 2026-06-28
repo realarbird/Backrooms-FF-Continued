@@ -19,6 +19,8 @@ import com.sp.init.BackroomsLevels;
 import com.sp.init.HelpfulHintManager;
 import com.sp.init.ModSounds;
 import com.sp.networking.C2S.TargetEntitySync;
+import com.sp.render.SkinwalkerJumpscare;
+import com.sp.render.gui.BackroomsHudOverlay;
 import com.sp.sounds.*;
 import com.sp.sounds.entity.SkinWalkerChaseSoundInstance;
 import com.sp.sounds.entity.SmilerAmbienceSoundInstance;
@@ -187,6 +189,16 @@ public class ClientWrapper {
 
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+            // Skinwalker jumpscare timeline — drives the creepy-face overlay flags on BackroomsHudOverlay
+            // while the player is being captured. PORT FIX: doJumpscare() existed but was never called, so
+            // the timeline never ran and a capture just showed the black-screen with no face.
+            if (playerComponent.isBeingCaptured()) {
+                SkinwalkerJumpscare.doJumpscare(client, playerComponent);
+            } else if (BackroomsHudOverlay.jumpscare) {
+                // Capture ended early (e.g. interrupted) — clear any lingering jumpscare flags.
+                SkinwalkerJumpscare.reset();
+            }
 
             //Flavor text while being controlled by the SkinWalker
             if (playerComponent.hasBeenCaptured() && !playerComponent.isBeingCaptured()) {
