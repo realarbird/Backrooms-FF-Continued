@@ -202,7 +202,6 @@ public class CutsceneManager {
     }
 
     public void reset() {
-        PlayerComponent playerComponent = InitializeComponents.PLAYER.get(client.player);
         this.isPlaying = false;
         this.started = false;
         this.fall = false;
@@ -211,12 +210,15 @@ public class CutsceneManager {
             this.camera.remove(Entity.RemovalReason.DISCARDED);
             this.camera = null;
         }
-        client.setCameraEntity(client.player);
         BackroomsHudOverlay.setHudHidden(false);
         this.startTime = 0L;
-        playerComponent.setDoingCutscene(false);
-
-        SPBRevampedClient.sendComponentSyncPacket(playerComponent.isDoingCutscene(), "cutscene");
+        // PORT: client.player is null when reset() fires on disconnect — guard the player/component access.
+        if (client.player != null) {
+            client.setCameraEntity(client.player);
+            PlayerComponent playerComponent = InitializeComponents.PLAYER.get(client.player);
+            playerComponent.setDoingCutscene(false);
+            SPBRevampedClient.sendComponentSyncPacket(playerComponent.isDoingCutscene(), "cutscene");
+        }
     }
 
     private void initCamera() {

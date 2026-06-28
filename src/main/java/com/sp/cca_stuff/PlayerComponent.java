@@ -116,7 +116,10 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.tired = false;
         this.scrollingInInventoryTime = 0;
         this.player = player;
-        this.playerSavedInventory = new SimpleContainer(player.getInventory().getContainerSize());
+        // PORT: getInventory() is null here — CCA builds this component during Entity.<init>, before
+        // Player initializes its inventory. Use the vanilla constant; savePlayerInventory() resizes
+        // playerSavedInventory to the live container size before it's ever read.
+        this.playerSavedInventory = new SimpleContainer(net.minecraft.world.entity.player.Inventory.INVENTORY_SIZE);
         this.flashLightOn = false;
         this.shouldRender = true;
         this.shouldNoClip = false;
