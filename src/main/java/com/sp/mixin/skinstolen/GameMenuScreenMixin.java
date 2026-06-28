@@ -21,8 +21,11 @@ public abstract class GameMenuScreenMixin extends Screen {
     }
 
     // You can't escape. GameMenuScreen.initWidgets -> PauseScreen.createPauseMenu; ButtonWidget -> Button.
-    // The "leave"/disconnect button is the 3rd Button.builder call (ordinal 2): returnToGame=0,
-    // options=1, disconnect=2 (the others use SpriteIconButton.builder and don't count).
+    // javap-verified: createPauseMenu() has exactly 3 Button.builder(Component,OnPress) INVOKEs (ordinals
+    // 0/1/2); the Feedback/Report/Bug-report buttons in between use SpriteIconButton.builder and don't
+    // count. By the Component loaded before each: ordinal 0 = RETURN_TO_GAME, ordinal 1 = OPTIONS, ordinal
+    // 2 = CommonComponents.disconnectButtonLabel(isLocalServer) -> the "leave"/disconnect button. So the
+    // disconnect button is ordinal 2.
     @Redirect(method = "createPauseMenu", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/Button;builder(Lnet/minecraft/network/chat/Component;Lnet/minecraft/client/gui/components/Button$OnPress;)Lnet/minecraft/client/gui/components/Button$Builder;", ordinal = 2))
     private Button.Builder noEscape(Component message, Button.OnPress onPress){
         Minecraft client1 = Minecraft.getInstance();
