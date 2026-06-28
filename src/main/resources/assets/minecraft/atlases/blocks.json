@@ -18,12 +18,6 @@
             }
         },
         {
-            "type": "filter",
-            "pattern": {
-                "path": "(_color)"
-            }
-        },
-        {
             "type": "directory",
             "source": "item",
             "prefix": "item/"
