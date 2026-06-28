@@ -63,13 +63,18 @@ public class CameraShake {
             Player player = Minecraft.getInstance().player;
             if (player != null) {
                 // PORT: delta — WalkAnimationState step speed replaces (horizontalSpeed - prevHorizontalSpeed).
-                float playerSpeed = player.walkAnimation.speed(1.0f) * 6;
+                // PORT FIX (shake-too-violent): the old proxy was a per-tick *distance delta* (~0.2 while
+                // walking), so the original *6 landed playerSpeed around ~1.2. walkAnimation.speed(1.0f) is
+                // already a normalised 0..1 limb-swing amplitude, so *6 saturated it to ~6 — pinning
+                // traumaGoal at its 1.5 max on every step (≈±9° pitch/yaw, ±18° roll). *2 restores the
+                // original gentle scaling (walk ≈ 1.0–1.4, sprint ≈ 2.0).
+                float playerSpeed = player.walkAnimation.speed(1.0f) * 2.0f;
 
                 if (player.isFallFlying()) playerSpeed /= 6; // https://github.com/SpacePotatoee/MinecraftFoundFootage/issues/101
 
                 this.traumaGoal = Mth.clamp(0.6 * playerSpeed, 0.5, 1.5f);
                 this.noiseSpeedGoal = Mth.clamp(0.25 * playerSpeed, 0.1, 1.0f);
-                this.amplitude = 4;
+                this.amplitude = 3; // was 4; trimmed for a calmer handheld-camcorder sway
 
                 this.trauma = Math.max(MathStuff.Lerp((float) this.trauma, (float) this.traumaGoal, 0.93f, frameDelta), 0.5);
                 this.noiseSpeed = Math.max(MathStuff.Lerp((float) this.noiseSpeed, (float) this.noiseSpeedGoal, 0.93f, frameDelta), 0.1);
