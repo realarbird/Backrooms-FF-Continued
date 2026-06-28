@@ -14,7 +14,7 @@ import net.minecraft.resources.Identifier;
 import org.joml.Matrix3x2fStack;
 
 /**
- * "The Backrooms" intro title + "by SpacePotato" credit, shown during the opening cutscene.
+ * "The Backrooms" intro title + "A Mod By ARBird" credit, shown during the opening cutscene.
  *
  * <p>Port note (Phase 6c, effect A14): migrated from Fabric {@code HudRenderCallback} + {@code DrawContext}
  * to a {@link HudElement} drawing via {@link GuiGraphicsExtractor}. The matrix push/translate/scale is now
@@ -47,7 +47,7 @@ public class TitleText implements HudElement {
         int height = graphics.guiHeight();
 
         Component title = Component.translatable("intro.backrooms");
-        Component credit = Component.translatable("intro.credit").append(Component.literal("SpacePotato").withStyle(ChatFormatting.GOLD));
+        Component credit = Component.translatable("intro.credit").append(Component.literal("ARBird").withStyle(ChatFormatting.GOLD));
 
         Matrix3x2fStack pose = graphics.pose();
         pose.pushMatrix();
