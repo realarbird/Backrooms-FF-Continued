@@ -1,26 +1,33 @@
 package com.sp.mixin.hudandresolution;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.sp.compat.modmenu.ConfigStuff;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.item.HeldItemRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Arm;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.ItemInHandRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(HeldItemRenderer.class)
+/**
+ * Hide the first-person hand / held item (A10). Ported Yarn→mojmap, Phase 6f.
+ *
+ * <p>PORT: delta — {@code HeldItemRenderer}→{@code ItemInHandRenderer}; the old
+ * {@code renderFirstPersonItem}→{@code renderArmHoldingItem(...VertexConsumerProvider...)} redirect is
+ * gone (deferred pipeline, no {@code VertexConsumerProvider}). The whole first-person hand pass is now
+ * funnelled through the public {@code submitHandsWithItems(float, PoseStack, SubmitNodeCollector,
+ * LocalPlayer, int)} entry point. Cancelling it at HEAD when hands are disabled suppresses both arms +
+ * held items. Delta: hides the entire hand pass (arm + item + map) rather than just the
+ * arm-holding-item draw — a superset that matches the "hide hands" intent.
+ */
+@Mixin(ItemInHandRenderer.class)
 public abstract class DontRenderHandMixin {
 
-    @Shadow protected abstract void renderArmHoldingItem(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float equipProgress, float swingProgress, Arm arm);
-
-    @Redirect(method = "renderFirstPersonItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/item/HeldItemRenderer;renderArmHoldingItem(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;IFFLnet/minecraft/util/Arm;)V"))
-    private void cancel(HeldItemRenderer instance, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, float equipProgress, float swingProgress, Arm arm){
+    @Inject(method = "submitHandsWithItems", at = @At("HEAD"), cancellable = true)
+    private void cancel(float partialTick, PoseStack poseStack, SubmitNodeCollector collector, LocalPlayer player, int light, CallbackInfo ci){
         if (!ConfigStuff.showHands) {
-            return;
+            ci.cancel();
         }
-
-        this.renderArmHoldingItem(matrices, vertexConsumers, light, equipProgress, swingProgress, arm);
     }
 }
