@@ -1,6 +1,5 @@
 package com.sp.block.entity;
 
-import com.sp.block.custom.FluorescentLightBlock;
 import com.sp.block.custom.ThinFluorescentLightBlock;
 import com.sp.init.BackroomsLevels;
 import com.sp.init.ModBlockEntities;
@@ -119,7 +118,10 @@ public class ThinFluorescentLightBlockEntity extends BlockEntity {
             ticks = 1;
         }
 
-        prevOn = world.getBlockState(pos).getValue(FluorescentLightBlock.ON);
+        // 26.2 compares block-state properties by identity, so this must read the thin block's OWN
+        // ON property — reading the full FluorescentLightBlock.ON (a different "on" instance) threw
+        // "property does not exist" and crashed the tick.
+        prevOn = world.getBlockState(pos).getValue(ThinFluorescentLightBlock.ON);
     }
 
     public BlockState getCurrentState(){
