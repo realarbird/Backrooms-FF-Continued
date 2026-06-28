@@ -36,6 +36,20 @@ public abstract class BackroomsChunkGenerator extends ChunkGenerator {
 
     public abstract void generate(WorldGenLevel world, ChunkAccess chunk);
 
+    /**
+     * Block placement entry point. In 26.2 (mojmap) the per-chunk decoration stage is
+     * {@link ChunkGenerator#applyBiomeDecoration(WorldGenLevel, ChunkAccess, StructureManager)} — the
+     * direct rename of Yarn 1.20.1's {@code generateFeatures(StructureWorldAccess, Chunk, StructureAccessor)},
+     * which is where the original mod ran its room/maze generation. PORT FIX: this override was dropped
+     * during the port, leaving {@link #generate} orphaned (never called) — so every Backrooms chunk
+     * generated as empty void (players fell out of the world → death loop; no blocks → pitch black). Routing
+     * the decoration stage back into {@code generate} restores terrain for ALL Backrooms dimensions.
+     */
+    @Override
+    public void applyBiomeDecoration(WorldGenLevel world, ChunkAccess chunk, StructureManager structureManager) {
+        this.generate(world, chunk);
+    }
+
     protected int getExitSpawnRadius(WorldGenLevel world){
         if(world.getServer().isDedicatedServer()) {
             return ((NewServerProperties) ((DedicatedServer)world.getServer()).getProperties()).getExitSpawnRadius();

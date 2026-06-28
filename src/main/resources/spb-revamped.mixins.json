@@ -17,6 +17,7 @@
     "rain.ServerWorldNoHorseTrapMixin",
     "respawnsystem.PlayerManagerMixin",
     "skinstolen.ServerPlayerEntityMixin",
+    "worldgen.BackroomsWorldGenRegionMixin",
     "soundphysicsremasteredcompat.SFRReflectivityMixin",
     "soundphysicsremasteredcompat.SoundTypesMixin",
     "stamina.ContinuedSprintFix"
