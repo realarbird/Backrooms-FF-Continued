@@ -7,6 +7,7 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
@@ -35,6 +36,17 @@ public class BackroomsHudOverlay implements HudElement {
     public static final Identifier ID = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "vhs_overlay");
 
     private static final Identifier VHS_NOISE = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/shaders/vhs_noise.png");
+
+    /** vhs_noise.png native size (square). */
+    private static final int NOISE_TEX = 256;
+    /**
+     * Grain tint — low-alpha white so the noise composites as a faint translucent shimmer over the world.
+     * The simple {@code blit(...)} overload hardcodes an opaque (-1) tint, which painted the entire
+     * colourful noise texture solid over the screen; routing through the colour-aware overload with this
+     * tint is what makes it a grain overlay instead of a full-screen fill. Alpha 0x18 ≈ 9% (matches the
+     * scanline strength); bump the alpha byte for heavier grain.
+     */
+    private static final int GRAIN_TINT = 0x18FFFFFF;
     private static final Identifier CREEPY_FACE_1 = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/shaders/creepy_face1.png");
     private static final Identifier CREEPY_FACE_2 = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/shaders/creepy_face2.png");
     private static final Identifier YOU_CANT_ESCAPE = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/shaders/you_cant_escape.png");
@@ -108,15 +120,29 @@ public class BackroomsHudOverlay implements HudElement {
     // Layer draws
     // ----------------------------------------------------------------------------------------------------
 
-    /** Tiles vhs_noise.png across the screen, scrolling its UVs over time for a moving-grain look. */
+    /**
+     * Tiles vhs_noise.png across the screen at low opacity, scrolling its UVs over time for moving grain.
+     *
+     * <p>Uses the colour-aware blit overload
+     * {@code blit(pipeline, id, x, y, uOffset, vOffset, w, h, regionW, regionH, texW, texH, color)} so the
+     * grain is tinted by {@link #GRAIN_TINT} (low-alpha white) and composites translucently. The simpler
+     * {@code blit(id, x, y, w, h, u0, u1, v0, v1)} overload bakes an opaque (-1) tint, which drew the whole
+     * colourful noise texture solid over the world.</p>
+     *
+     * <p>region = 2× the texture (uOffset/regionW chosen to reproduce the original u∈[0,2], v∈[t,t+2] UVs)
+     * so the noise tiles ~2× across the screen and scrolls one period per second.</p>
+     */
     private void drawGrain(GuiGraphicsExtractor graphics, int w, int h, DeltaTracker delta) {
         float t = (System.currentTimeMillis() % 1000L) / 1000.0f;
-        float scale = 2.0f; // how many noise tiles fit across the screen
-        // Scroll the V coordinate to animate the grain.
-        float v0 = t;
-        float v1 = t + scale;
-        // blit(Identifier, x, y, w, h, u0, u1, v0, v1) — u/v are normalized; values >1 wrap (texture repeats).
-        graphics.blit(VHS_NOISE, 0, 0, w, h, 0.0f, scale, v0, v1);
+        float vOffsetPx = t * NOISE_TEX; // scroll V: v0 = vOffset/texH = t, v1 = (vOffset+regionH)/texH = t+2
+        graphics.blit(
+                RenderPipelines.GUI_TEXTURED, VHS_NOISE,
+                0, 0,                          // x, y
+                0.0f, vOffsetPx,               // uOffset, vOffset (px)
+                w, h,                          // dest width, height (full screen)
+                NOISE_TEX * 2, NOISE_TEX * 2,  // regionW, regionH (2× tile)
+                NOISE_TEX, NOISE_TEX,          // texW, texH
+                GRAIN_TINT);                   // low-alpha white → translucent grain
     }
 
     /** Draws faint translucent horizontal scanline rows every 3 px. */
