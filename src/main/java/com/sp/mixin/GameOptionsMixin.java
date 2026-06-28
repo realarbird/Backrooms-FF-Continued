@@ -3,9 +3,9 @@ package com.sp.mixin;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.sp.SPBRevampedClient;
 import com.sp.compat.modmenu.ConfigStuff;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.GraphicsMode;
-import net.minecraft.client.option.SimpleOption;
+import net.minecraft.client.GraphicsPreset;
+import net.minecraft.client.OptionInstance;
+import net.minecraft.client.Options;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -14,43 +14,53 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(GameOptions.class)
+/**
+ * Camcorder-feel option overrides (NEW-INJECTION). Ported Yarn→mojmap, Phase 6f.
+ *
+ * <p>PORT: delta — {@code GameOptions}→{@code Options}; {@code SimpleOption}→{@code OptionInstance}
+ * (get/set instead of getValue/setValue); the fluent getters renamed
+ * ({@code getEntityShadows}→{@code entityShadows()}, {@code getFovEffectScale}→{@code fovEffectScale()}).
+ * {@code getGraphicsMode}/{@code GraphicsMode} are gone — graphics is now {@code graphicsPreset()}
+ * returning {@code OptionInstance<GraphicsPreset>} with the same {@code FABULOUS} value, so the
+ * Fabulous→Fast forcing is retargeted to {@code graphicsPreset()}. Behaviour is unchanged.
+ */
+@Mixin(Options.class)
 public class GameOptionsMixin {
     @Unique
     private Double prevFovEffectScale;
 
-    @Shadow @Final private SimpleOption<Double> fovEffectScale;
+    @Shadow @Final private OptionInstance<Double> fovEffectScale;
 
-    @ModifyReturnValue(method = "getEntityShadows", at = @At("RETURN"))
-    private SimpleOption<Boolean> disableEntityShadows(SimpleOption<Boolean> original){
+    @ModifyReturnValue(method = "entityShadows", at = @At("RETURN"))
+    private OptionInstance<Boolean> disableEntityShadows(OptionInstance<Boolean> original){
         if (SPBRevampedClient.shouldRenderCameraEffect()) {
-            original.setValue(false);
+            original.set(false);
         }
         return original;
     }
 
-    @ModifyReturnValue(method = "getGraphicsMode", at = @At("RETURN"))
-    private SimpleOption<GraphicsMode> disableGraphicsMode(SimpleOption<GraphicsMode> original){
-        if (SPBRevampedClient.shouldRenderCameraEffect() && original.getValue() == GraphicsMode.FABULOUS) {
-            original.setValue(GraphicsMode.FAST);
+    @ModifyReturnValue(method = "graphicsPreset", at = @At("RETURN"))
+    private OptionInstance<GraphicsPreset> disableGraphicsMode(OptionInstance<GraphicsPreset> original){
+        if (SPBRevampedClient.shouldRenderCameraEffect() && original.get() == GraphicsPreset.FABULOUS) {
+            original.set(GraphicsPreset.FAST);
         }
 
         return original;
     }
 
-    @Inject(method = "getFovEffectScale", at = @At("HEAD"), cancellable = true)
-    private void disableSprintFOVChange(CallbackInfoReturnable<SimpleOption<Double>> cir){
+    @Inject(method = "fovEffectScale", at = @At("HEAD"), cancellable = true)
+    private void disableSprintFOVChange(CallbackInfoReturnable<OptionInstance<Double>> cir){
         if (SPBRevampedClient.shouldRenderCameraEffect()) {
             cir.cancel();
             if (ConfigStuff.enableRealCamera){
                 if(this.prevFovEffectScale == null){
-                    this.prevFovEffectScale = this.fovEffectScale.getValue();
+                    this.prevFovEffectScale = this.fovEffectScale.get();
                 }
-                this.fovEffectScale.setValue(0.0);
+                this.fovEffectScale.set(0.0);
                 cir.setReturnValue(this.fovEffectScale);
             } else {
                 if(this.prevFovEffectScale != null){
-                    this.fovEffectScale.setValue(this.prevFovEffectScale);
+                    this.fovEffectScale.set(this.prevFovEffectScale);
                     this.prevFovEffectScale = null;
                 }
                 cir.setReturnValue(this.fovEffectScale);

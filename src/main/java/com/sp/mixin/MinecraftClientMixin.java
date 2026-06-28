@@ -1,56 +1,48 @@
 package com.sp.mixin;
 
-import com.sp.SPBRevamped;
 import com.sp.SPBRevampedClient;
 import com.sp.networking.callbacks.ClientConnectionEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ProgressScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.Perspective;
-import net.minecraft.resource.ResourcePackManager;
-import org.spongepowered.asm.mixin.Final;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ProgressScreen;
+import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(MinecraftClient.class)
+/**
+ * Misc client hooks (NEW-INJECTION). Ported Yarn→mojmap, Phase 6f.
+ *
+ * <p>PORT: delta — {@code MinecraftClient}→{@code Minecraft}.
+ * <ul>
+ *   <li><b>disableF5</b> — {@code handleInputEvents}→{@code handleKeybinds}; the perspective toggle now
+ *       calls {@code Options.setCameraType(CameraType)} ({@code Perspective}→{@code CameraType}). Forces
+ *       first-person while a cutscene plays. Same outcome.</li>
+ *   <li><b>onDisconnect</b> — {@code disconnect(Screen)}→{@code disconnect(Screen, boolean)}; the login-
+ *       disconnect callback fires unless we're going through a {@code ProgressScreen}. Same outcome.</li>
+ *   <li><b>DROPPED: the {@code run}→{@code render(Z)} "re-enable veil:deferred resource pack" injection</b>
+ *       — Veil is removed (no GLSL/deferred pipeline on macOS), so there is no {@code veil:deferred}
+ *       pack to re-enable. Delta: none (the pack no longer exists).</li>
+ * </ul>
+ */
+@Mixin(Minecraft.class)
 public abstract class MinecraftClientMixin {
 
-    @Shadow private static MinecraftClient instance;
-
-    @Shadow @Final public GameOptions options;
-
-    @Shadow @Final private ResourcePackManager resourcePackManager;
-
-    @ModifyArg(method = "handleInputEvents", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/option/GameOptions;setPerspective(Lnet/minecraft/client/option/Perspective;)V"))
-    private Perspective disableF5(Perspective perspective){
+    @ModifyArg(method = "handleKeybinds", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Options;setCameraType(Lnet/minecraft/client/CameraType;)V"))
+    private CameraType disableF5(CameraType cameraType){
         if(SPBRevampedClient.getCutsceneManager().isPlaying) {
-            return Perspective.FIRST_PERSON;
+            return CameraType.FIRST_PERSON;
         }
 
-        return perspective;
+        return cameraType;
     }
 
-    @Inject(method = "disconnect(Lnet/minecraft/client/gui/screen/Screen;)V", at = @At("HEAD"))
-    private void onDisconnect(Screen screen, CallbackInfo ci){
+    @Inject(method = "disconnect(Lnet/minecraft/client/gui/screens/Screen;Z)V", at = @At("HEAD"))
+    private void onDisconnect(Screen screen, boolean keepResourcePacks, CallbackInfo ci){
         if(!(screen instanceof ProgressScreen)) {
-            ClientConnectionEvents.DISCONNECT.invoker().onLoginDisconnect((MinecraftClient) (Object) this);
-        }
-    }
-
-    @Inject(method = "run", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/MinecraftClient;render(Z)V", shift = At.Shift.AFTER))
-    private void enableDeferredResourcePack(CallbackInfo ci){
-        if (instance != null && resourcePackManager != null) {
-            if(!resourcePackManager.getEnabledProfiles().contains(resourcePackManager.getProfile("veil:deferred"))) {
-                SPBRevamped.LOGGER.info("Re-enabled Deferred Resourcepack");
-                resourcePackManager.enable("veil:deferred");
-                options.refreshResourcePacks(resourcePackManager);
-            }
+            ClientConnectionEvents.DISCONNECT.invoker().onLoginDisconnect((Minecraft) (Object) this);
         }
     }
 }
