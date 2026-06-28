@@ -25,7 +25,10 @@ public abstract class PlayerEntityMixin extends Entity {
         super(entityType, world);
     }
 
-    @Inject(method = "tick", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/Entity;noPhysics:Z", ordinal = 0, shift = At.Shift.AFTER))
+    // 26.2: Player.tick() writes `this.noPhysics = this.isSpectator()` at its head, and
+    // the field ref's owner in the constant pool is Player (not Entity). Target Player here
+    // or Mixin scans 0 targets and the injection fails at apply time.
+    @Inject(method = "tick", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/player/Player;noPhysics:Z", ordinal = 0, shift = At.Shift.AFTER))
     private void enableNoclip(CallbackInfo ci) {
         PlayerComponent playerComponent = InitializeComponents.PLAYER.get(this);
 

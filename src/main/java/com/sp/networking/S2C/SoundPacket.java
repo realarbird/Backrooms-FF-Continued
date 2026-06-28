@@ -1,8 +1,8 @@
 package com.sp.networking.S2C;
 
 import com.sp.SPBRevamped;
+import com.sp.SPBRevampedClient;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.Holder;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -32,8 +32,10 @@ public record SoundPacket(Holder<SoundEvent> sound, float volume, float pitch) i
         float volume = payload.volume();
         float pitch = payload.pitch();
 
-        context.client().execute(() ->
-                context.client().getSoundManager().play(SimpleSoundInstance.forUI(sound.value(), pitch, volume))
-        );
+        // Delegate to the client class so this payload record carries no net.minecraft.client.*
+        // reference (otherwise Fabric refuses to load SoundPacket on a dedicated server when its
+        // TYPE/CODEC are registered). SPBRevampedClient is @Environment(CLIENT)-safe and is only
+        // touched here at runtime on the client, never during server-side class loading.
+        context.client().execute(() -> SPBRevampedClient.playUISound(sound, volume, pitch));
     }
 }

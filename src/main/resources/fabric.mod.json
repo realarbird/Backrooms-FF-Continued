@@ -58,7 +58,7 @@
 		"minecraft": "~26.2",
 		"java": ">=25",
 		"fabric-api": "*",
-		"fabric-key-binding-api-v1": "*",
+		"fabric-key-mapping-api-v1": "*",
 		"voicechat": ">=2.6.20",
 		"geckolib": ">=5.5.2"
 	},

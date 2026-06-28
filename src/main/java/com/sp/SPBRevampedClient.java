@@ -41,6 +41,9 @@ import net.fabricmc.fabric.api.client.rendering.v1.ModelLayerRegistry;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.core.Holder;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
@@ -355,6 +358,14 @@ public class SPBRevampedClient implements ClientModInitializer {
 
     public static Optional<BackroomsLevel> getCurrentBackroomsLevel() {
         return BackroomsLevels.getLevel(Minecraft.getInstance().level);
+    }
+
+    // Client-only UI sound playback for SoundPacket. Lives here (a @Environment(CLIENT) class) so the
+    // SoundPacket payload record stays free of net.minecraft.client.* references and can be class-loaded
+    // on a dedicated server when its TYPE/CODEC are registered. Mirrors how the other S2C packets delegate
+    // their client-side effect to SPBRevampedClient.
+    public static void playUISound(Holder<SoundEvent> sound, float volume, float pitch) {
+        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(sound.value(), pitch, volume));
     }
 
     public static boolean isInLevel(BackroomsLevel level) {
