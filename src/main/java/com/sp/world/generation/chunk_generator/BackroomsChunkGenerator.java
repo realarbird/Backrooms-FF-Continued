@@ -2,6 +2,8 @@ package com.sp.world.generation.chunk_generator;
 
 import com.sp.compat.modmenu.ConfigStuff;
 import com.sp.mixininterfaces.NewServerProperties;
+import com.sp.world.generation.BackroomsGenBuffer;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.server.dedicated.DedicatedServer;
@@ -18,36 +20,72 @@ import net.minecraft.world.level.StructureManager;
 import net.minecraft.world.level.levelgen.blending.Blender;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.RandomState;
+import net.minecraft.world.level.levelgen.synth.ImprovedNoise;
+import net.minecraft.util.RandomSource;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public abstract class BackroomsChunkGenerator extends ChunkGenerator {
-    private final int placementRadius;
+    /** How many chunks out (each axis) this generator's anchored structures can reach from their anchor. */
+    private final int anchorReach;
 
-    public BackroomsChunkGenerator(BiomeSource biomeSource) {
-        this(biomeSource, 1);
-    }
-
-    public BackroomsChunkGenerator(BiomeSource biomeSource, int placementRadius) {
+    public BackroomsChunkGenerator(BiomeSource biomeSource, int anchorReach) {
         super(biomeSource);
-        this.placementRadius = placementRadius;
+        this.anchorReach = anchorReach;
     }
-
-    public abstract void generate(WorldGenLevel world, ChunkAccess chunk);
 
     /**
-     * Block placement entry point. In 26.2 (mojmap) the per-chunk decoration stage is
-     * {@link ChunkGenerator#applyBiomeDecoration(WorldGenLevel, ChunkAccess, StructureManager)} — the
-     * direct rename of Yarn 1.20.1's {@code generateFeatures(StructureWorldAccess, Chunk, StructureAccessor)},
-     * which is where the original mod ran its room/maze generation. PORT FIX: this override was dropped
-     * during the port, leaving {@link #generate} orphaned (never called) — so every Backrooms chunk
-     * generated as empty void (players fell out of the world → death loop; no blocks → pitch black). Routing
-     * the decoration stage back into {@code generate} restores terrain for ALL Backrooms dimensions.
+     * Whether {@code pos} is an anchor this generator places cross-chunk content from (e.g. the every-5th
+     * chunk maze grid). {@link #generateAnchored} is only ever invoked for anchor positions.
+     */
+    public abstract boolean isAnchor(ChunkPos pos);
+
+    /**
+     * Generates the room/maze content of the region anchored at {@code anchorPos} — deterministically:
+     * every random draw must be seeded from the world seed + a position (see
+     * {@link BackroomsGenBuffer#seed}). Block I/O is redirected into a {@link BackroomsGenBuffer} by the
+     * WorldGenRegion mixin, so this may freely "write" across the whole region — only the slice belonging to
+     * the chunk being decorated is copied out to the real world (see {@link #applyBiomeDecoration}).
+     */
+    public abstract void generateAnchored(WorldGenLevel world, ChunkPos anchorPos);
+
+    /**
+     * Strictly chunk-local content, written directly to the real region AFTER the anchored slices were
+     * copied out (so it can read what the anchored pass produced — e.g. Level 0's roof pass checks for
+     * megaroom ceiling markers). All reads/writes must stay inside {@code chunk}(±1).
+     */
+    public void generateLocal(WorldGenLevel world, ChunkAccess chunk) {
+    }
+
+    /**
+     * Block placement entry point — the 26.2 (mojmap) per-chunk decoration stage (the rename of Yarn
+     * 1.20.1's {@code generateFeatures}, where the original mod ran its room/maze generation).
+     *
+     * <p>PORT FIX: the generators place whole megarooms/mazes spanning several chunks from one "anchor"
+     * chunk, but 26.2 only commits writes within {@code blockStateWriteRadius} (=1) and drops the rest,
+     * leaving void chunk-columns (death loop + black screen + holes/gaps). So instead of writing across
+     * chunks, we reconstruct each overlapping anchor's region into a deterministic in-memory
+     * {@link BackroomsGenBuffer} and copy only THIS chunk's slice out. Every chunk that overlaps an anchor
+     * rebuilds the identical buffer (cached per worker thread) and copies its own slice → the world is fully
+     * filled, chunk-locally.</p>
      */
     @Override
     public void applyBiomeDecoration(WorldGenLevel world, ChunkAccess chunk, StructureManager structureManager) {
-        this.generate(world, chunk);
+        ChunkPos cpos = chunk.getPos();
+        for (int ax = cpos.x - this.anchorReach; ax <= cpos.x + this.anchorReach; ax++) {
+            for (int az = cpos.z - this.anchorReach; az <= cpos.z + this.anchorReach; az++) {
+                ChunkPos anchor = new ChunkPos(ax, az);
+                if (!this.isAnchor(anchor)) {
+                    continue;
+                }
+                BackroomsGenBuffer buffer = BackroomsGenBuffer.buildFor(this, world, anchor);
+                if (buffer != null) {
+                    buffer.copyChunkInto(cpos, world);
+                }
+            }
+        }
+        this.generateLocal(world, chunk);
     }
 
     protected int getExitSpawnRadius(WorldGenLevel world){
@@ -59,12 +97,25 @@ public abstract class BackroomsChunkGenerator extends ChunkGenerator {
     }
 
     /**
-     * When doing chunk generation, you normally can only change the blockstates within the current chunk (placement radius of 1).
-     * But you can increase that radius which is necessary since the maze generators need to place rooms a few chunks away.
+     * A large-scale noise sampler seeded from the world seed, created lazily on first use (the generator is
+     * constructed by codec before any world exists). Deterministic across server restarts, unlike the
+     * original's {@code new ImprovedNoise(RandomSource.create())} field — that reseeded every launch, which
+     * would let one anchor's region be rebuilt differently after a restart and reintroduce seams.
      */
-    public int getPlacementRadius() {
-        return placementRadius;
+    protected ImprovedNoise noiseSampler(WorldGenLevel world) {
+        ImprovedNoise sampler = this.noiseSampler;
+        if (sampler == null) {
+            synchronized (this) {
+                if (this.noiseSampler == null) {
+                    this.noiseSampler = new ImprovedNoise(RandomSource.create(world.getSeed()));
+                }
+                sampler = this.noiseSampler;
+            }
+        }
+        return sampler;
     }
+
+    private volatile ImprovedNoise noiseSampler;
 
 
     /**

@@ -4,6 +4,7 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sp.SPBRevamped;
 import com.sp.init.ModBlocks;
+import com.sp.world.generation.BackroomsGenBuffer;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.core.Holder;
@@ -23,6 +24,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.StructureManager;
 import net.minecraft.world.level.levelgen.blending.Blender;
@@ -45,16 +47,23 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
                     .apply(instance, instance.stable(InfGrassChunkGenerator::new))
     );
     private final Holder<NoiseGeneratorSettings> settings;
-    RandomSource random = RandomSource.create();
 
     public InfGrassChunkGenerator(BiomeSource biomeSource, Holder<NoiseGeneratorSettings> settings) {
+        // features up to 20 wide at the chunk origin; poles offset up to +25 in z — spill ≤2 chunks
         super(biomeSource, 2);
         this.settings = settings;
     }
 
-    public void generate(WorldGenLevel world, ChunkAccess chunk) {
-        int x = chunk.getPos().getMinBlockX();
-        int z = chunk.getPos().getMinBlockZ();
+    @Override
+    public boolean isAnchor(ChunkPos pos) {
+        return true; // every chunk places its own features
+    }
+
+    @Override
+    public void generateAnchored(WorldGenLevel world, ChunkPos anchorPos) {
+        int x = anchorPos.getMinBlockX();
+        int z = anchorPos.getMinBlockZ();
+        RandomSource random = RandomSource.create(BackroomsGenBuffer.seed(world, x, z));
 
 
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
@@ -91,7 +100,7 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
         } else {
             float rand = random.nextFloat();
             if (rand < 0.01f) {
-                roomIdentifier = this.randFeature(!chunk.getPos().getBlockAt(0,20,0).closerThan(new Vec3i(0,20,0), this.getExitSpawnRadius(world)));
+                roomIdentifier = this.randFeature(!anchorPos.getBlockAt(0,20,0).closerThan(new Vec3i(0,20,0), this.getExitSpawnRadius(world)), random);
 
                 optional = structureTemplateManager.get(roomIdentifier);
 
@@ -105,7 +114,7 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
         }
     }
 
-    private Identifier randFeature(boolean exit) {
+    private Identifier randFeature(boolean exit, RandomSource random) {
         int rand = random.nextIntBetweenInclusive(1,3);
         if(exit){
             if(rand == 1){

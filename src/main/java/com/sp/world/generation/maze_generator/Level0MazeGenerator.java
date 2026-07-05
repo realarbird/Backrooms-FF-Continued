@@ -1,5 +1,6 @@
 package com.sp.world.generation.maze_generator;
 
+import com.sp.world.generation.BackroomsGenBuffer;
 import com.sp.world.generation.maze_generator.cells.MazeCell;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
@@ -25,6 +26,9 @@ public class Level0MazeGenerator extends MazeGenerator {
 
     String levelDirectory;
 
+    /** One DFS random per maze, seeded by the region origin so the maze is deterministic per anchor. */
+    RandomSource random;
+
     public Level0MazeGenerator(int size, int rows, int cols, int originX, int originY, String levelDirectory){
         this.size = size;
         this.rows = rows;
@@ -40,6 +44,7 @@ public class Level0MazeGenerator extends MazeGenerator {
     @Override
     public void setup(WorldGenLevel world, boolean sky, boolean megaRooms, boolean spawnRandomRooms) {
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        this.random = RandomSource.create(BackroomsGenBuffer.seed(world, this.originX, this.originY));
 
         for (int y = 0; y < this.rows; y++) {
             for (int x = 0; x < this.cols; x++) {
@@ -161,8 +166,7 @@ public class Level0MazeGenerator extends MazeGenerator {
         }
 
         if (!neighbors.isEmpty()){
-            RandomSource random = RandomSource.create();
-            int r = random.nextIntBetweenInclusive(0, neighbors.size() - 1);
+            int r = this.random.nextIntBetweenInclusive(0, neighbors.size() - 1);
             return neighbors.get(r);
         }
         else{

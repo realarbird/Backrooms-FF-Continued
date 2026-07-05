@@ -3,6 +3,7 @@ package com.sp.world.generation.maze_generator.cells;
 import com.sp.SPBRevamped;
 import com.sp.init.BackroomsLevels;
 import com.sp.util.MathStuff;
+import com.sp.world.generation.BackroomsGenBuffer;
 import com.sp.world.levels.BackroomsLevel;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
@@ -64,7 +65,7 @@ public class MazeCell {
 
 
 
-        RandomSource random = RandomSource.create();
+        RandomSource random = RandomSource.create(BackroomsGenBuffer.seed(world, this.worldXPos, this.worldYPos));
         BackroomsLevel.RoomCount roomCount = backroomsLevel.getRoomCount().get();
         int aroomNumber = random.nextIntBetweenInclusive(1, roomCount.aRoomCount());
         int broomNumber = random.nextIntBetweenInclusive(1, roomCount.bRoomCount());
@@ -289,7 +290,7 @@ public class MazeCell {
 
 
 
-        RandomSource random = RandomSource.create();
+        RandomSource random = RandomSource.create(BackroomsGenBuffer.seed(world, this.worldXPos, this.worldYPos));
         BackroomsLevel.RoomCount roomCount = backroomsLevel.getRoomCount().get();
         int aroomNumber = random.nextIntBetweenInclusive(1, roomCount.aRoomCount());
         int broomNumber = random.nextIntBetweenInclusive(1, roomCount.bRoomCount());

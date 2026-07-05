@@ -4,6 +4,7 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sp.SPBRevamped;
 import com.sp.init.ModBlocks;
+import com.sp.world.generation.BackroomsGenBuffer;
 import net.minecraft.core.Holder;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
@@ -15,6 +16,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.StructureManager;
 import net.minecraft.world.level.levelgen.blending.Blender;
@@ -36,18 +38,22 @@ public class Level324ChunkGenerator extends BackroomsChunkGenerator {
 
     private final Holder<NoiseGeneratorSettings> settings;
 
-    private final RandomSource random;
-
     public Level324ChunkGenerator(BiomeSource biomeSource, Holder<NoiseGeneratorSettings> settings) {
-        super(biomeSource, 10);
+        // gas_station is 48 wide from block (8,0) → spills 3 chunks from its anchor
+        super(biomeSource, 3);
         this.settings = settings;
-        this.random = RandomSource.create();
     }
 
     @Override
-    public void generate(WorldGenLevel world, ChunkAccess chunk) {
-        int x = chunk.getPos().getMinBlockX();
-        int z = chunk.getPos().getMinBlockZ();
+    public boolean isAnchor(ChunkPos pos) {
+        return true; // every chunk places its own lamps/poles
+    }
+
+    @Override
+    public void generateAnchored(WorldGenLevel world, ChunkPos anchorPos) {
+        int x = anchorPos.getMinBlockX();
+        int z = anchorPos.getMinBlockZ();
+        RandomSource random = RandomSource.create(BackroomsGenBuffer.seed(world, x, z));
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         StructureTemplateManager structureTemplateManager = world.getServer().getStructureManager();
 
@@ -69,8 +75,8 @@ public class Level324ChunkGenerator extends BackroomsChunkGenerator {
                                 structurePlacementData, random, 2));
                     }
 
-                    if ((chunk.getPos().getMinBlockX() + i) % 1000 == 9) {
-                        if ((chunk.getPos().getMinBlockZ() + j) % 21 == 0) {
+                    if ((x + i) % 1000 == 9) {
+                        if ((z + j) % 21 == 0) {
                             BlockPos placementPos = mutable.set(x + i, 65, z + j);
                             StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();
                             structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
@@ -87,8 +93,8 @@ public class Level324ChunkGenerator extends BackroomsChunkGenerator {
                     }
                 }
 
-                if ((chunk.getPos().getMinBlockX() + i) == 8) {
-                    if ((chunk.getPos().getMinBlockZ() + j) == 0) {
+                if ((x + i) == 8) {
+                    if ((z + j) == 0) {
 
                         BlockPos placementPos = mutable.set(x + i, -2, z + j);
                         StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();

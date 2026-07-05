@@ -3,6 +3,7 @@ package com.sp.world.generation.chunk_generator;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sp.SPBRevamped;
+import com.sp.world.generation.BackroomsGenBuffer;
 import com.sp.world.generation.maze_generator.Level1MazeGenerator;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.core.Holder;
@@ -19,6 +20,7 @@ import net.minecraft.world.level.levelgen.synth.ImprovedNoise;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
@@ -35,17 +37,23 @@ public final class Level1ChunkGenerator extends BackroomsChunkGenerator {
                     .apply(instance, instance.stable(Level1ChunkGenerator::new))
     );
     private final Holder<NoiseGeneratorSettings> settings;
-    RandomSource random = RandomSource.create();
-    ImprovedNoise noiseSampler = new ImprovedNoise(random);
 
     public Level1ChunkGenerator(BiomeSource biomeSource, Holder<NoiseGeneratorSettings> settings) {
-        super(biomeSource, 10);
+        // maze/megaroom regions span anchor-2..anchor+2 chunks (80x80 blocks from origin anchor-32)
+        super(biomeSource, 2);
         this.settings = settings;
     }
 
-    public void generate(WorldGenLevel world, ChunkAccess chunk) {
-        int x = chunk.getPos().getMinBlockX();
-        int z = chunk.getPos().getMinBlockZ();
+    @Override
+    public boolean isAnchor(ChunkPos pos) {
+        return isOnMazeGrid(pos);
+    }
+
+    @Override
+    public void generateAnchored(WorldGenLevel world, ChunkPos anchorPos) {
+        int x = anchorPos.getMinBlockX();
+        int z = anchorPos.getMinBlockZ();
+        RandomSource random = RandomSource.create(BackroomsGenBuffer.seed(world, x, z));
 
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         MinecraftServer server = world.getServer();
@@ -53,7 +61,7 @@ public final class Level1ChunkGenerator extends BackroomsChunkGenerator {
         StructureTemplateManager structureTemplateManager = world.getServer().getStructureManager();
         StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();
 
-        if (isStartChunk(chunk)) {
+        if (isStartChunk(anchorPos)) {
             Identifier roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level1/stairwell_1");
             structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
             Optional<StructureTemplate> stairwellStructureIn = structureTemplateManager.get(roomIdentifier);
@@ -72,16 +80,12 @@ public final class Level1ChunkGenerator extends BackroomsChunkGenerator {
             return;
         }
 
-        if (!isOnMazeGrid(chunk)) {
-            return;
-        }
-
-        double noise1 = noiseSampler.noise((x) * 0.002, 0, (z) * 0.002);
+        double noise1 = this.noiseSampler(world).noise((x) * 0.002, 0, (z) * 0.002);
         if (server == null) {
             return;
         }
 
-        if (!chunk.getPos().getBlockAt(0, 20, 0).closerThan(new Vec3i(0, 20, 0), this.getExitSpawnRadius(world))) {
+        if (!anchorPos.getBlockAt(0, 20, 0).closerThan(new Vec3i(0, 20, 0), this.getExitSpawnRadius(world))) {
             if (noise1 <= 0) {
                 boolean exitToLevel1 = random.nextBoolean();
 
@@ -164,12 +168,12 @@ public final class Level1ChunkGenerator extends BackroomsChunkGenerator {
         }
     }
 
-    private static boolean isStartChunk(ChunkAccess chunk) {
-        return (float) chunk.getPos().x == 0 && (float) chunk.getPos().z == 0;
+    private static boolean isStartChunk(ChunkPos pos) {
+        return pos.x == 0 && pos.z == 0;
     }
 
-    private static boolean isOnMazeGrid(ChunkAccess chunk) {
-        return ((float) chunk.getPos().x) % SPBRevamped.FINAL_MAZE_SIZE == 0 && ((float) chunk.getPos().z) % SPBRevamped.FINAL_MAZE_SIZE == 0;
+    private static boolean isOnMazeGrid(ChunkPos pos) {
+        return pos.x % SPBRevamped.FINAL_MAZE_SIZE == 0 && pos.z % SPBRevamped.FINAL_MAZE_SIZE == 0;
     }
 
     protected MapCodec<? extends ChunkGenerator> codec() {

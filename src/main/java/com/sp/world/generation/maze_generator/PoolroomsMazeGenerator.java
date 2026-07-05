@@ -4,6 +4,7 @@ import com.sp.world.generation.maze_generator.cells.MazeCell;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.core.BlockPos;
+import com.sp.world.generation.BackroomsGenBuffer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.WorldGenLevel;
 
@@ -26,6 +27,9 @@ public class PoolroomsMazeGenerator extends MazeGenerator {
 
     String levelDirectory;
 
+    /** One random per maze, seeded by the region origin so the maze is deterministic per anchor. */
+    RandomSource random;
+
     public PoolroomsMazeGenerator(int size, int rows, int cols, int originX, int originY, String levelDirectory){
         this.size = size;
         this.rows = rows;
@@ -41,6 +45,7 @@ public class PoolroomsMazeGenerator extends MazeGenerator {
     @Override
     public void setup(WorldGenLevel world, boolean sky, boolean megaRooms, boolean spawnRandomRooms) {
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        this.random = RandomSource.create(BackroomsGenBuffer.seed(world, this.originX, this.originY));
 
         //Generate Maze
         for (int y = 0; y < this.rows; y++) {
@@ -189,7 +194,7 @@ public class PoolroomsMazeGenerator extends MazeGenerator {
 
 
         if (!neighbors.isEmpty()){
-            RandomSource random = RandomSource.create();
+            RandomSource random = this.random;
             int r = random.nextIntBetweenInclusive(0, neighbors.size() - 1);
             lastRoomDir = roomDir.get(r);
             return neighbors.get(r);
@@ -203,7 +208,7 @@ public class PoolroomsMazeGenerator extends MazeGenerator {
 
     @Override
     public void removeWalls(MazeCell currentCell, MazeCell neighbor){
-        RandomSource random = RandomSource.create();
+        RandomSource random = this.random;
 
 
         if(currentCell.getGridPosX() - neighbor.getGridPosX() != 0){

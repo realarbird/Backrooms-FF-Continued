@@ -3,6 +3,7 @@ package com.sp.world.generation.chunk_generator;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sp.SPBRevamped;
+import com.sp.world.generation.BackroomsGenBuffer;
 import com.sp.world.generation.maze_generator.PoolroomsMazeGenerator;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.core.Holder;
@@ -19,6 +20,7 @@ import net.minecraft.world.level.levelgen.synth.ImprovedNoise;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
@@ -36,19 +38,25 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
                     .apply(instance, instance.stable(PoolroomsChunkGenerator::new))
     );
     private final Holder<NoiseGeneratorSettings> settings;
-    RandomSource random = RandomSource.create();
-    ImprovedNoise noiseSampler = new ImprovedNoise(random);
 
     private final List<String> mainMegaRoomList = List.of("16x16", "16x24", "16x32", "24x16", "24x24", "24x32", "32x16", "32x24", "32x32");
 
     public PoolroomsChunkGenerator(BiomeSource biomeSource, Holder<NoiseGeneratorSettings> settings) {
-        super(biomeSource, 10);
+        // maze/megaroom regions span anchor-2..anchor+2 chunks (80x80 blocks from origin anchor-32)
+        super(biomeSource, 2);
         this.settings = settings;
     }
 
-    public void generate(WorldGenLevel world, ChunkAccess chunk) {
-        int x = chunk.getPos().getMinBlockX();
-        int z = chunk.getPos().getMinBlockZ();
+    @Override
+    public boolean isAnchor(ChunkPos pos) {
+        return pos.x % SPBRevamped.FINAL_MAZE_SIZE == 0 && pos.z % SPBRevamped.FINAL_MAZE_SIZE == 0;
+    }
+
+    @Override
+    public void generateAnchored(WorldGenLevel world, ChunkPos anchorPos) {
+        int x = anchorPos.getMinBlockX();
+        int z = anchorPos.getMinBlockZ();
+        RandomSource random = RandomSource.create(BackroomsGenBuffer.seed(world, x, z));
 
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         MinecraftServer server = world.getServer();
@@ -62,7 +70,7 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
 
 
 
-        if(chunk.getPos().x == 0 && chunk.getPos().z == 0){
+        if(anchorPos.x == 0 && anchorPos.z == 0){
             roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "poolrooms/entrance");
             optional = structureTemplateManager.get(roomIdentifier);
 
@@ -80,9 +88,9 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
                 poolroomsMazeGenerator.setup(world, true, false, false);
             }
 
-        } else if (((float)chunk.getPos().x) % SPBRevamped.FINAL_MAZE_SIZE == 0 && ((float)chunk.getPos().z) % SPBRevamped.FINAL_MAZE_SIZE == 0) {
+        } else if (anchorPos.x % SPBRevamped.FINAL_MAZE_SIZE == 0 && anchorPos.z % SPBRevamped.FINAL_MAZE_SIZE == 0) {
 
-            if(!chunk.getPos().getBlockAt(0,20,0).closerThan(new Vec3i(0,20,0), this.getExitSpawnRadius(world))){
+            if(!anchorPos.getBlockAt(0,20,0).closerThan(new Vec3i(0,20,0), this.getExitSpawnRadius(world))){
                 int exit = random.nextIntBetweenInclusive(0,4);
 
                 if(exit == 0){
@@ -114,7 +122,7 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
 
 
             if (server != null) {
-                double noise = noiseSampler.noise((x) * 0.002, 0, (z) * 0.002);
+                double noise = this.noiseSampler(world).noise((x) * 0.002, 0, (z) * 0.002);
                 boolean shouldSky = noise > 0;
 
                 this.generateMegaRooms(world, mutable, shouldSky, x - 32, z - 32);
@@ -142,7 +150,7 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
             levelDirectory = "poolrooms/dark";
         }
 
-        RandomSource random = RandomSource.create();
+        RandomSource random = RandomSource.create(BackroomsGenBuffer.seed(world, originX, originY));
         StructureTemplateManager structureTemplateManager = world.getServer().getStructureManager();
         Identifier roomIdentifier = null;
 

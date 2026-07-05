@@ -4,8 +4,9 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sp.SPBRevamped;
 import com.sp.init.ModBlocks;
+import com.sp.world.generation.BackroomsGenBuffer;
 import com.sp.world.generation.maze_generator.Level0MazeGenerator;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
@@ -32,7 +33,8 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
 
 
     public Level0ChunkGenerator(BiomeSource biomeSource) {
-        super(biomeSource, 5);
+        // maze/megaroom regions span anchor-2..anchor+2 chunks (80x80 blocks from origin anchor-32)
+        super(biomeSource, 2);
     }
 
     @Override
@@ -40,10 +42,18 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
         return CODEC;
     }
 
-    public void generate(WorldGenLevel world, ChunkAccess chunk) {
-        int x = chunk.getPos().getMinBlockX();
-        int z = chunk.getPos().getMinBlockZ();
-        RandomSource random = RandomSource.create();
+    @Override
+    public boolean isAnchor(ChunkPos pos) {
+        return pos.x % SPBRevamped.FINAL_MAZE_SIZE == 0 && pos.z % SPBRevamped.FINAL_MAZE_SIZE == 0;
+    }
+
+    @Override
+    public void generateAnchored(WorldGenLevel world, ChunkPos anchorPos) {
+        int x = anchorPos.getMinBlockX();
+        int z = anchorPos.getMinBlockZ();
+        // The megaroom roll below must stay this random's FIRST draw — placesMegaRoom replays it for
+        // neighboring anchors to resolve megaroom adjacency deterministically.
+        RandomSource random = RandomSource.create(BackroomsGenBuffer.seed(world, x, z));
 
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
         MinecraftServer server = world.getServer();
@@ -58,7 +68,7 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
             StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();
 
             //Spawn Point
-            if((float) chunk.getPos().x == 0 && (float) chunk.getPos().z  == 0) {
+            if(anchorPos.x == 0 && anchorPos.z == 0) {
                 for(int i = 0; i < 16; i++) {
                     for(int j = 0; j < 16; j++){
                         if(i == 0 && j == 0){
@@ -96,10 +106,10 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
                             mutable.set(x, 18, z),
                             structurePlacementData, random, 2);
                 }
-            } else if (((float) chunk.getPos().x) % SPBRevamped.FINAL_MAZE_SIZE == 0 && ((float) chunk.getPos().z) % SPBRevamped.FINAL_MAZE_SIZE == 0) {
+            } else {
 
 
-                if(!chunk.getPos().getBlockAt(0,20,0).closerThan(new Vec3i(0,20,0), this.getExitSpawnRadius(world))) {
+                if(!anchorPos.getBlockAt(0,20,0).closerThan(new Vec3i(0,20,0), this.getExitSpawnRadius(world))) {
                     if(megaRooms != 1){
                         roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level0/stairwell_0");
                         structurePlacementData.setMirror(Mirror.NONE).setRotation(Rotation.NONE).setIgnoreEntities(true);
@@ -118,7 +128,7 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
                 }
 
                 if (megaRooms == 1) {
-                    if (!isNearMegaRooms(x, z, world)) {
+                    if (!hasEarlierMegaRoomNeighbor(world, x, z, 0)) {
 
                         megaRooms = random.nextIntBetweenInclusive(1, 6);
                         roomIdentifier = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "level0/megaroom" + megaRooms);
@@ -169,50 +179,84 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
                     level0MazeGenerator.setup(world, false, false, false);
                 }
             }
+        }
 
+    }
 
-            ////Code for 8 x 8 Roof////
-            for(int i = 0; i < 2; i++) {
-                for(int j = 0; j < 2; j++) {
-                    roomIdentifier = this.getRoof();
-                    structurePlacementData = this.randRotation();
-                    optional = structureTemplateManager.get(roomIdentifier);
+    /**
+     * Per-chunk 8x8 roof quadrants, written directly to the real chunk AFTER the anchored slices were
+     * copied out — the cyan-wool check (megaroom below) and the y=25 air check (room already has a ceiling)
+     * read what the anchored pass produced.
+     */
+    @Override
+    public void generateLocal(WorldGenLevel world, ChunkAccess chunk) {
+        if (world.getServer() == null) {
+            return;
+        }
+        int x = chunk.getPos().getMinBlockX();
+        int z = chunk.getPos().getMinBlockZ();
+        StructureTemplateManager structureTemplateManager = world.getServer().getStructureManager();
+        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
 
-                    if (optional.isPresent()) {
-                        if (world.getBlockState(mutable.set(x + 8 * i, 18, z + 8 * j)) != Blocks.WOOL.cyan().defaultBlockState() && world.getBlockState(mutable.set(x + 8 * i, 25, z + 8 * j)) == Blocks.AIR.defaultBlockState() ){
-                            if (structurePlacementData.getRotation() == Rotation.CLOCKWISE_90) {
-                                optional.get().placeInWorld(world, new BlockPos((x + 7) + 8 * i, 25, (z) + 8 * j), mutable.set((x + 7) + 8 * i, 25, (z) + 8 * j), structurePlacementData, random, 16);
-                            } else {
-                                optional.get().placeInWorld(world, new BlockPos((x) + 8 * i, 25, (z) + 8 * j), mutable.set((x) + 8 * i, 25, (z) + 8 * j), structurePlacementData, random, 16);
-                            }
+        for(int i = 0; i < 2; i++) {
+            for(int j = 0; j < 2; j++) {
+                RandomSource random = RandomSource.create(BackroomsGenBuffer.seed(world, x + 8 * i, z + 8 * j));
+                Identifier roomIdentifier = this.getRoof(world, x + 8 * i, z + 8 * j);
+                StructurePlaceSettings structurePlacementData = this.randRotation(world, x + 8 * i, z + 8 * j);
+                Optional<StructureTemplate> optional = structureTemplateManager.get(roomIdentifier);
+
+                if (optional.isPresent()) {
+                    if (world.getBlockState(mutable.set(x + 8 * i, 18, z + 8 * j)) != Blocks.WOOL.cyan().defaultBlockState() && world.getBlockState(mutable.set(x + 8 * i, 25, z + 8 * j)) == Blocks.AIR.defaultBlockState() ){
+                        if (structurePlacementData.getRotation() == Rotation.CLOCKWISE_90) {
+                            optional.get().placeInWorld(world, new BlockPos((x + 7) + 8 * i, 25, (z) + 8 * j), mutable.set((x + 7) + 8 * i, 25, (z) + 8 * j), structurePlacementData, random, 16);
+                        } else {
+                            optional.get().placeInWorld(world, new BlockPos((x) + 8 * i, 25, (z) + 8 * j), mutable.set((x) + 8 * i, 25, (z) + 8 * j), structurePlacementData, random, 16);
                         }
                     }
                 }
             }
-
         }
-
     }
 
-    public boolean isNearMegaRooms(int x, int z,WorldGenLevel world){
-        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
-        boolean near = false;
-
-        for(int i = -80; i <= 80; i += 80){
-            for(int j = -80; j <= 80; j += 80){
-                BlockState blockState = world.getBlockState(mutable.set(x + i, 19, z + j));
-                if (blockState == Blocks.WOOL.red().defaultBlockState()){
-                    near = true;
-                    break;
+    /**
+     * Deterministic replacement for the original's red-wool scan of the 8 neighboring anchor regions
+     * (buffered builds can't see other regions, and the original read was generation-order dependent
+     * anyway). An anchor's megaroom is suppressed iff a lexicographically-earlier (z, then x) neighbor
+     * anchor itself places one — replaying each neighbor's first seeded roll — which reproduces the
+     * original's "first placed wins" density without cross-region reads.
+     */
+    private boolean hasEarlierMegaRoomNeighbor(WorldGenLevel world, int x, int z, int depth) {
+        for (int j = -80; j <= 80; j += 80) {
+            for (int i = -80; i <= 80; i += 80) {
+                if (i == 0 && j == 0) continue;
+                int nx = x + i;
+                int nz = z + j;
+                if (nz > z || (nz == z && nx >= x)) continue;
+                if (this.placesMegaRoom(world, nx, nz, depth)) {
+                    return true;
                 }
             }
         }
-
-        return near;
+        return false;
     }
 
-    public Identifier getRoof(){
-        RandomSource random = RandomSource.create();
+    private boolean placesMegaRoom(WorldGenLevel world, int x, int z, int depth) {
+        if (x == 0 && z == 0) {
+            return true; // spawn region always has megaroom1
+        }
+        boolean wants = RandomSource.create(BackroomsGenBuffer.seed(world, x, z)).nextIntBetweenInclusive(1, 2) == 1;
+        if (!wants) {
+            return false;
+        }
+        // deep in a chain of wanting anchors the influence of even-earlier ones has decayed — approximate
+        if (depth >= 8) {
+            return true;
+        }
+        return !this.hasEarlierMegaRoomNeighbor(world, x, z, depth + 1);
+    }
+
+    public Identifier getRoof(WorldGenLevel world, int wx, int wz){
+        RandomSource random = RandomSource.create(BackroomsGenBuffer.seed(world, wx, wz));
         int roofNumber = random.nextIntBetweenInclusive(1,5);
 
         if (roofNumber == 1){
@@ -225,9 +269,9 @@ public class Level0ChunkGenerator extends BackroomsChunkGenerator {
 
     }
 
-    public StructurePlaceSettings randRotation(){
+    public StructurePlaceSettings randRotation(WorldGenLevel world, int wx, int wz){
         StructurePlaceSettings structurePlacementData = new StructurePlaceSettings();
-        RandomSource random = RandomSource.create();
+        RandomSource random = RandomSource.create(BackroomsGenBuffer.seed(world, wx, wz) ^ 0x5DEECE66DL);
         int rot = random.nextIntBetweenInclusive(1,2);
 
         if(rot == 1){
