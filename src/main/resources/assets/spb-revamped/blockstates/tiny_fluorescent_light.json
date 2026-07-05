@@ -1,6 +1,15 @@
 {
   "variants": {
-    "": {
+    "blackout=false,on=true": {
+      "model": "spb-revamped:block/tiny_fluorescent_light_on"
+    },
+    "blackout=true,on=true": {
+      "model": "spb-revamped:block/tiny_fluorescent_light"
+    },
+    "blackout=false,on=false": {
+      "model": "spb-revamped:block/tiny_fluorescent_light"
+    },
+    "blackout=true,on=false": {
       "model": "spb-revamped:block/tiny_fluorescent_light"
     }
   }

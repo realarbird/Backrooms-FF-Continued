@@ -72,12 +72,9 @@ public class TinyFluorescentLightBlock extends BaseEntityBlock {
 
     @Override
     protected RenderShape getRenderShape(BlockState state) {
-        if(state.getValue(BLACKOUT) || !state.getValue(ON)){
-            return RenderShape.MODEL;
-        }
-        else {
-            return RenderShape.INVISIBLE;
-        }
+        // PORT FIX: lit look now comes from the blockstate JSON (Veil emissive BER dropped) — see
+        // FluorescentLightBlock.getRenderShape.
+        return RenderShape.MODEL;
     }
 
     @Nullable

@@ -41,12 +41,10 @@ public class FluorescentLightBlock extends BaseEntityBlock {
 
     @Override
     protected RenderShape getRenderShape(BlockState state) {
-        if(state.getValue(BLACKOUT) || !state.getValue(ON)){
-            return RenderShape.MODEL;
-        }
-        else {
-            return RenderShape.INVISIBLE;
-        }
+        // PORT FIX: the original returned INVISIBLE while lit because a Veil block-entity renderer drew the
+        // glowing tube; that renderer was dropped with Veil, which left lit lights rendering as holes/air.
+        // The lit look now comes from the blockstate JSON (on=true,blackout=false -> *_on model).
+        return RenderShape.MODEL;
     }
 
     @Nullable
