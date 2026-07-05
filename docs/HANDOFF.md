@@ -202,9 +202,295 @@ kept) but NOT drawn** — 26.2 removed immediate-mode draw; needs a vanilla subm
 
 ## 13. To resume in a new chat
 
-1. Read this file, then `docs/PORTING_MAP.md` + `docs/CLIENT_PLAYTEST.md`, then `git -C
-   /Users/ayanraj/Documents/MinecraftFoundFootage-master log --oneline | head -40`.
-2. Confirm green: `JAVA_HOME=/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home ./gradlew build`.
-3. Ask the user for their latest `runClient` result / crash trace, or address the §11 cosmetic items.
-4. Fix → rebuild → copy jar to the Modrinth profile (§4) → user relaunches. Commit each fix (no push).
+> **⚠ MACHINE MOVED (2026-07-04): the project now lives on the user's WINDOWS machine at**
+> `C:\Users\rajay\Documents\MinecraftFoundFootage-master-20260705T011342Z-3-001\MinecraftFoundFootage-master`
+> (note the extra nesting level under the -20260705… folder). All §4/§5 macOS paths/commands are
+> historical; see §15.4 for the Windows equivalents. Everything else (branch, decisions, docs) unchanged.
+
+1. Read this file, then `docs/PORTING_MAP.md` + `docs/CLIENT_PLAYTEST.md`, then `git log --oneline | head -40`.
+2. Confirm green (Windows): set `JAVA_HOME` to JDK 25 (`C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot`)
+   and run `gradlew.bat build` in the project dir.
+3. Ask the user for their latest client result / crash trace, or address the §11 cosmetic items.
+4. Fix → rebuild → give the user the jar from `build\libs` (no launcher profile exists on the Windows
+   machine yet — the old auto-deploy path was the macOS Modrinth profile). Commit each fix (no push).
+
+## 14. Client playtest fixes session (2026-06-28/29, commits e8802ec..737aad7)
+
+User ran the built jar on macOS and reported issues one at a time; each was root-caused (not
+guessed) and fixed. **All committed to `port/mc-26.2` except one stashed WIP (see §14.6).**
+
+### 14.1 Rainbow static covering the whole screen (commit e8802ec)
+
+`BackroomsHudOverlay.drawGrain()` blitted `vhs_noise.png` (a saturated RGBA noise texture) with the
+simple `blit(id,x,y,w,h,u0,u1,v0,v1)` overload — decompiling 26.2's `GuiGraphicsExtractor` showed this
+overload hardcodes `iconst_m1` (opaque white) as the tint, so the full-color noise painted solid over
+the world. Fixed by routing through the color-aware
+`blit(pipeline,id,x,y,uOffset,vOffset,w,h,regionW,regionH,texW,texH,color)` overload with a low-alpha
+white tint (`GRAIN_TINT = 0x18FFFFFF`, ~9%); `GUI_TEXTURED` uses `BlendFunction.TRANSLUCENT` so low
+alpha now composites as faint translucent grain instead of an opaque fill.
+
+### 14.2 Death loop + pitch-black on entering the Backrooms (commit 64dd5d4) — the big one
+
+Reported as "I die as soon as I enter the backrooms and end up in a death loop" + a screenshot of a
+totally black screen. Root-caused via a **headless RCON probe harness** (§14.7) rather than guessing —
+every Backrooms dimension was generating as **completely empty void**. Three separate port regressions,
+found and fixed together:
+
+1. **Orphaned generation hook.** `BackroomsChunkGenerator.generate(WorldGenLevel, ChunkAccess)` was
+   declared abstract but called from NOWHERE. The original 1.20.1 mod ran it from a custom
+   `ChunkStatus` task; per `MIXIN_TRIAGE.md` line 83 that hook was dropped in the port with a note to
+   "re-hook elsewhere." Fix: override `ChunkGenerator.applyBiomeDecoration(WorldGenLevel, ChunkAccess,
+   StructureManager)` — the 26.2 mojmap rename of Yarn's `generateFeatures` — and call `generate()` from
+   it. This is the per-chunk decoration stage and is the correct re-hook point.
+2. **Wrong structure folder name.** All 285 room/maze `.nbt` templates lived in
+   `data/spb-revamped/structures/` (plural), but 1.21+/26.2 renamed the source directory to
+   **`structure/`** (singular) — confirmed via `javap` on `StructureTemplateManager`
+   (`STRUCTURE_DIRECTORY_NAME` = literal `"structure"`). Same class of rename as the already-handled
+   `loot_tables`→`loot_table`. Fixed by `git mv structures structure`.
+3. **26.2 write-radius drops far-chunk writes.** The generators place megarooms/mazes spanning several
+   chunks from one "anchor" chunk's decoration pass, but 26.2's `WorldGenRegion` enforces
+   `blockStateWriteRadius=1` and silently drops (logs "Detected setBlock in a far chunk") any write
+   outside that radius. Added `mixin/worldgen/BackroomsWorldGenRegionMixin` — for
+   `BackroomsChunkGenerator` instances only, treats any chunk present in the region's loaded
+   `StaticCache2D` (guaranteed safe — never touches an unloaded chunk) as writable/readable, overriding
+   `isWithinWriteZone(II)` and silencing `warnIfReadOutsideWriteZone(II)`. Vanilla dimensions untouched.
+
+Verified via RCON: level0 now generates a continuous floor (y=20) under spawn with headroom to the
+ceiling (y=25), zero far-chunk errors, player lands safely instead of falling into the void.
+
+**IMPORTANT caveat that shipped with this fix:** existing saves already have level0 stored as void from
+before the fix — the fix only affects newly-generated chunks. User must start a new world or delete
+`dimensions/spb-revamped/` from their save.
+
+### 14.3 Camera shake far too violent (commit a8bbfee)
+
+`CameraShake.tick()`'s port comment says the old per-tick distance-delta speed proxy (~0.2 while
+walking) was replaced by `player.walkAnimation.speed(1.0f)` (26.2 dropped `prevHorizontalSpeed`), but
+the old `*6` multiplier was left in place. `walkAnimation.speed` is already a normalized 0..1 amplitude,
+so `*6` pinned `traumaGoal` at its 1.5 max on every step (~±9° pitch/yaw, ~±18° roll) — constant violent
+shake. Fixed: `*2.0` instead (walk ≈1.0-1.4, sprint ≈2.0, matching the original feel), amplitude 4→3.
+
+### 14.4 Intro credit text (commit 0688b99)
+
+`TitleText.java` hardcoded `"SpacePotato"` in the intro-cutscene credit line. Changed to `"ARBird"` to
+match the rebrand (upstream attribution to SpacePotato & Herr Chaos remains in `fabric.mod.json`
+description / LGPL notices, which is correct — only the in-game credit changed).
+
+### 14.5 Missing/pink-black block textures + crash ticking fluorescent lights (commits b45c121, 719a072)
+
+Second playtest round, after §14.2's fix, surfaced two new issues from the client log:
+
+- **Crash:** `Cannot get property BooleanProperty{name=on...} as it does not exist in
+  Block{spb-revamped:thin_fluorescent_light}` in `ThinFluorescentLightBlockEntity.tick()` (and the same
+  bug in `TinyFluorescentLightBlockEntity`). Both read `FluorescentLightBlock.ON` — the FULL light
+  block's property instance — off a thin/tiny light block state. **26.2 compares block-state properties
+  by identity** (1.20.1 compared by name), so this throws once a thin/tiny light loads and ticks. Fixed
+  both to read their own block's `ON` property (`ThinFluorescentLightBlock.ON` /
+  `TinyFluorescentLightBlock.ON`). ⚠ General 26.2 gotcha: any cross-class property reference that
+  happens to share a name will now fail — search for this pattern if more crashes like it appear.
+- **Textures:** the pink/black floor & ceiling in the user's screenshot. `assets/minecraft/atlases/
+  blocks.json` (the block atlas config) carried a leftover Veil-PBR filter —
+  `{"type":"filter","pattern":{"path":"(_color)"}}` — that stripped every `_color` texture out of the
+  stitched atlas. Veil used to split color/normal/height into separate atlases; without Veil the
+  `_color` maps ARE the base textures for carpet, ceiling_tile, floor_tiling, bricks, road, concrete,
+  crate, pavement, chain_fence, and dirt (no plain fallback exists). Removed the `_color` filter (kept
+  `_normal`/`_height`, which no model samples).
+
+Verified crash fix via RCON: placed thin/tiny/full fluorescent lights, ticked them, zero exceptions.
+Texture fix is client-render only (headless can't verify) but the cause was unambiguous.
+
+### 14.6 Skinwalker jumpscare shows only a black screen (commit 737aad7)
+
+`SkinwalkerJumpscare.doJumpscare()` — which drives the creepy-face overlay flags on
+`BackroomsHudOverlay` — was fully implemented but **called from nowhere**, so a capture only showed the
+black "being pulled under" beat (`isBeingReleased`/`isInWall`) with no face ever appearing. Fixed by
+calling it from `ClientWrapper`'s client tick: `if (playerComponent.isBeingCaptured())
+SkinwalkerJumpscare.doJumpscare(client, playerComponent);` (+ `reset()` if a capture ends early). Also
+made `reset()` clear the timeline's `started`/`startTime` fields so a later capture replays from the
+start instead of instantly hitting the 14s end-of-timeline branch.
+
+### 14.7 Holes in the roof / gaps in the world floor — ROOT-CAUSED, chunk-local rewrite ATTEMPTED AND STASHED (not merged)
+
+After §14.2's fix the world generates and is lit, but has **systematic void chunk-columns** at the
+far edges of each maze region (RCON-mapped: ceiling y=25 is 100% solid; floor y=20 has ~15% holes,
+occurring at chunks ≡ anchor±2, i.e. every `FINAL_MAZE_SIZE`=5 chunks). Root cause: the write-radius
+mixin from §14.2 only recovers writes that land on chunks the region cache happens to finalize; writes
+to the far-edge chunks (distance 2-3 from the anchor) still land on throwaway placeholder chunks that
+get discarded.
+
+**Attempted fix (built, tested, ultimately reverted — see below):** made all 6 level generators +
+3 maze generators (`Level0/1/Poolrooms MazeGenerator`, `MazeCell`) fully deterministic (every
+`RandomSource.create()` reseeded from world position via a new `BackroomsGenBuffer.seed(x,z)` helper)
+and refactored `generate()` to take `(WorldGenLevel, ChunkPos anchorPos)` instead of `ChunkAccess`. Added
+`world/generation/BackroomsGenBuffer.java`: a `ThreadLocal` in-memory block buffer + per-thread
+small-LRU cache keyed by anchor `ChunkPos`, plus rewired `BackroomsWorldGenRegionMixin` to redirect
+`getBlockState`/`setBlock`/`getBlockEntity` into the active buffer. `BackroomsChunkGenerator
+.applyBiomeDecoration` was changed to rebuild every anchor overlapping the current chunk (±`ANCHOR_REACH`
+= 2) into its own deterministic buffer and copy out only the current chunk's slice — so every chunk that
+touches an anchor's region reconstructs the identical buffer and writes only its own piece, eliminating
+cross-chunk writes entirely.
+
+**This compiled clean (`./gradlew build` SUCCESS) but failed at runtime and was reverted:**
+`StructureTemplate.placeInWorld` internally calls `WorldGenRegion.getChunk(pos)` /
+`markPosForPostProcessing` on far positions — a code path the buffer redirect did NOT intercept (only
+`getBlockState`/`setBlock`/`getBlockEntity` were hooked). This produced **~7,000,000 "unsafe terrain
+read" log warnings and hung the server** on a fresh-world boot. The ±2-anchor rebuild window is also
+slow (~25 chunks rebuild the same region). **Rolled back via `git stash`** (not deleted — recoverable):
+run `git stash list` on `port/mc-26.2`, entry titled *"WIP chunk-local worldgen rewrite — buffer engine
++ all 6 generators refactored deterministic; INCOMPLETE: placeInWorld getChunk/post-processing reads
+not intercepted (7M unsafe-read warnings) + 25x-per-chunk perf; needs read interception + perf tuning +
+visual playtest"*. Working tree is back to the §14.2/§14.5 write-zone-bypass mixin (playable, lit,
+traversable, gaps at region edges) — verified with a clean reboot (`Done`, 0 unsafe-read warnings, 0
+generation exceptions) before shipping.
+
+**To finish this properly (next session):**
+1. `git stash pop` (or `git stash apply` to keep the stash as a fallback) on `port/mc-26.2`.
+2. Also intercept `WorldGenRegion.getChunk(BlockPos)` (and whatever triggers
+   `markPosForPostProcessing`) in the buffer redirect mixin — same pattern as the existing
+   `getBlockState`/`setBlock` injects.
+3. Reduce the anchor-rebuild window / cache more aggressively — `ANCHOR_REACH` on the copy loop in
+   `BackroomsChunkGenerator.applyBiomeDecoration` is what drives the 25×-per-chunk cost; the per-thread
+   `BackroomsGenBuffer` LRU cache (`CACHE_SIZE = 8`) already avoids re-running an anchor already built
+   in the same session, but confirm cache hits are actually landing before optimizing further.
+4. **Critical: this needs the user to visually playtest each of the 6 levels after the fix.** RCON can
+   only confirm "no void columns" (block presence) — it CANNOT verify a maze is connected, walls line
+   up, or corridors make sense. A subtle determinism bug in the reseeded RNG chains could produce a
+   gap-free but broken/disconnected maze that only shows up by walking through it. Don't consider this
+   done until the user has walked all 6 levels.
+5. If the buffered approach proves too fragile, the fallback discussed with the user was: leave the
+   current write-zone-bypass gaps as a known cosmetic limitation (world is playable, just imperfect at
+   room edges) rather than risk a broken maze.
+
+### 14.8 Headless RCON probe harness (reusable technique, discovered/refined this session)
+
+For verifying worldgen/block-state changes on this project without a display:
+
+- **Keep `./gradlew runServer` alive for RCON** (it stops on stdin EOF otherwise): create a FIFO, hold it
+  open with a `tail -f /dev/null` writer, and run the server itself as the **foreground** command of a
+  harness-tracked background job so its process tree doesn't get reaped:
+  ```
+  mkfifo /tmp/ffc_stdin
+  tail -f /dev/null > /tmp/ffc_stdin &
+  # then the ONLY thing in the backgrounded shell is the server, in foreground of that job:
+  ./gradlew runServer < /tmp/ffc_stdin > /tmp/ffc_server.log 2>&1
+  ```
+- Enable RCON in `run/server.properties` (gitignored, safe to edit): `enable-rcon=true`,
+  `rcon.password=<anything>`.
+- No `mcrcon` binary on this machine — a ~40-line dependency-free Python RCON client was written to the
+  scratchpad (auth packet type 3, command packet type 2, standard length-prefixed framing) and is
+  reusable for future sessions.
+- Probe a block with `execute in <dim> if block X Y Z <id>` sent over RCON — the pass/fail comes back
+  directly in the RCON response ("Test passed"/"Test failed"). **`run say ...` does NOT come back over
+  RCON** (it only logs), so don't use that pattern for probing.
+- `forceload add x1 z1 x2 z2` (scoped `execute in <dim> run ...`) forces chunks to generate/load for
+  probing. Delete `world/dimensions/spb-revamped/<level>/{region,entities,poi,data}` to force a dimension
+  to regenerate fully with new code (a `forceload` alone will reload but not regenerate already-saved
+  chunks).
+- Inspecting a structure `.nbt`'s block palette (to check what a room actually contains, e.g. whether it
+  has light blocks) — they're gzipped NBT:
+  `python3 -c "import gzip,re; print(sorted(set(re.findall(b'(?:spb-revamped|minecraft):[a-z0-9_/]+', gzip.open(f,'rb').read()))))"`.
+- Decompiling 26.2 vanilla classes for exact bytecode-level behavior (e.g. what tint a `blit` overload
+  hardcodes, what a property-identity check does) via `javap -p -c -s -cp <merged-deobf-jar> <FQN>` was
+  used repeatedly this session and is faster/more reliable than guessing from method names alone.
+
+### 14.9 Jar deployment note
+
+Every fix in §14.1–14.6 (NOT §14.7, which is stashed/unreleased) is in the jar currently copied to
+`/Users/ayanraj/Library/Application Support/ModrinthApp/profiles/mc backrooms/mods/
+backrooms-ff-continued-2.0.0.jar` as of commit 737aad7. The user should start a fresh world (or delete
+their save's `dimensions/spb-revamped/`) to get correct worldgen — existing saves have void chunks baked
+in from before the fix.
+
+## 15. Gaps-and-lights session, finished on Windows (2026-07-04/05)
+
+Continues §14.7. The session started on the Mac (second attempt at the chunk-local rewrite, all changes
+working-tree only), died to rate limits mid-verification, and was RESUMED ON THE USER'S WINDOWS MACHINE
+(§13 note) where verification completed. Everything below is committed on `port/mc-26.2`.
+
+### 15.1 The gaps fix — chunk-local rewrite, second attempt (WORKS; supersedes the §14.7 stash)
+
+Same architecture as §14.7's attempt (deterministic generators + per-anchor in-memory buffer + copy out
+only the current chunk's slice) with the two things that killed attempt #1 fixed:
+
+- `BackroomsWorldGenRegionMixin` now intercepts the full surface `StructureTemplate.placeInWorld`
+  touches while a buffer is active: `getBlockState`, **`getFluidState`** (the waterlogging check — the
+  missing piece that caused attempt #1's 7M-warning flood), `getBlockEntity` (detached instances so
+  template NBT/loot loads; transferred to the real BE on copy-out), `setBlock`, and both tick schedulers
+  (`getBlockTicks`/`getFluidTicks` → `BlackholeTickAccess`, reached via waterlogged pool blocks).
+- `BackroomsChunkGenerator.applyBiomeDecoration` splits per level into `generateAnchored(world, anchorPos)`
+  (cross-chunk content, buffered, rebuilt identically by every overlapping chunk) + `generateLocal(world,
+  chunk)` (strictly chunk-local, e.g. Level 0's 8x8 roof quadrants, runs after the slices are copied so it
+  can read them). Per-generator `anchorReach`: L0/L1/InfGrass 2, L2 1, L324 3 (gas station).
+- All 6 level generators + 3 maze generators + `MazeCell` fully deterministic: every `RandomSource.create()`
+  seeded via `BackroomsGenBuffer.seed(world, x, z)` = world seed + **dimension id salt** + position.
+  Level 0 megaroom adjacency ("first placed wins" via red-wool scan of neighbor regions, generation-order
+  dependent) replaced by `hasEarlierMegaRoomNeighbor` — replays neighbor anchors' first seeded roll,
+  lexicographic (z,x) priority, depth-capped recursion. The base class's `ImprovedNoise` sampler is now
+  seeded from the world seed (was wall-clock — would have produced cross-restart seams).
+
+**Bug found during verification (would have shipped broken): cross-dimension buffer-cache pollution.**
+The per-worker-thread LRU cache was keyed by packed anchor `ChunkPos` alone; all Backrooms dimensions
+share worker threads and use overlapping anchor coords, so one level's buffer got copied into another
+level's chunks (RCON showed backrooms rooms inside Level 2's void, level-1/0 template air carving holes
+into infinite_field's ground, gas-station slab interference). Fix: cache key = `(generator identity,
+packed anchor)` record + the dimension salt in `seed()` above. Post-fix probes confirm each level clean
+AND distinct.
+
+### 15.2 The lights fix ("lights are just air on the roof")
+
+`getRenderShape` on all three fluorescent-light blocks returned `RenderShape.INVISIBLE` whenever
+`on=true && blackout=false` — the original drew lit tubes with a Veil block-entity renderer, dropped with
+Veil, so every lit fixture rendered as a hole. Fix: always `RenderShape.MODEL`; lit look moved into
+blockstates → new `*_on` model variants (`fluorescent_light_on`, `thin_…_on` multipart, `tiny_…_on`)
+sharing a new emissive-looking `fluorescent_light_on.png` texture (`"shade": false`). Light emission
+itself was already vanilla `lightLevel` — unchanged. Verified server-side (blocks present at roof y=25
+where probes previously found air); the visual needs the user's client playtest.
+
+### 15.3 Verification (headless RCON probe suite, fresh worldgen)
+
+Method hardened vs §14.7: every probe position is gated on `execute if loaded` (unloaded positions
+return "That position is not loaded" — NEVER "Test passed"/"failed" — a naive unless-block scan
+misclassifies them), and a "hole" means a fully-air VOID COLUMN (air at y=quick AND all of
+y∈{5,10,15,18,19,22,24,25,28,32}), which is the actual bug signature. Results on a fresh world:
+
+- level0 spawn swath (-80..79)²: floor y=20 **0/1600** void, ceiling y=25 **0/1600** void.
+- level0 distant swath (720..879)²: floor **0/1600** (12 columns air@20 = megaroom interiors, floors at
+  y=18/19 — legit), ceiling **0/1600**. Exercises the megaroom-adjacency path far from spawn.
+- level1 & poolrooms (-80..79)²: **0/1600** void each.
+- level2: corridor is BY DESIGN only x=-1..2 (rooms are 4x5x16 along z; stairwell 17x16x16 at chunk 0,0)
+  — corridor floor continuous, everything outside void (see §15.1 pollution bug for why it wasn't).
+- infinite_field: uniform dirt ground plane y=30 (from `fillFromNoise`, chunk-local, never affected);
+  clean post-fix. level324: slab y=0 + ceiling y=63 + road y=64 all `fillFromNoise` (unaffected); gas
+  station template spot-checked.
+- Lights: `spb-revamped:fluorescent_light` present in level0 roof plane y=25 (42 hits on a stride-2
+  one-region scan of the final world; roof2 is the 1-in-5 roof variant carrying lights) and sampled
+  state is `on=true` — the state that used to render INVISIBLE and now maps to the `_on` model.
+- Server log across all of it: ZERO far-chunk drops / unsafe reads / generation exceptions (attempt #1
+  produced ~7M).
+
+### 15.4 Windows build/verify equivalents (§4/§5 are macOS-historical)
+
+- **JDK 25:** `C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot` (winget Temurin; system Java is 22).
+  `$env:JAVA_HOME = <that>; .\gradlew.bat build` → `build\libs\backrooms-ff-continued-2.0.0.jar`.
+- **Headless server:** Windows has no FIFO trick — hold stdin open via a Python wrapper
+  (`subprocess.Popen([...gradlew.bat, "runServer"], stdin=PIPE)`, never write/close; kill wrapper to stop,
+  or send `stop` over RCON). RCON already enabled in `run/server.properties` (`probe123`@25575). Python
+  3.12 is on PATH; the dependency-free RCON client + probe scripts pattern is in §14.8/§15.3.
+- Wipe `run\world\dimensions\spb-revamped\` before probing so chunks regenerate with new code.
+- The user has NO 26.2 launcher profile on this machine yet — hand them the jar path; deps at runtime:
+  fabric-api 0.153.0+26.2, geckolib 5.5.3+, simple voice chat (JIJ'd libs: CCA, MidnightLib bundled).
+
+### 15.5 Benign boot warnings (do not chase)
+
+`FabricLoader/Mixin` WARNs at boot: 2× SoundPhysics (`ReflectivityConfig`, `SoundTypes`) — @Pseudo
+mixins for the absent soft-dep; 1× `cardinal-components-entity` `BucketableMixin` targeting
+`net.minecraft.world.entity.animal.Bucketable` (moved in 26.2) — a CCA-library mixin whose only job is
+copying components on fish bucketing; this mod attaches components to players/SkinWalker/Smiler/world
+only. All three are skip-and-continue warnings with zero impact.
+
+### 15.6 Remaining for the user (unchanged expectations)
+
+1. **Visual playtest of all 6 levels on a FRESH world** — RCON proves block presence, not that mazes
+   read right or lights look right (§14.7 caveat 4 still stands).
+2. §11 cosmetic items (translucency-bake warnings, `stuff=5` blockstate, PBR fallbacks, bird/grass draw).
 </content>
