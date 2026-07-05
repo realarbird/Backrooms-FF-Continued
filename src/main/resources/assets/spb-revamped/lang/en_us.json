@@ -100,6 +100,7 @@
   "spb-revamped.midnightconfig.category.server": "Server Settings",
   "spb-revamped.midnightconfig.enableVanillaLighting": "Enable Vanilla Lighting",
   "spb-revamped.midnightconfig.enableRealCamera": "Enable Realistic Camera",
+  "spb-revamped.midnightconfig.cameraShakeIntensity": "Camera Shake Intensity",
   "spb-revamped.midnightconfig.forceBackrooms": "Force Inside Backrooms",
   "spb-revamped.midnightconfig.enableCameraRoll": "Enable Camera Roll",
   "spb-revamped.midnightconfig.enableSmoothCamera": "Enable Smooth Camera",

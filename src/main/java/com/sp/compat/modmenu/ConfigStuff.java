@@ -13,6 +13,10 @@ public class ConfigStuff extends MidnightConfig {
     @Entry(category = VIDEO)
     public static boolean enableRealCamera = true;
 
+    // 1.0 = the original mod's full handheld-camcorder shake; 0 = none.
+    @Entry(category = VIDEO, isSlider = true, min = 0, max = 1, precision = 10)
+    public static float cameraShakeIntensity = 0.4f;
+
     @Entry(category = VIDEO, isSlider = true, min = 0, max = 10)
     public static float lookRollMultiplier = 7.0f;
 
