@@ -88,6 +88,11 @@ public class FluorescentLightBlockEntity extends BlockEntity {
                 //Turn off if Blackout Event is active
                 if (level.getLightState() == BackroomsLevelWithLights.LightState.BLACKOUT) {
                     world.setBlockAndUpdate(pos, world.getBlockState(pos).setValue(FluorescentLightBlock.BLACKOUT, true));
+                } else if (world.getBlockState(pos).getValue(FluorescentLightBlock.BLACKOUT)) {
+                    // Clear the blackout once the event ends (the thin light already did this;
+                    // without it every full fixture that ever saw a blackout stayed dark forever —
+                    // blackout=true forces lightLevel 0 — leaving whole regions of Level 0 unlit).
+                    world.setBlockAndUpdate(pos, world.getBlockState(pos).setValue(FluorescentLightBlock.BLACKOUT, false));
                 }
 
                 if (level.getLightState() != BackroomsLevelWithLights.LightState.ON && state.getValue(FluorescentLightBlock.ON)) {

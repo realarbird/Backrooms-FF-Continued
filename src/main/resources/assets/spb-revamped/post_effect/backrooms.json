@@ -25,7 +25,10 @@
                     { "name": "SpbFogColor", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
                     { "name": "SpbFogShape", "type": "vec4", "value": [ 0.0, 90.0, 0.03, 0.0 ] },
                     { "name": "SpbState", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.35 ] },
-                    { "name": "SpbSunDir", "type": "vec4", "value": [ 0.0, 1.0, 0.0, 0.35 ] }
+                    { "name": "SpbSunDir", "type": "vec4", "value": [ 0.0, 1.0, 0.0, 0.35 ] },
+                    { "name": "SpbGradeA", "type": "vec4", "value": [ 1.0, 1.0, 1.0, 1.0 ] },
+                    { "name": "SpbGradeB", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
+                    { "name": "SpbSunScreen", "type": "vec4", "value": [ 0.5, 0.5, 0.0, 0.0 ] }
                 ]
             }
         },
@@ -67,6 +70,34 @@
         },
         {
             "vertex_shader": "minecraft:core/screenquad",
+            "fragment_shader": "minecraft:post/box_blur",
+            "inputs": [
+                { "sampler_name": "In", "target": "bright", "bilinear": true }
+            ],
+            "output": "temp",
+            "uniforms": {
+                "BlurConfig": [
+                    { "name": "BlurDir", "type": "vec2", "value": [ 1.0, 0.0 ] },
+                    { "name": "Radius", "type": "float", "value": 24.0 }
+                ]
+            }
+        },
+        {
+            "vertex_shader": "minecraft:core/screenquad",
+            "fragment_shader": "minecraft:post/box_blur",
+            "inputs": [
+                { "sampler_name": "In", "target": "temp", "bilinear": true }
+            ],
+            "output": "bright",
+            "uniforms": {
+                "BlurConfig": [
+                    { "name": "BlurDir", "type": "vec2", "value": [ 0.0, 1.0 ] },
+                    { "name": "Radius", "type": "float", "value": 24.0 }
+                ]
+            }
+        },
+        {
+            "vertex_shader": "minecraft:core/screenquad",
             "fragment_shader": "spb-revamped:post/backrooms_vhs",
             "inputs": [
                 { "sampler_name": "In", "target": "scene" },
@@ -81,7 +112,10 @@
                     { "name": "SpbFogColor", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
                     { "name": "SpbFogShape", "type": "vec4", "value": [ 0.0, 90.0, 0.03, 0.0 ] },
                     { "name": "SpbState", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.35 ] },
-                    { "name": "SpbSunDir", "type": "vec4", "value": [ 0.0, 1.0, 0.0, 0.35 ] }
+                    { "name": "SpbSunDir", "type": "vec4", "value": [ 0.0, 1.0, 0.0, 0.35 ] },
+                    { "name": "SpbGradeA", "type": "vec4", "value": [ 1.0, 1.0, 1.0, 1.0 ] },
+                    { "name": "SpbGradeB", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
+                    { "name": "SpbSunScreen", "type": "vec4", "value": [ 0.5, 0.5, 0.0, 0.0 ] }
                 ]
             }
         },
@@ -99,7 +133,10 @@
                     { "name": "SpbFogColor", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
                     { "name": "SpbFogShape", "type": "vec4", "value": [ 0.0, 90.0, 0.03, 0.0 ] },
                     { "name": "SpbState", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.35 ] },
-                    { "name": "SpbSunDir", "type": "vec4", "value": [ 0.0, 1.0, 0.0, 0.35 ] }
+                    { "name": "SpbSunDir", "type": "vec4", "value": [ 0.0, 1.0, 0.0, 0.35 ] },
+                    { "name": "SpbGradeA", "type": "vec4", "value": [ 1.0, 1.0, 1.0, 1.0 ] },
+                    { "name": "SpbGradeB", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
+                    { "name": "SpbSunScreen", "type": "vec4", "value": [ 0.5, 0.5, 0.0, 0.0 ] }
                 ]
             }
         }

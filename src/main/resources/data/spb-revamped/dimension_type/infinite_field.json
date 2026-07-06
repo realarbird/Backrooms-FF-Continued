@@ -8,7 +8,8 @@
     },
     "minecraft:gameplay/can_start_raid": false,
     "minecraft:gameplay/respawn_anchor_works": false,
-    "minecraft:gameplay/piglins_zombify": true
+    "minecraft:gameplay/piglins_zombify": true,
+    "minecraft:visual/sky_light_factor": 1.0
   },
   "coordinate_scale": 1.0,
   "has_ceiling": false,
@@ -21,5 +22,5 @@
   "min_y": 0,
   "monster_spawn_block_light_limit": 0,
   "monster_spawn_light_level": 0,
-  "timelines": "#minecraft:in_overworld"
+  "timelines": "#minecraft:universal"
 }

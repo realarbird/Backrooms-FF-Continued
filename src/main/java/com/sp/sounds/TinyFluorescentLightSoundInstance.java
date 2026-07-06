@@ -1,7 +1,7 @@
 package com.sp.sounds;
 
 import com.sp.SPBRevampedClient;
-import com.sp.block.custom.ThinFluorescentLightBlock;
+import com.sp.block.custom.TinyFluorescentLightBlock;
 import com.sp.block.entity.TinyFluorescentLightBlockEntity;
 import com.sp.init.BackroomsLevels;
 import com.sp.init.ModSounds;
@@ -60,9 +60,12 @@ public class TinyFluorescentLightSoundInstance extends AbstractTickableSoundInst
             if (!this.entity.isRemoved() &&
                     player.position().closerThan(Vec3.atCenterOf(entity.getBlockPos()), 15.0f) &&
                     !blackedOut &&
-                    ((TinyFluorescentLightBlockEntity) entity).getCurrentState().getValue(ThinFluorescentLightBlock.ON) &&
-                    !((TinyFluorescentLightBlockEntity) entity).getCurrentState().getValue(ThinFluorescentLightBlock.BLACKOUT) &&
-                    !SPBRevampedClient.blackScreen) { // PORT: phase6 — SPBRevampedClient not yet ported
+                    // 26.2 compares block-state properties by identity — must be the TINY block's
+                    // own ON/BLACKOUT (the thin block's instances threw and crashed the client
+                    // once this sound started ticking).
+                    ((TinyFluorescentLightBlockEntity) entity).getCurrentState().getValue(TinyFluorescentLightBlock.ON) &&
+                    !((TinyFluorescentLightBlockEntity) entity).getCurrentState().getValue(TinyFluorescentLightBlock.BLACKOUT) &&
+                    !SPBRevampedClient.blackScreen) {
                 this.pitch = 1.0F;
                 this.volume = 0.2F;
             } else {

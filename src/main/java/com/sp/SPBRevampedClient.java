@@ -237,6 +237,19 @@ public class SPBRevampedClient implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register((client) -> {
+            // DEV ONLY: file-triggered screenshot (touch run/spb_screenshot.flag) so a headless
+            // harness can capture frames without sending input (works while the desktop is locked).
+            if (net.fabricmc.loader.api.FabricLoader.getInstance().isDevelopmentEnvironment() && client.level != null) {
+                java.nio.file.Path flag = client.gameDirectory.toPath().resolve("spb_screenshot.flag");
+                if (java.nio.file.Files.exists(flag)) {
+                    try {
+                        java.nio.file.Files.delete(flag);
+                    } catch (java.io.IOException ignored) {
+                    }
+                    net.minecraft.client.Screenshot.grab(client.gameDirectory, client.gameRenderer.mainRenderTarget(), component -> {});
+                }
+            }
+
             // Cutscene drives the camera path + black-screen state (was ticked off the Veil render stage).
             cutsceneManager.tick();
 

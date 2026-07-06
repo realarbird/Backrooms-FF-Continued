@@ -5,6 +5,7 @@ import com.sp.SPBRevampedClient;
 import com.sp.block.custom.EmergencyLightBlock;
 import com.sp.block.custom.FluorescentLightBlock;
 import com.sp.block.custom.ThinFluorescentLightBlock;
+import com.sp.block.custom.TinyFluorescentLightBlock;
 import com.sp.block.entity.EmergencyLightBlockEntity;
 import com.sp.block.entity.FluorescentLightBlockEntity;
 import com.sp.block.entity.ThinFluorescentLightBlockEntity;
@@ -455,13 +456,18 @@ public class ClientWrapper {
             boolean withinDistance = pos.closerToCenterThan(playerPos, distance);
 
             if (withinDistance) {
-                if (!state.getValue(ThinFluorescentLightBlock.COPY) && pos.closerToCenterThan(playerPos, 15.0f)) {
-                    if (block.prevOn != world.getBlockState(pos).getValue(ThinFluorescentLightBlock.ON)) {
+                // 26.2 compares block-state properties by identity: this must read the TINY block's
+                // own COPY/ON/BLACKOUT instances — the thin block's same-named properties threw
+                // "property does not exist" and crashed the client the first time a tiny light
+                // (e.g. Level 324's gas station) ticked in render distance (same bug class as the
+                // thin/tiny ON fix in the block entities).
+                if (!state.getValue(TinyFluorescentLightBlock.COPY) && pos.closerToCenterThan(playerPos, 15.0f)) {
+                    if (block.prevOn != world.getBlockState(pos).getValue(TinyFluorescentLightBlock.ON)) {
                         Minecraft.getInstance().getSoundManager().play(new SimpleSoundInstance(ModSounds.LIGHT_BLINK, SoundSource.AMBIENT, 0.2F, random1.nextFloat(0.9f, 1.1f), block.random, pos));
                     }
                 }
 
-                if (!state.getValue(ThinFluorescentLightBlock.COPY) && state.getValue(ThinFluorescentLightBlock.ON) && !state.getValue(ThinFluorescentLightBlock.BLACKOUT)) {
+                if (!state.getValue(TinyFluorescentLightBlock.COPY) && state.getValue(TinyFluorescentLightBlock.ON) && !state.getValue(TinyFluorescentLightBlock.BLACKOUT)) {
                     if (!block.isPlayingSound() && pos.closerToCenterThan(playerPos, 15.0f) && !SPBRevampedClient.blackScreen) {
                         Minecraft.getInstance().getSoundManager().play(new TinyFluorescentLightSoundInstance(block, player));
                         block.setPlayingSound(true);

@@ -690,3 +690,116 @@ stay on the HUD overlay (draws after the chain anyway).
   (optional — vanilla transparency.fsh precedent) — resolution comes from Globals' ScreenSize if
   ever needed; render-target inputs are clamp-to-edge (barrel-distortion edge smear matches the
   original's behavior).
+
+## 18. Shader look finished + visually verified on all 6 levels (2026-07-06)
+
+User asked to "make the shaders look impressive, like the screenshot" (the original mod's per-level
+gallery: L0 warm yellow/dark falloff, L1 grey garage haze, L2 dark corridors, sunlit teal Poolrooms,
+dark Darkrooms, bright hazy Infinite Field). Everything below is committed; **all six levels were
+screenshot-verified live on this machine** (see §18.4 for the harness — a real visual loop, not
+just compile checks).
+
+### 18.1 Two §17 bugs that made the whole chain silently do (almost) nothing
+
+Both found by probing a live client (depth-band debug shaders + a JSON-default "red fog" A/B test):
+
+1. **26.2 renders REVERSED-Z** (`GL_ARB_clip_control` zero-to-one; depth cleared to **0.0**,
+   `javap`-confirmed via `CommandEncoder.clearDepthTexture(main, 0.0)`). §17's
+   `spbViewPosFromDepth` did the classic `ndc.z = depth*2-1` and tested sky as `depth >= 1.0` —
+   depth-driven everything (fog distances, sky replacement) computed garbage. Fixed in
+   `spb_post.glsl`: sky test is `depth <= 1e-6` (`spbIsSky`), reconstruction is the closed form
+   `viewZ = -0.05/depth` using only the projection diagonal (identical between standard and
+   reversed-Z matrix flavors, so it can't regress if the render-state matrix flavor changes).
+2. **`GameRenderer`'s postEffect slot receives a CLEARED depth buffer**: vanilla clears main depth
+   (to 0, reversed-Z) for the hand/HUD 3D pass BEFORE `postEffectId` is processed. Any depth
+   sampling there reads void. The chain now runs inside the LEVEL frame graph instead — new
+   `mixin/render/LevelRendererPostFxMixin` (WrapOperation on `addAlwaysOnTopPass`, right where
+   vanilla runs its entity-outline post chain) calls `BackroomsPostEffects.addToLevelFrame(builder,
+   targets)`. `onFrameStart` (GameRendererPostFxMixin, unchanged hook point) now only writes
+   uniforms + sets an active flag; `setPostEffect` is no longer used. Side benefit: the hand renders
+   AFTER the chain, matching the original Veil composite (it overlaid the hand separately).
+
+### 18.2 What the chain now does per level (BackroomsPostEffects + backrooms_scene.fsh)
+
+- **New passes/effects:** depth-only SSAO (10-tap spiral, derivative normals, skips hand-range
+  pixels; the Veil chain's `color *= blur(SSAO) * 2.0` equivalent), screen-space god rays
+  (luma-masked march toward the projected sun — Poolrooms/InfField stand-in for the dropped
+  volumetric light; sun screen pos computed Java-side, fades at screen edge/night), per-level
+  color grade (exposure → tint → saturation → smoothstep S-curve → lift), banding dither, wider
+  two-stage bloom (12px + 24px box-blur pairs).
+- **SpbDynamics grew to 2 mat4 + 7 vec4 (240 bytes)** — `SpbGradeA` (tint+saturation), `SpbGradeB`
+  (sCurve, lift, AO strength, ray strength), `SpbSunScreen` (sun uv, on-screen weight, exposure).
+  Sync in THREE places: spb_post.glsl block, backrooms.json defaults (x3 passes), writeDynamics.
+- **Per-level values** (in the dimension branch of `onFrameStart`): L0 warm yellow
+  tint/sat 1.12/sCurve .32/AO .75/exposure 1.9/exp fog to near-black warm; L1 cool desat + knee fog
+  (accum boosted 0.001→0.0035/step — LDR reads much thinner than Veil HDR) + grey exp haze,
+  exposure 1.55; L2 (was: nothing) dark cold exp fog, sCurve .38, AO .85, exposure 1.6; Poolrooms
+  warm sat grade, bloom .5, god rays .55, exposure 1.15; InfField lifted-black hazy grade, rays
+  .35, fog+sky haze mix; L324 desat night grade. Non-Backrooms dims: neutral film grade, AO .45.
+- **Sky (getSky) LDR retunes:** sun halo smoothstep(0.9,1)*0.3 (was 0.7,1 *0.6 — blew out half the
+  sky), cloud alpha threshold *3.5 (was *5), `spbMirror()` mirror-repeat wrap for clamp-addressed
+  noise samplers (plain `fract()` drew giant polygon seam lines across the sky), cloud UVs scaled
+  *0.25 so the mirror folds mostly stay off the dome, sky clamped, and skyMode-1 skies mix 40%
+  toward the level's fog color (horizon haze, kills the fog/sky seam).
+- **Poolrooms water is teal-green** now (reference look): biome `water_color` 0x3FC6A0 /
+  `water_fog_color` 0x0E4A3E (the original's green came from the dropped Veil water shader).
+
+### 18.3 Non-shader bugs found live (all fixed + committed)
+
+1. **Dedicated-server crash on lightning tick**: `rain.LightningSkyLightingUpLightningEntity`
+   (common mixins) referenced client-only `Minecraft` in its `tick` wrap → "Cannot load class
+   net.minecraft.client.Minecraft in environment type SERVER" the moment a bolt ticked with a
+   player online (RCON-only sessions never saw it). Split: sky-flash tick wrap moved to new
+   `rain.LightningSkyFlashClientMixin` (client list); `spawnFire` suppression stays common.
+2. **Blackout event permanently kills Level 0's lights**: `FluorescentLightBlockEntity.tick` set
+   `BLACKOUT=true` during the event but never cleared it (the thin variant did) — every full
+   fixture that ever saw a blackout stayed `lightLevel 0` forever. This world had that baked in —
+   level0 probed `on=true,blackout=true` everywhere, pitch black. Added the else-branch clearing
+   BLACKOUT when the level light state returns to ON; re-trigger `/backroomsevent blackout` once
+   in an affected world to heal it (event finish → BE ticks flip the state back).
+3. **Client crash from tiny fluorescent lights** (Level 324 gas station): two more §14.5-class
+   property-identity bugs — `ClientWrapper.doClientSideTinyFluorescentsTick` and
+   `TinyFluorescentLightSoundInstance.tick` read `ThinFluorescentLightBlock.COPY/ON/BLACKOUT` off
+   TINY light states. Both now use `TinyFluorescentLightBlock.*`. A sweep of
+   `getValue((Thin|Tiny)?FluorescentLightBlock.` is now clean; re-run that grep if this crash
+   class ever reappears.
+4. **Per-level time of day**: 26.2 replaced `fixed_time` with clocks/timelines — the day/night
+   lightmap is keyframed by the `minecraft:day` timeline (tag `#minecraft:in_overworld`) off the
+   GLOBAL overworld clock, so the field/poolrooms went night when the overworld did (the original
+   shipped that way too; Veil masked it). dimension_type fix: `timelines: "#minecraft:universal"`
+   (no day cycle) + explicit `minecraft:visual/sky_light_factor` attribute — 1.0 for
+   infinite_field/poolrooms (eternal day; poolrooms events still tint via the lightmap mixin),
+   0.0 for level324 (eternal night under the forced rain). Verified decoupled: overworld at
+   night, field bright.
+
+### 18.4 The visual-verification harness this session built (REUSE THIS)
+
+- **Loop:** dedicated server (`run_server.py` stdin-holder, §15.4) + dev client via
+  `runClient -I quickplay.init.gradle` (`--quickPlayMultiplayer 127.0.0.1:25565`; server.properties
+  needs `online-mode=false`, `difficulty=peaceful` — random dev usernames = fresh player each
+  launch, and a husk WILL kill them at spawn otherwise). Drive everything over RCON:
+  `gamemode creative @a`, `execute in <dim> run tp @a x y z yaw pitch`, `/backroomsevent ...`.
+- **In-game screenshots survive a LOCKED Windows session** (glReadPixels doesn't care): dev-only
+  file-flag hook in `SPBRevampedClient` END_CLIENT_TICK — `touch run/spb_screenshot.flag` → PNG in
+  `run/screenshots/` (guarded by `isDevelopmentEnvironment()`, ships inert). Desktop screen capture
+  (`shot_inline.ps1` window-rect CopyFromScreen) only works unlocked; clicking buttons (death
+  screen Respawn at ~(0.5w, 0.585h)) needs unlocked + SetForegroundWindow.
+- Level tour coords: L0 lights near spawn at (-6,25,18)/(-2,25,22) — stand (-4.5,21,14.5) yaw 0;
+  L1 (8.5,21,8.5); L2 corridor (0.5,20,8.5) yaw 0; Poolrooms spawn (16.5,106,16.5) — the y=21 area
+  is a deep zone, not the main rooms; InfField (0.5,31,0.5); L324 road view (20.5,66,45.5) yaw
+  -140 (gas station), interior tp (52,65,21) is inside a wall.
+- Poolrooms day cycle: advance with `/backroomsevent sunset` (+0.25 timeOfDay each, 8s lerp,
+  event finish wraps ≥1.0→0). This world sat at midnight for a while — that's the §17-era
+  "purple poolrooms" mystery, not a shader bug.
+- `javap` on the merged-deobf jar remains the fastest ground truth (PostPass rebinding semantics,
+  ShaderManager chain caching, clearDepthTexture(0.0), Projection.setPerspective flavors, the
+  26.2 dimension_type/timeline schema — all resolved that way this session).
+
+### 18.5 Still open (cosmetic, next session)
+
+- InfField sky: soft haze masses read well but faint angular mirror-folds remain at some view
+  angles; if it bothers the user, options are a dedicated seamless-noise texture or accepting it.
+- §11 leftovers unchanged: PBR fallback textures, bird/grass draw, `stuff=5` blockstate warning.
+- The **user's macOS playtest** is still the real acceptance test: everything above was verified
+  on the Windows dev GPU (Intel UHD 620); Apple's GL driver may differ (the fallback path — chain
+  fails to load → HUD approximation — is intact if it does).
