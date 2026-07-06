@@ -41,6 +41,17 @@ name **"Backrooms FF Continued"**, author **ARBird** (the user). Internal mod id
 code → `./gradlew build` → copy jar to their Modrinth profile (§4) → they relaunch. Each launch has been
 surfacing exactly one fix. We are at the tail of this loop.
 
+> **⚠ UPDATE 2026-07-06 (§17/§18): the above is now stale — player-spawn was confirmed working long ago
+> and the project moved through the full shader-restoration arc.** Current real status: the original
+> Veil-era shader LOOK has been rebuilt on the vanilla 26.2 post pipeline (§17) and then actually fixed
+> and visually verified level-by-level on this Windows machine (§18) — SSAO, god rays, per-level color
+> grading, bloom, fog, and sky are all live and screenshot-confirmed for all 6 levels (level0, level1,
+> level2, poolrooms, infinite_field, level324). Several more runtime crashes were found and fixed along
+> the way (§18.3). **The only remaining gate is the user's own macOS playtest** — everything above was
+> verified on the Windows dev GPU (Intel UHD 620) only; see §18.5 for what to watch for and §18.4 for the
+> reusable visual-verification harness (headless screenshot hook + RCON level-tour) if another session
+> needs to keep iterating without the user's machine.
+
 ## 3. Locked decisions (do not relitigate)
 
 - Keep internal modid `spb-revamped` + `com.sp` package (renaming cascades through 333 resource files).
@@ -185,15 +196,21 @@ kept) but NOT drawn** — 26.2 removed immediate-mode draw; needs a vanilla subm
    `playerSavedInventory` from `Inventory.INVENTORY_SIZE`; guarded `CutsceneManager.reset` vs null
    `client.player`). If another crash appears, it'll be the next client-only runtime issue — fix, rebuild,
    recopy jar.
+   **UPDATE (resolved):** confirmed working back in the §14 client-playtest session; superseded entirely
+   by the shader-restoration arc (§17/§18) — see §2's 2026-07-06 update note for the real current status.
 2. **Cosmetic model/texture issues** seen in the client log (non-fatal):
    - `Cannot compute translucency out of bounds` baking `slope`, `one_sided_shelf`, `double_sided_shelf`,
      `thin_pipe_corner` — model UV/atlas issues; those blocks may show missing-texture.
+     **UPDATE (§16.2, resolved):** root-caused as 64 out-of-range model UVs across 9 models (26.2's model
+     baker rejects any face outside `[0,16]`, unlike 1.20.1's silent clamp); fixed via a UV normalizer
+     script. `stuff=5` blockstate warning below is a separate, still-open issue.
    - `one_sided_shelf … stuff=5` blockstate variant references a value outside the property range `[0,4]`
-     — fix the blockstate JSON (or the property).
+     — fix the blockstate JSON (or the property). **Still open per §18.5.**
    - `Missing textures … block/pbr/<x>_color` — PBR color textures dropped with Veil; affected blocks fall
-     back to base textures. Either supply plain textures or repoint those models.
+     back to base textures. Either supply plain textures or repoint those models. **Still open per §18.5.**
    - `Duplicate sprite …` warnings are vanilla (items+blocks atlas overlap), harmless.
-3. **Bird/grass not drawn** — decide: implement a vanilla submit-draw or finalize as dropped.
+3. **Bird/grass not drawn** — decide: implement a vanilla submit-draw or finalize as dropped. **Still open
+   per §18.5** (not touched by the §17/§18 shader work, which is post-processing only).
 4. **block `render_type`** — 24-block cutout/translucent tier list is in PORTING_MAP; verify glass/light/
    pool-tile blocks render with correct transparency in-game (model-JSON driven now).
 5. **Re-addable dropped render features** (optional polish): smiler opacity, item flatten, etc. could be
@@ -228,6 +245,12 @@ kept) but NOT drawn** — 26.2 removed immediate-mode draw; needs a vanilla subm
 3. Ask the user for their latest client result / crash trace, or address the §11 cosmetic items.
 4. Fix → rebuild → give the user the jar from `build\libs` (no launcher profile exists on the Windows
    machine yet — the old auto-deploy path was the macOS Modrinth profile). Commit each fix (no push).
+
+> **⚠ UPDATE 2026-07-06:** steps 1-4 above are the generic loop and still apply, but as of §17/§18 the
+> project is past load-blocking bugs — it's shader/visual polish. If the user hasn't reported back yet,
+> **don't wait idle**: re-run the §18.4 visual-verification harness yourself (dedicated server + dev
+> client + RCON level-tour + the file-flag screenshot hook) to keep iterating without needing the user's
+> Mac. Only macOS-specific GL driver quirks (if any) require the user's actual hardware.
 
 ## 14. Client playtest fixes session (2026-06-28/29, commits e8802ec..737aad7)
 
