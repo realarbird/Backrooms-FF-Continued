@@ -493,4 +493,92 @@ only. All three are skip-and-continue warnings with zero impact.
 1. **Visual playtest of all 6 levels on a FRESH world** — RCON proves block presence, not that mazes
    read right or lights look right (§14.7 caveat 4 still stands).
 2. §11 cosmetic items (translucency-bake warnings, `stuff=5` blockstate, PBR fallbacks, bird/grass draw).
+
+## 16. Second Windows playtest round (2026-07-05, commits 81c721f, 99ee142)
+
+User actually ran the jar from §15 and reported two more issues, same fix→build→commit loop as §14.
+Both root-caused (not guessed) and fixed; both build-verified (headless can't verify client visuals).
+
+### 16.1 Camera shake still way too violent, "hurts my head" (commit 81c721f)
+
+The §14.3 fix (`a8bbfee`, `walkAnimation.speed(1.0f) * 2`) wasn't actually correct — re-derived the unit
+conversion properly this time by decompiling 26.2's `WalkAnimationState` (`javap` on the merged-deobf
+jar, see §5): vanilla feeds the walk animation `min(distance * 4, 1.0)` per tick, while the ORIGINAL
+1.20.1 mod's shake-speed proxy was `distance * 6`. So the faithful port multiplier is `speed(1.0f) * 1.5`
+(reproduces the original's input up to the point `speed()` saturates at 1.0, i.e. below sprint) — the
+`§14.3 * 2` was ~35% hotter than the original mod at walking speed (±3.2° pitch/yaw + ±6.4° roll
+oscillating several times a second, mostly from the `* 2` roll term).
+
+**But even the original mod's shake intensity turned out to be too much for this user** (motion-sickness
+territory, not just "a bug"). Rather than re-guess a magic number, added a proper escape hatch:
+
+- `CameraShake.java`: multiplier corrected to `* 1.5`; `amplitude` restored to the original mod's `4`
+  (was trimmed to `3` in §14.3) but now scaled by a new config value:
+  `this.amplitude = 4 * ConfigStuff.cameraShakeIntensity;`
+- `ConfigStuff.java`: new slider `cameraShakeIntensity` (video category, 0..1, default **0.4**, one
+  decimal precision). `0` = shake fully disabled, `1.0` = original mod's full handheld-camcorder feel.
+- `en_us.json`: added the ModMenu label `spb-revamped.midnightconfig.cameraShakeIntensity` = "Camera
+  Shake Intensity" (video settings, alongside the existing roll-multiplier sliders).
+
+Live-tunable in ModMenu → Backrooms FF Continued → Video Settings, no rebuild needed if 0.4 is still
+too much or too little — tell the user to try the slider before requesting another code change.
+
+### 16.2 Pink/black checkerboard ("missing model") blocks — Level 1 pipes, Level 0/Poolrooms slopes (commit 99ee142)
+
+User sent 3 screenshots: a giant checkerboard cube on a Level 0 floor F3 debug shot, four
+floor-to-ceiling checkerboard columns in what turned out to be Level 1, and a checkerboard diagonal
+strip next to a pool in Poolrooms. All three are the SAME bug, not three different ones.
+
+**Root cause (static analysis, no server needed — this is a resource-file bug):** wrote a Python
+blockstate→model→texture graph walker (scratchpad `validate_assets.py`) that found the full asset
+chain resolves fine (no missing files, nothing atlas-filtered) — so the breakage had to be inside a
+model that fails to BAKE, matching the §11 "Cannot compute translucency out of bounds" log lines that
+were filed as "cosmetic" before anyone had screenshots to prove what they meant. Wrote a second script
+(`scan_all_models.py`) that parses every block model's `elements[].faces[].uv` and flags anything
+outside Minecraft's legal `[0,16]` UV range. Found 64 out-of-range faces across 9 models:
+`big_pipe`, `big_pipe_middle` (Level 1's checkerboard columns — literally the pipe models), `slope`
+(Level 0/Poolrooms diagonal strips), `thin_pipe_corner`, `power_pole`, `shelf_stuff1`, `shelf_stuff2`,
+`double_sided_shelf_stuff1`, `double_sided_shelf_stuff4` — some UVs as far out as 48, some just
+fractionally over 16 (e.g. `16.0373`, `16.5`).
+
+These models are Blockbench exports; 1.20.1 silently wrapped/clamped out-of-range UVs when sampling,
+but 26.2's model baker validates the range and REJECTS the whole model if any face is out of bounds —
+every blockstate variant that references a rejected model falls back to the pink/black "missing model"
+placeholder cube, which is exactly what the screenshots show.
+
+**Fix (scratchpad `fix_uvs.py`):** normalized all 64 faces into `[0,16]`, in three passes per axis pair
+in order: (1) modulo-16 shift (`u -= floor(min(u)/16)*16`) — moves e.g. `28..34` to `10..16` and
+preserves which texels get sampled, since the intended source rect just happened to be authored past
+the sprite's tile boundary; (2) if a boundary-straddling span still pokes past 16 after the shift (e.g.
+`12.5..16.5`), nudge the whole pair down so the max lands exactly on 16; (3) spans still too wide are
+clamped to the sprite edge (didn't actually trigger for any of the 64 — no model needed it). In-bounds
+faces on these same models were left untouched. `texture_size` fields present on these models are
+vestigial Blockbench UI metadata that vanilla Minecraft ignores — confirmed only a minority of faces
+were out of range (not a systematic scale mismatch), so a wholesale rescale was not the right fix.
+
+Verified: `scan_all_models.py` re-run finds zero remaining out-of-range faces project-wide;
+`validate_assets.py` (full blockstate→model→texture resolution, including atlas-filter checks) reports
+zero problems. `./gradlew build` green. **Not RCON-verifiable** — model baking is client-side only; the
+user needs to confirm in their next playtest that the checkerboards are gone and the pipe/slope/shelf
+textures look correctly oriented (a UV nudge can leave a face sampling a *slightly* wrong crop of the
+texture even once it's back in-bounds — flag any stretched/misaligned texture on these specific blocks
+if seen).
+
+### 16.3 Scratchpad tooling worth reusing next session
+
+Three standalone Python scripts (session scratchpad, not committed to the repo — recreate if needed):
+- `validate_assets.py` — walks every `assets/spb-revamped/blockstates/*.json`, resolves variant/multipart
+  model refs, follows model `parent` chains, checks every referenced texture file exists AND isn't
+  stripped by an `assets/minecraft/atlases/blocks.json` filter. Static, no server/client needed.
+- `scan_all_models.py` — flags any block model face with an explicit UV outside `[0,16]`, or (separately)
+  an auto-UV (no explicit `uv` key) implied by element geometry outside `[0,16]`. Also dumps a level's
+  `.nbt` structure palette (which mod blocks actually appear in a level) via the gzip+regex trick from
+  §14.8.
+- `fix_uvs.py` — the modulo-shift UV normalizer described in §16.2; parameterized by a file list, easy
+  to point at new offending models if more checkerboard reports come in.
+
+Both validators are static — no build/server round-trip — so run them FIRST on any future "missing
+texture" or "pink/black block" report before touching the server. If they report 0 problems (as they
+did for the pre-16.2 asset tree), the bug is in model BAKING (out-of-range UVs, bad `texture_size`,
+malformed `rotation`), not in file references.
 </content>
