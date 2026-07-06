@@ -11,6 +11,14 @@ Porting the Fabric mod **SP-Backrooms Revamped** ("Minecraft Found Footage", by 
 Chaos, LGPL-3.0) from **Minecraft 1.20.1 → 26.2** and making it **run on macOS**. Rebranded to display
 name **"Backrooms FF Continued"**, author **ARBird** (the user). Internal mod id kept as `spb-revamped`.
 
+> **The target platform (macOS, MC 26.2) has NOT changed.** As of 2026-07-04 the *development/build
+> machine* moved to Windows (§13) — that's purely where the assistant compiles and RCON-verifies from.
+> The user still plays on macOS; nothing in the goal, the Mac-safe rendering approach, or the "no Veil/
+> GLSL" constraint changes because of this. Windows is only relevant for local build tooling paths
+> (JDK location, `gradlew.bat`, no FIFO trick for headless RCON — see §15.4) and is otherwise invisible
+> to the mod itself (Fabric/Minecraft are cross-platform; nothing in the source is Windows- or
+> macOS-specific).
+
 - **Project dir:** `/Users/ayanraj/Documents/MinecraftFoundFootage-master`
 - **Git branch:** `port/mc-26.2` (off `main`). ~84 commits. **Nothing pushed or merged** (no remote needed).
 - **Scale:** 295 Java files / ~24.5k LOC / originally 72 mixins / 333 json / 285 nbt. A Yarn→mojmap
@@ -202,10 +210,13 @@ kept) but NOT drawn** — 26.2 removed immediate-mode draw; needs a vanilla subm
 
 ## 13. To resume in a new chat
 
-> **⚠ MACHINE MOVED (2026-07-04): the project now lives on the user's WINDOWS machine at**
-> `C:\Users\rajay\Documents\MinecraftFoundFootage-master-20260705T011342Z-3-001\MinecraftFoundFootage-master`
-> (note the extra nesting level under the -20260705… folder). All §4/§5 macOS paths/commands are
-> historical; see §15.4 for the Windows equivalents. Everything else (branch, decisions, docs) unchanged.
+> **⚠ DEV MACHINE MOVED (2026-07-04): the assistant now builds/verifies from the user's WINDOWS machine
+> at** `C:\Users\rajay\Documents\MinecraftFoundFootage-master-20260705T011342Z-3-001\MinecraftFoundFootage-master`
+> (note the extra nesting level under the -20260705… folder). This is a change of *dev environment only*
+> — see §1's callout. The mod's target platform is still macOS on MC 26.2; the user still plays the
+> built jar on their Mac. All §4/§5 macOS paths/commands are historical dev-machine details (kept for
+> context, not because macOS support was dropped); see §15.4 for the Windows equivalents. Everything
+> else (branch, decisions, docs, the actual porting goal) unchanged.
 
 1. Read this file, then `docs/PORTING_MAP.md` + `docs/CLIENT_PLAYTEST.md`, then `git log --oneline | head -40`.
 2. Confirm green (Windows): set `JAVA_HOME` to JDK 25 (`C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot`)
