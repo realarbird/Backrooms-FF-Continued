@@ -24,6 +24,7 @@ import com.sp.render.gui.BackroomsHudOverlay;
 import com.sp.render.gui.TitleText;
 import com.sp.render.pbr.BlockIdMap;
 import com.sp.render.pbr.PbrRegistry;
+import com.sp.render.post.BackroomsPostEffects;
 import com.sp.util.MathStuff;
 import com.sp.util.TickTimer;
 import com.sp.world.levels.BackroomsLevel;
@@ -194,6 +195,8 @@ public class SPBRevampedClient implements ClientModInitializer {
                 flashlightRenderer.clearFlashlights();
                 playerComponent.setDoingCutscene(false);
             }
+
+            BackroomsPostEffects.onDisconnect(client);
 
             cutsceneManager.reset();
 

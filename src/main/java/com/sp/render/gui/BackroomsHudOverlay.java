@@ -97,17 +97,25 @@ public class BackroomsHudOverlay implements HudElement {
             return;
         }
 
-        // ---- (2) tiled animated grain ----------------------------------------------------------------
-        drawGrain(graphics, w, h, delta);
+        // (2)-(5): grain/scanlines/fringe were the Mac-safe stand-ins for the Veil VHS shader.
+        // When the real post chain (BackroomsPostEffects) is running, the shader does noise and
+        // chromatic aberration properly — only the vignette overlay stays (the shader chain
+        // computes but never applies one, faithful to the original vhs_post.fsh).
+        if (!postShaderActive) {
+            // ---- (2) tiled animated grain ------------------------------------------------------------
+            drawGrain(graphics, w, h, delta);
 
-        // ---- (3) scanlines ---------------------------------------------------------------------------
-        drawScanlines(graphics, w, h);
+            // ---- (3) scanlines -----------------------------------------------------------------------
+            drawScanlines(graphics, w, h);
+        }
 
         // ---- (4) vignette ----------------------------------------------------------------------------
         drawVignette(graphics, w, h);
 
         // ---- (5) chromatic-fringe approximation ------------------------------------------------------
-        drawChromaticFringe(graphics, w, h);
+        if (!postShaderActive) {
+            drawChromaticFringe(graphics, w, h);
+        }
 
         // ---- (6) camcorder UI ------------------------------------------------------------------------
         drawCamcorderUi(graphics, client.font, w, h, delta);
@@ -240,4 +248,6 @@ public class BackroomsHudOverlay implements HudElement {
     public static volatile boolean cameraEffectEnabled = true;
     public static volatile boolean blackScreen = false;
     public static volatile boolean youCantEscape = false;
+    /** True while the real Backrooms post chain is processing frames (set by BackroomsPostEffects). */
+    public static volatile boolean postShaderActive = false;
 }

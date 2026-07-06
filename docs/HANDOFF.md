@@ -47,6 +47,10 @@ surfacing exactly one fix. We are at the tail of this loop.
 - Keep ALL compat (incl. Sound Physics Remastered) — guarded as soft/compile-only deps.
 - Mac-safe **approximations** for visuals (HUD overlays + vanilla `Blocks.LIGHT`, zero GLSL). Fidelity is
   "close, not pixel-identical." Effects that fundamentally need GLSL are dropped, documented (§10).
+  **⚠ Amended 2026-07-05 (§17): "zero GLSL" is superseded at the user's explicit request** — the
+  original shader look is restored via the VANILLA 26.2 post pipeline (data-driven `post_effect`
+  JSON + GLSL 330 post shaders), which is the same pipeline vanilla itself runs on macOS. Still
+  Mac-safe, still no Veil. "No Veil / no compute / no geometry shaders" is what remains locked.
 - Faithful full port (the user explicitly chose this over a trimmed/rewrite approach).
 - git checkpoint per phase; **commit, never push/merge without the user asking.**
 
@@ -592,4 +596,97 @@ Both validators are static — no build/server round-trip — so run them FIRST 
 texture" or "pink/black block" report before touching the server. If they report 0 problems (as they
 did for the pre-16.2 asset tree), the bug is in model BAKING (out-of-range UVs, bad `texture_size`,
 malformed `rotation`), not in file references.
-</content>
+
+## 17. Shader restoration — the original Backrooms look on the vanilla post pipeline (2026-07-05)
+
+**User request: bring back the original mod's shader look** (reference: the Veil-era visuals, e.g.
+youtu.be/XnO1GAlR3qo) — the plain-vanilla rendering after the Phase-6 Veil removal was "boring".
+This supersedes §3's "zero GLSL" (amended there): the restoration uses **vanilla 26.2's data-driven
+post-effect pipeline** (`post_effect/*.json` + GLSL 330 post shaders + `PostChain`), which macOS runs
+fine — it's what vanilla's own spectator/menu-blur shaders use. No Veil, no compute/geometry shaders.
+The original Veil GLSL sources were recovered from git history (`git show 7379952^` — Phase-6a purge
+commit's parent) and ported pass-by-pass.
+
+### 17.1 What was restored (and what stayed dropped)
+
+Restored, per original source file:
+- **VHS camcorder post** (`vhs/vhs_post.fsh` + combine half of `vhs/bloom.fsh`): barrel distortion
+  (`VHSDistortionMultiplier` config), chromatic aberration, YUV tape noise + luma sparkle + chroma
+  bleed off `vhs_noise.png`. → `shaders/post/backrooms_vhs.fsh`.
+- **Bloom** (`vhs/highlights.fsh`/`highlight_blur.fsh` pyramid): re-architected as soft-knee luminance
+  extract (`backrooms_bright.fsh`, knee 0.72–0.95 — vanilla main target is LDR; the original
+  thresholded ≥1.0 against Veil's HDR buffers) + two `minecraft:post/box_blur` passes (vanilla shader
+  reused) + additive combine in the vhs pass. New config `enableBloom`.
+- **Level 1 knee fog** (`vhs/everything.fsh` `LEVEL1_FOG` raymarch): verbatim port incl. `super_noise`
+  3D-ish noise, y=21.75 plane, 50-block cap. Gated by existing `enableLevel1Fog` config.
+- **Per-level distance fog** (`vhs/mixed.fsh`): infinite_field linear(-10..90, 0.8 grey);
+  level324 linear(-10..90, black) + solid-black sky. New config `enableLevelFog`. Level 0 gets a NEW
+  soft warm exponential haze (approximation for the dropped deferred-light distance darkening — not
+  in the original chain; tune constants in `BackroomsPostEffects` if the user wants it different).
+- **Poolrooms procedural sky** (`include/sky.glsl` + `mixed.fsh` sun/stars): clouds (puddle_noise ×
+  clouds2), day-cycle palette off `PoolroomsDayCycle.dayTime`, sun/moon disc from `getSunAngle()`,
+  night stars. Applied at depth==1 pixels only (the original keyed windows off Veil material ids —
+  gone; actual sky pixels only is the approximation). Also on in infinite_field (fixed morning).
+- **Glitch** (`vhs/glitch.fsh`): verbatim port as the final pass; `glitchTime` fed per frame from
+  `PlayerComponent.getGlitchTimer()` (skinwalker), 0 = passthrough.
+
+Still dropped (Veil-deferred-only, documented in §10/MAC_SAFE_RENDERING.md): SSAO, shadow map +
+volumetric light, puddles, water/block reflections, PBR, motion blur (needs motion vectors),
+warp_solid vertex warp, distorted_entity, respawn static. Jumpscare faces + youCantEscape + blackScreen
+stay on the HUD overlay (draws after the chain anyway).
+
+### 17.2 Architecture (all new files)
+
+- `assets/spb-revamped/post_effect/backrooms.json` — 6 passes: scene (fog+sky) → bright → box_blur ×2
+  (ping-pong bright/temp) → vhs (bloom combine + tape look) → glitch → `minecraft:main`. Noise
+  textures ride as `TextureInput`s (location+width+height+bilinear MUST match the PNGs).
+- `assets/spb-revamped/shaders/post/backrooms_{scene,bright,vhs,glitch}.fsh` +
+  `shaders/include/spb_post.glsl` (hash/yuv helpers + the `SpbDynamics` UBO + depth→view-pos
+  reconstruction). Vertex shader is vanilla `minecraft:core/screenquad`. `#moj_import
+  <minecraft:globals.glsl>` provides GameTime/ScreenSize/CameraBlockPos+CameraOffset (camera world
+  pos = blockPos + offset). GLSL sticks to #version 330 (mac ceiling GL4.1; vanilla targets 3.3).
+- `com.sp.render.post.BackroomsPostEffects` — per-frame driver, called from
+  `mixin/render/GameRendererPostFxMixin` at `GameRenderer.renderLevel` HEAD (CameraRenderState is
+  extracted by then; `render()` processes `postEffectId` right after renderLevel returns → same-frame
+  matrices). Activates via the access-widened private `GameRenderer.setPostEffect(Identifier)` when
+  `shouldRenderCameraEffect()`; clears only if the current effect is ours (won't stomp vanilla
+  spectator shaders); also cleared on DISCONNECT (SPBRevampedClient) so it can't linger on the title
+  screen.
+- **Dynamic uniforms trick** (the key 26.2 mechanism): vanilla `PostPass` bakes JSON uniform blocks
+  into `GpuBuffer`s with usage `USAGE_UNIFORM` only (immutable). `customUniforms` is a mutable
+  HashMap bound by block name each frame (`RenderPass.setUniform`). `BackroomsPostEffects` detects
+  the read-only buffer via `usage() & USAGE_COPY_DST == 0`, replaces the map entry with a writable
+  (`UNIFORM|COPY_DST`) buffer, then `CommandEncoder.writeToBuffer`s a `Std140Builder` blob every
+  frame (same pattern as vanilla `GlobalSettingsUniform`). Resource reloads rebuild the chain →
+  usage check re-swaps automatically. Accessors: `mixin/render/PostChainAccessor` (`passes`),
+  `PostPassAccessor` (`customUniforms`).
+- **`SpbDynamics` std140 block — three places must stay in sync** (order+types): the GLSL block in
+  `spb_post.glsl`, the JSON default lists in `backrooms.json` (every pass that declares it), and
+  `BackroomsPostEffects#writeDynamics`. Layout: 2×mat4 (invProj, invViewRot) + 4×vec4
+  (fogColor+mode / fogStart,end,expDensity,skyMode / sunsetTimer,kneeFog,glitchTime,distortion /
+  sunDir+bloomStrength) = 192 bytes.
+- HUD dedup: `BackroomsHudOverlay.postShaderActive` (set by the driver) suppresses the Phase-6c
+  grain/scanlines/chromatic-fringe fills while the real chain runs (vignette + REC UI + jumpscare
+  stay). If the chain fails to compile on some machine, `getPostChain` returns null → flag stays
+  false → the old HUD approximation is the automatic fallback.
+- Config: `enableBloom`, `enableLevelFog` (new, SHADERS category) + existing `enableVhsEffect`,
+  `enableVhsEffectInTheBackrooms`, `VHSDistortionMultiplier`, `enableLevel1Fog` now all do real work.
+  Lang keys added to `en_us.json`.
+- AW addition: `accessible method net/minecraft/client/renderer/GameRenderer setPostEffect
+  (Lnet/minecraft/resources/Identifier;)V`.
+
+### 17.3 Verification state + dev-loop notes
+
+- `gradlew.bat build` green.
+- Windows dev machine CAN run the client: `runClient` + a gradle init-script that appends
+  `--quickPlaySingleplayer <save>` args (Loom's RunGameTask is a JavaExec; `t.args(...)` appends).
+  The server world from the RCON sessions was copied `run/world` → `run/saves/shadertest` (delete
+  `session.lock`) and loads straight into overworld, which activates the chain (VHS is on in ALL
+  dimensions when `enableVhsEffect`=true) — GLSL compile errors surface in the client log as
+  `ShaderManager`/`CompilationException` lines. This is the shader smoke-test loop; visual look
+  still needs the user (macOS).
+- GLSL gotchas already handled: post-chain texture inputs aren't guaranteed REPEAT addressing —
+  every unbounded UV is `fract()`-wrapped in-shader; `SamplerInfo` is NOT declared in our shaders
+  (optional — vanilla transparency.fsh precedent) — resolution comes from Globals' ScreenSize if
+  ever needed; render-target inputs are clamp-to-edge (barrel-distortion edge smear matches the
+  original's behavior).

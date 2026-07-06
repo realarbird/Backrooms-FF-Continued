@@ -65,6 +65,12 @@ public class ConfigStuff extends MidnightConfig {
     @Entry(category = SHADERS, isSlider = true, min = 0, max = 1)
     public static float VHSDistortionMultiplier = 1.0f;
 
+    @Entry(category = SHADERS)
+    public static boolean enableBloom = true;
+
+    @Entry(category = SHADERS)
+    public static boolean enableLevelFog = true;
+
     @Entry(category = SHADERS, min = 10)
     public static int lightRenderDistance = 100;
 

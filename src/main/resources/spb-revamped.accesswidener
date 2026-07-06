@@ -21,3 +21,8 @@ accessible field net/minecraft/client/sounds/SoundEngine instanceBySource Lcom/g
 accessible method net/minecraft/client/data/models/BlockModelGenerators createTrivialCube (Lnet/minecraft/world/level/block/Block;)V
 accessible method net/minecraft/client/data/models/BlockModelGenerators family (Lnet/minecraft/world/level/block/Block;)Lnet/minecraft/client/data/models/BlockModelGenerators$BlockFamilyProvider;
 accessible class net/minecraft/client/data/models/BlockModelGenerators$BlockFamilyProvider
+
+# Backrooms post chain (com.sp.render.post.BackroomsPostEffects): setPostEffect is private
+# (vanilla only calls it from checkEntityPostEffect for spectator mob shaders); we activate our
+# own chain id per frame. Verified against the 26.2 merged-deobf jar via javap -p -s.
+accessible method net/minecraft/client/renderer/GameRenderer setPostEffect (Lnet/minecraft/resources/Identifier;)V

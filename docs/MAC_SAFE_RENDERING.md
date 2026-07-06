@@ -1,5 +1,14 @@
 # Mac-Safe Rendering — Phase 6 plan (Veil removal → no-GLSL visual rebuild)
 
+> **⚠ 2026-07-05 UPDATE (post-Phase-6, HANDOFF §17):** at the user's request the original shader
+> LOOK was restored on **vanilla 26.2's data-driven post pipeline** (`post_effect/backrooms.json` +
+> GLSL 330 post shaders + `PostChain` — the same Mac-safe pipeline vanilla's own spectator shaders
+> use; still no Veil/compute/geometry). This restores A1's full-screen chain (VHS distortion/noise,
+> bloom, glitch) plus the per-level fog and poolrooms sky from B7 — superseding the "no custom GLSL"
+> rule below for the *post* stage only. The HUD grain/scanline approximations now auto-disable while
+> the chain runs and remain the fallback if it fails to compile. Deferred-only effects (SSAO,
+> shadows, reflections, puddles, PBR) stay dropped. See `docs/HANDOFF.md` §17 for the architecture.
+
 Authoritative plan for **Phase 6** of the 1.20.1→26.2 port. Veil (`foundry.veil.*`) has **no 26.2
 build** and is removed; macOS cannot run Veil's GLSL deferred pipeline. Every render effect is rebuilt
 with **no custom GLSL**: HUD overlays (`HudElementRegistry` + `GuiGraphicsExtractor`), vanilla
