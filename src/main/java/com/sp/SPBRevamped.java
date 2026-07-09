@@ -25,6 +25,9 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityLevelChangeEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.Holder;
@@ -128,6 +131,21 @@ public class SPBRevamped implements ModInitializer {
 				LOGGER.error("Error in AFTER_RESPAWN event: {}", String.valueOf(e));
 			}
 		}));
+
+		// The Infinite Field is an untouched, endless meadow — its grass (and the ground it grows
+		// on) is unbreakable so the player can't tear it up. Only these foliage/ground blocks are
+		// protected in that one dimension; everything else (exit structures, utility poles) and
+		// every other dimension breaks normally.
+		PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
+			if (world.dimension() != BackroomsLevels.INFINITE_FIELD_WORLD_KEY) {
+				return true;
+			}
+			Block block = state.getBlock();
+			boolean protectedBlock = block == Blocks.SHORT_GRASS || block == Blocks.TALL_GRASS
+					|| block == Blocks.FERN || block == Blocks.LARGE_FERN
+					|| block == ModBlocks.DIRT;
+			return !protectedBlock; // false = cancel the break
+		});
 	}
 
 	// 26.2: custom packets are CustomPacketPayload records dispatched via

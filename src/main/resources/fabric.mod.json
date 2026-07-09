@@ -8,7 +8,8 @@
 		"ARBird"
 	],
 	"contact": {
-		"YouTube": "https://www.youtube.com/@SpacePotatoee"
+		"homepage": "https://modrinth.com/mod/backrooms-ff-continued",
+		"issues": "https://github.com/realarbird/Backrooms-FF-Continued/issues"
 	},
 	"license": "LGPL-3.0-only",
 	"icon": "assets/spb-revamped/icon.png",
@@ -42,10 +43,6 @@
 			"spb-revamped:smi"
 		],
 		"modmenu": {
-			"links": {
-				"My Youtube": "https://www.youtube.com/@SpacePotatoee",
-				"Join the Discord!": "https://discord.gg/z3sfGTdjEn"
-			},
 			"update_checker": false
 		}
 	},

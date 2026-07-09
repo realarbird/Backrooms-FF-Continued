@@ -15,7 +15,7 @@ public class ConfigStuff extends MidnightConfig {
 
     // 1.0 = the original mod's full handheld-camcorder shake; 0 = none.
     @Entry(category = VIDEO, isSlider = true, min = 0, max = 1, precision = 10)
-    public static float cameraShakeIntensity = 0.4f;
+    public static float cameraShakeIntensity = 0.3f;
 
     @Entry(category = VIDEO, isSlider = true, min = 0, max = 10)
     public static float lookRollMultiplier = 7.0f;
@@ -63,10 +63,16 @@ public class ConfigStuff extends MidnightConfig {
     public static boolean enableVhsEffectInTheBackrooms = true;
 
     @Entry(category = SHADERS, isSlider = true, min = 0, max = 1)
-    public static float VHSDistortionMultiplier = 1.0f;
+    public static float VHSDistortionMultiplier = 0.75f;
 
     @Entry(category = SHADERS)
     public static boolean enableBloom = true;
+
+    // Per-pixel deferred-style lighting (fixtures + flashlight cone) in the dark levels,
+    // replacing the per-block vanilla lightmap look. Falls back to vanilla lighting
+    // automatically if the post chain is unavailable.
+    @Entry(category = SHADERS)
+    public static boolean enableSmoothLighting = true;
 
     @Entry(category = SHADERS)
     public static boolean enableLevelFog = true;

@@ -18,7 +18,9 @@ import com.geckolib.renderer.base.GeoRenderState;
  * render-state extraction (see {@code WalkerRenderer}).
  */
 public class WalkerModel extends GeoModel<WalkerEntity> {
-	private final Identifier MODEL = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "geo/entity/walker.geo.json");
+	// PORT: delta (GeckoLib 4 -> 5). Bare "<subtype>/<name>" model key; file lives at
+	// assets/spb-revamped/geckolib/models/entity/walker.geo.json. See SkinWalkerRenderer for the note.
+	private final Identifier MODEL = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "entity/walker");
 	private final Identifier TEXTURES = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/entity/walker/walker.png");
 
 	@Override

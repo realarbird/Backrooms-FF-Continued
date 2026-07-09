@@ -11,13 +11,16 @@ Porting the Fabric mod **SP-Backrooms Revamped** ("Minecraft Found Footage", by 
 Chaos, LGPL-3.0) from **Minecraft 1.20.1 → 26.2** and making it **run on macOS**. Rebranded to display
 name **"Backrooms FF Continued"**, author **ARBird** (the user). Internal mod id kept as `spb-revamped`.
 
-> **The target platform (macOS, MC 26.2) has NOT changed.** As of 2026-07-04 the *development/build
-> machine* moved to Windows (§13) — that's purely where the assistant compiles and RCON-verifies from.
-> The user still plays on macOS; nothing in the goal, the Mac-safe rendering approach, or the "no Veil/
-> GLSL" constraint changes because of this. Windows is only relevant for local build tooling paths
-> (JDK location, `gradlew.bat`, no FIFO trick for headless RCON — see §15.4) and is otherwise invisible
-> to the mod itself (Fabric/Minecraft are cross-platform; nothing in the source is Windows- or
-> macOS-specific).
+> **The target platform (macOS, MC 26.2) has NOT changed.** The *development/build machine* moved to
+> Windows on 2026-07-04 (§13) for a few sessions, then **moved BACK to macOS as of 2026-07-08** — the
+> assistant is once again compiling/verifying on the same Mac the user plays on (project dir
+> `/Users/ayanraj/Documents/MinecraftFoundFootage-master`, JDK 25 at
+> `/opt/homebrew/Cellar/openjdk/25.0.1/...` — the system default `jdk-24` is too old, must set
+> `JAVA_HOME` per-command or `./gradlew` fails with "release version 25 not supported"). This has never
+> been more than a dev-environment detail: nothing in the goal, the Mac-safe rendering approach, or the
+> "no Veil/GLSL" constraint changes because of which machine builds it (Fabric/Minecraft are
+> cross-platform; nothing in the source is Windows- or macOS-specific). The §13/§15.4 Windows paths/
+> commands are now historical (kept for context) — use the macOS ones (§4/§5) again.
 
 - **Project dir:** `/Users/ayanraj/Documents/MinecraftFoundFootage-master`
 - **Git branch:** `port/mc-26.2` (off `main`). ~84 commits. **Nothing pushed or merged** (no remote needed).
@@ -51,6 +54,13 @@ surfacing exactly one fix. We are at the tail of this loop.
 > verified on the Windows dev GPU (Intel UHD 620) only; see §18.5 for what to watch for and §18.4 for the
 > reusable visual-verification harness (headless screenshot hook + RCON level-tour) if another session
 > needs to keep iterating without the user's machine.
+
+> **⚠ UPDATE 2026-07-08 (§19-§24): also stale.** The Windows-only caveat above no longer applies — the
+> dev machine moved back to macOS (§1/§13 callouts) and several sessions of macOS playtesting happened
+> since: per-pixel lighting, poolrooms water/grass rewrites (§19-§23), and a skinwalker-capture crash +
+> missing-texture fix (§24, GeckoLib 4→5 resource-root migration the port had missed). §24 is the most
+> recent fix and is deployed to the user's live Lunar Client jar but **not yet confirmed by an actual
+> in-game capture** — that's the next thing to check.
 
 ## 3. Locked decisions (do not relitigate)
 
@@ -231,13 +241,16 @@ kept) but NOT drawn** — 26.2 removed immediate-mode draw; needs a vanilla subm
 
 ## 13. To resume in a new chat
 
-> **⚠ DEV MACHINE MOVED (2026-07-04): the assistant now builds/verifies from the user's WINDOWS machine
-> at** `C:\Users\rajay\Documents\MinecraftFoundFootage-master-20260705T011342Z-3-001\MinecraftFoundFootage-master`
-> (note the extra nesting level under the -20260705… folder). This is a change of *dev environment only*
-> — see §1's callout. The mod's target platform is still macOS on MC 26.2; the user still plays the
-> built jar on their Mac. All §4/§5 macOS paths/commands are historical dev-machine details (kept for
-> context, not because macOS support was dropped); see §15.4 for the Windows equivalents. Everything
-> else (branch, decisions, docs, the actual porting goal) unchanged.
+> **⚠ DEV MACHINE MOVED BACK TO macOS (2026-07-08).** The 2026-07-04 move to the user's Windows machine
+> (`C:\Users\rajay\Documents\MinecraftFoundFootage-master-20260705T011342Z-3-001\MinecraftFoundFootage-master`)
+> was **temporary** — the assistant is back to building/verifying on the same Mac
+> (`/Users/ayanraj/Documents/MinecraftFoundFootage-master`) the user plays on. This is still just a
+> dev-environment detail — see §1's callout. **§4/§5's macOS paths/commands are live again**; §15.4's
+> Windows equivalents (and the Windows path above) are now historical, kept for context in case the
+> machine moves again. One live gotcha on this Mac: the system `javap`/default JDK is **24**, not 25 —
+> gradle needs `JAVA_HOME=/opt/homebrew/Cellar/openjdk/25.0.1/libexec/openjdk.jdk/Contents/Home` (or
+> equivalent JDK 25 install) exported before `./gradlew`, else compile fails with "release version 25
+> not supported". Everything else (branch, decisions, docs, the actual porting goal) unchanged.
 
 1. Read this file, then `docs/PORTING_MAP.md` + `docs/CLIENT_PLAYTEST.md`, then `git log --oneline | head -40`.
 2. Confirm green (Windows): set `JAVA_HOME` to JDK 25 (`C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot`)
@@ -826,3 +839,509 @@ Both found by probing a live client (depth-band debug shaders + a JSON-default "
 - The **user's macOS playtest** is still the real acceptance test: everything above was verified
   on the Windows dev GPU (Intel UHD 620); Apple's GL driver may differ (the fallback path — chain
   fails to load → HUD approximation — is intact if it does).
+
+## 19. Smooth per-pixel lighting + natural poolrooms water + defaults/hunger (2026-07-07)
+
+User asked to: (a) make all lighting smooth instead of the per-block vanilla lightmap look
+(fixtures AND flashlight); (b) make poolrooms water look natural (not vanilla water); (c) grass in
+the Infinite Field per the reference gallery; (d) change two config defaults; (e) never lose hunger
+in the backrooms. All done on `master` (uncommitted — no push yet), `gradlew build` green (jar in
+`build\libs`), and **Level 0, Level 1, Level 2, Poolrooms water, the flashlight cone, and the new
+grass were screenshot-verified live** via the §18.4 harness (dedicated server + `runClient`
+quickplay + RCON tour + the file-flag screenshot hook). **Level 324 was NOT toured this session**
+(the relight code path covers it identically to L0/1/2 — same `isDeferredDimension` set — but it
+was never visually spot-checked; see §19.5).
+
+### 19.1 Deferred-style per-pixel relight (the core "smooth, not per-block" fix)
+
+The per-block banding came from the vanilla 15-step lightmap. Rebuilt as a deferred relight *inside
+the existing `backrooms_scene.fsh` post pass* (no new pass; same Mac-safe vanilla PostChain):
+
+- **`mixin/lightmap/BackroomsFullbrightLightmap`** (new client mixin, TAIL of
+  `LightmapRenderStateExtractor.extract`): while the relight is active it forces
+  `ambientColor = white` + `darknessEffectScale = 0`, so the world renders as pure ALBEDO and the
+  lightmap contributes no banding. Gated on `SpbLightGatherer.deferredLightingActive`; off ⇒
+  vanilla lighting untouched (automatic fallback).
+- **`render/post/SpbLightGatherer`** (new): once per client tick, walks the BE maps of the loaded
+  chunks around the camera (every light fixture is a BlockEntity — no block scan) and builds a list
+  of world-space point lights (fluorescent full/thin/tiny + ceiling + emergency, honoring
+  ON/BLACKOUT state; Smiler face carries a small light). `isDeferredDimension` = Level 0/1/2/324
+  only (the sky-lit levels keep vanilla lighting). `MAX_POINT_LIGHTS = 64`, distance-sorted cull.
+- **`backrooms_scene.fsh`** new `SpbLights` std140 UBO (block name is how vanilla binds it):
+  meta + ambient floor + `SpbSpot*[8]` (flashlight cones) + `SpbLightPos/Color[64]`. `spbRelight()`
+  = ambient floor + Σ point lights (windowed inverse-square falloff `(1-x)²/(1+6x²)` for moody pools
+  + wrapped diffuse + fixture self-glow) + Σ spot cones, clamped to 1.5, multiplied onto albedo.
+  Positions are camera-relative (light.world − cam.pos), matched in-shader to
+  `mat3(SpbInvViewRotMat)*viewPos`. Normal is depth-derivative (shared with SSAO).
+- **`BackroomsPostEffects#writeLights`** builds+uploads `SpbLights` each frame (same read-only→
+  writable buffer swap trick as `SpbDynamics`, §17.2). Per-level ambient floor + exposure retune
+  in the deferred branch of `onFrameStart`. The `SpbLights` default array (154 vec4) is declared in
+  `post_effect/backrooms.json` on the scene pass so vanilla bakes the correctly-sized bound buffer.
+
+### 19.2 Flashlight, water, non-deferred dims
+
+- **Flashlight is now a smooth shader spot cone** (not the vanilla `Blocks.LIGHT` block, which put
+  the blocky falloff back). `FlashlightRenderer` early-outs while `deferredLightingActive`. The local
+  player's cone rides the camera (origin 0, dir = camera forward); other players' cones off their
+  eyes. `spbSpotTerm`: smoothstep inner/outer cone (~9°/24°), range 28, near-ease so wall-hugging
+  doesn't white out. Verified in Level 2 (soft circular beam down the dark corridor).
+- **Non-deferred dims (Poolrooms, Infinite Field, overworld)** keep vanilla block lighting but get:
+  `spbDeband()` (ring-samples + luma-windowed average to smooth lightmap steps) + `spbConeAssist()`
+  (multiplicative flashlight cone shaping on top of the vanilla light block).
+- **Poolrooms water `spbWater()`**: heuristic (up-facing normal + teal albedo) → animated
+  refraction re-sample (hides the vanilla water texture), caustic shimmer, subtle sun glints, pull
+  toward reference teal. Gated by `SpbAmbient.w` (poolrooms only). The biome `water_color` teal from
+  §18.2 is unchanged.
+
+### 19.3 Config defaults + hunger + grass
+
+- `ConfigStuff`: `cameraShakeIntensity` 0.4→**0.3**, `VHSDistortionMultiplier` 1.0→**0.75**; new
+  `enableSmoothLighting` toggle (SHADERS, default on; off ⇒ vanilla lighting). Lang keys added.
+- **No hunger in the backrooms**: `PlayerEntityMixin` cancels `causeFoodExhaustion` at HEAD when
+  `BackroomsLevels.isInBackrooms(dimension)` (every vanilla drain funnels through that method;
+  eating still restores).
+- **Infinite Field grass**: `InfGrassChunkGenerator.fillFromNoise` places vanilla short_grass (66%)
+  / tall_grass (8%) per column, deterministic position hash. Biome `grass_color` added +
+  `data/minecraft/tags/block/dirt.json` tags `spb-revamped:dirt` so the field tints green. The
+  original GPU blade renderer stays dropped (A18). **Grass is worldgen ⇒ only fresh chunks** — the
+  render-side changes (lighting/water/flashlight) apply to existing saves immediately, but grass
+  needs newly-generated Infinite Field chunks.
+
+### 19.4 Notes for next session
+
+- Everything render-side is Mac-safe (vanilla GL 3.3 PostChain, no Veil/compute). The
+  `enableSmoothLighting=false` and chain-fails-to-compile paths both restore vanilla lighting.
+- All tuning constants (per-level ambient/exposure in `BackroomsPostEffects.onFrameStart`, light
+  intensities/radii in `SpbLightGatherer`, flashlight intensity in `writeLights`, water look in
+  `backrooms_scene.fsh`) are easy to nudge if the user wants a different mood after their Mac test.
+- Harness note: `quickplay.init.gradle` (project root) appends `--quickPlayMultiplayer` to
+  runClient. **Kill dev processes by matching `quickPlayMultiplayer` only** — matching `DevLaunch`
+  also kills the dedicated server (both dev runs use the devlaunch injector). The Windows dev disk
+  hit 0 free mid-session; freed ~300MB from `run/saves` + `run/screenshots` to finish the build.
+
+### 19.5 Verification detail: what was actually seen, tuning iteration, and gaps
+
+**First pass was too hot and had to be tuned down** — worth knowing if the look ever needs
+re-deriving. Initial fixture intensities (~1.0-1.15 per channel) + a `(1.0-x)²` falloff + a strong
+self-glow term blew Level 0's floor to white and made Level 1 (meant to be a dim grey garage)
+almost entirely blown-out white in the first screenshot. Fixed by, together: dropping fixture
+color/intensity ~30-40% across all fixture types in `SpbLightGatherer`, switching the falloff to
+`(1-x)²/(1+6x²)` (steeper near-cutoff, moodier dark-between-fixtures look), halving the self-glow
+term (`0.8`→`0.45` multiplier, `1.4`→`1.1` distance falloff), lowering the clamp ceiling (`2.2`→
+`1.5`), and dropping per-level `exposure` from ~1.2-1.9 down to ~0.85-0.95 while *raising* the
+ambient floor slightly (so the level doesn't go pitch black between light pools). The poolrooms
+water sun-glint was also nearly halved (`0.5`→`0.22` multiplier, power `90`→`120`) after the first
+screenshot showed an overexposed white band at the near shoreline. Re-verify visually if any of
+these constants are changed again — small tweaks compound non-obviously once exposure + grade +
+the S-curve all stack.
+
+**Exact verification performed this session** (screenshot file names are session-local scratch,
+not committed — recreate via the flag hook below if repeating):
+- Level 0: spawn hallway (-4.5, 21, 14.5) — before AND after the tuning pass, to confirm the fix.
+- Level 1: (8.5, 21, 8.5) — before AND after tuning (first shot was blown-out white; confirmed the
+  fix produced the intended dim cold-grey garage look with a visibly smooth fixture glow).
+- Level 2: (0.5, 20, 8.5) facing the corridor — dark ambient-only shot, then a flashlight-forced-on
+  shot (see below) confirming the smooth spotlight cone with no blocky falloff.
+- Poolrooms: (16.5, 106, 16.5) — before AND after the glint tuning; confirmed animated refraction +
+  caustics + teal color read as natural, not vanilla Minecraft water.
+- Infinite Field: forceloaded FRESH chunks at (5010.5, 33, 5010.5) (existing saved chunks predate
+  the grass change and won't show it without regeneration) — confirmed short/tall grass generates
+  and reads as a dense natural field, then tuned the tall-grass ratio down (was too jungly at first
+  pass: 62/90% short/tall split → 66/74%, i.e. much less tall grass).
+- Flashlight: **no in-game keybind exists to toggle it via RCON** (it's a client keypress, `R`,
+  consumed via `ModKeyBinds.toggleFlashlight.consumeClick()` — RCON can't simulate that, and a
+  simulated OS keypress via `keybd_event` on the unfocused/background window did NOT register,
+  confirming Windows foreground-lock blocks synthetic input to a background process). Verified
+  instead via a **temporary dev-only file-flag hook** added to `SPBRevampedClient`'s tick loop
+  (`if (isDevelopmentEnvironment() && Files.exists(.../"spb_flashlight_on.flag")) setFlashLightOn`)
+  — confirmed the cone, then **removed the hook** before the final production build (confirmed
+  removed: `grep -c spb_flashlight_on` on `SPBRevampedClient.java` returns 0). If the flashlight
+  ever needs re-verifying without the user, recreate that same temporary hook rather than fighting
+  OS input focus.
+- **NOT verified visually this session:** Level 324 (gas station/road level — same
+  `isDeferredDimension` code path as L0/1/2, so it should behave identically, but never toured);
+  the flashlight cone for a *second, non-local* player (only the local-player cone path was
+  exercised); the `enableSmoothLighting=false` fallback path (code reviewed, not screenshot-tested);
+  the shader-fails-to-compile HUD-approximation fallback (not forced/tested this session).
+
+**Reusable harness scripts** (session scratchpad, NOT committed to the repo — recreate if needed
+for a future headless verification pass, same pattern as §16.3's static-analysis scripts):
+- `rcon.py` — ~40-line dependency-free source-RCON client (auth type 3, command type 2, standard
+  length-prefixed framing), same technique as §14.8/§15.4, hardcoded to `127.0.0.1:25575` /
+  password `probe123` (matches this repo's `run/server.properties`, already committed there).
+- `hold_server.py` — Windows equivalent of the Linux FIFO-holder from §14.8: launches
+  `gradlew.bat runServer` with `stdin=PIPE` (never written/closed) so the dedicated server survives
+  without a foreground console, logging to `run/harness_server.log`.
+- `quickplay.init.gradle` (this one IS committed, at the project root) — Gradle init script that
+  appends `--quickPlayMultiplayer 127.0.0.1:25565` to any `runClient` task, so the dev client joins
+  the local dedicated server directly with no title-screen clicking.
+- Screenshot capture is the existing §18.4 dev-only file-flag hook (`touch
+  run/spb_screenshot.flag` → PNG in `run/screenshots/`), unchanged this session.
+- **Gotcha confirmed this session:** killing Windows Java processes by matching the command line
+  substring `DevLaunch` kills BOTH the dev client AND the dedicated server (both `runClient` and
+  `runServer` route through Loom's DevLaunchInjector). Match `quickPlayMultiplayer` specifically to
+  kill only the client and leave the server running for the next relaunch.
+- **Disk-full incident:** the Windows dev machine's `C:` drive hit 0 bytes free mid-session, which
+  failed a `gradlew build` with a Gradle dependency-resolution IOException (misleading — looked
+  like a config problem, was actually disk space). Freed space by deleting `run/saves/*` (throwaway
+  RCON-tour test worlds, ~237MB), `run/screenshots/*` (~62MB), `run/logs/*`, and
+  `~/.gradle/daemon/*` (stale daemon lock/log files) — all safe, regenerable harness/build
+  artifacts, nothing from the user's actual save or source tree. `C:` was still reported as 100%
+  full/1.9GB free immediately after cleanup, i.e. very little headroom remains on this machine for
+  future sessions doing similar client+server dev-loop work.
+
+## 20. Poolrooms per-pixel lighting + realistic pool water + swaying field grass (2026-07-07, session 2)
+
+Continues §19 (same day). User asked to: (a) add the per-pixel lighting system to the **Poolrooms**
+(it was excluded from §19's deferred set); (b) make the Poolrooms **water** look realistic, not vanilla
+(reference: a real pool photo); (c) make the **Infinite Field grass** realistic AND **sway** (reference:
+the original gallery's grass field). All on `port/mc-26.2` (uncommitted, layered on §19's uncommitted
+work), `gradlew build` green, and **all three verified live on the Windows dev client** via the
+§18.4/§19.5 harness — Poolrooms sky rooms, a Poolrooms dark room, the field grass (with a pixel-diff
+proving the sway animates), plus a Level 0 no-regression check.
+
+### 20.1 Poolrooms per-pixel lighting — deliberately NOT the fixture-fullbright path
+§19's deferred relight (`isDeferredDimension` = L0/1/2/324) forces the lightmap fullbright and relights
+from gathered fixture BEs. **Poolrooms stays excluded and must** — it is genuinely sky-lit (glass
+`pool_sky` openings; the `poolrooms/sky` room palette is just air/water/pool_tiles, no fluorescent BEs),
+so its vanilla lightmap carries real spatial variation: bright sky rooms vs the dark maze rooms
+("**Darkrooms**" = the `poolrooms/dark` structure variant, some of which DO have fluorescent tubes).
+Forcing fullbright would erase that contrast and blow out the Darkrooms.
+
+Instead poolrooms get a per-pixel relight that MODULATES (preserves) the vanilla skylight, in the
+non-deferred branch of `backrooms_scene.fsh`: new `spbPoolLight(color, viewNormal)` — a soft wrapped
+directional term off the day-cycle sun (`SpbSunDir`), `shape = 0.82 + 0.42*(ndl*0.7+0.3)` (~0.95..1.24),
+times a gentle day-cycle colour tint. Multiplicative ⇒ dark rooms stay dark (can't brighten near-black),
+sky rooms gain the smooth per-pixel light SHAPE the flat lightmap lacked; with the existing `spbDeband` +
+SSAO this is the "pixel-based lighting" look for a sky-lit level. **No new uniform**: reused `SpbAmbient`
+(unused for non-deferred dims) — `BackroomsPostEffects.onFrameStart` sets `ambientFloor =
+PoolroomsDayCycle.getLightColor()` for poolrooms and `writeLights` already wrote it as `SpbAmbient.rgb`
+with `w=1.0` (the existing poolrooms/water gate). Verified: dark fixture-lit room stays moody, sky rooms
+smooth+bright, L0/1/2/324 untouched (separate code path).
+
+### 20.2 Realistic poolrooms water (`spbWater` rebuild)
+Replaced §19's first-pass water with a proper pool shader (still post-process, Mac-safe): two-scale
+scrolling ripple normal (finite-diff off the noise sampler), depth-tinted teal body (`shallow
+(0.22,0.74,0.60)`→`deep (0.02,0.23,0.20)` by luma), refraction re-sample of the submerged scene (tiles
+show through), a Fresnel blend into a REAL reflection of the procedural sky (`getSky(reflect(V,Nw))` — the
+pool's defining feature), caustic shimmer, a sharp sun specular, and a final pull toward the reference
+teal. First shot was too cyan/blown-out at grazing angles → tuned: Fresnel-reflection blend 0.65→0.5,
+specular 0.45→0.30, palette greened, +14% teal hue pull.
+
+### 20.3 Infinite Field grass — realistic look + swaying (`block.vsh` core-shader override)
+- **Look** (`InfGrassChunkGenerator.fillFromNoise`): §19 left ~26% bare dirt (why it read sparse). Now
+  near-full coverage — 62% short_grass, 8% fern, 24% tall_grass (2-high), 4.5% large_fern, ~1.5% bare.
+  **Worldgen ⇒ only fresh chunks.**
+- **Sway** (NEW `assets/minecraft/shaders/core/block.vsh`): ground-level restoration of the dropped GPU
+  blade animation (A18) on the vanilla GL 3.3 chunk pipeline. Wind added ONLY in the `#ifdef ALPHA_CUTOUT`
+  program (solid terrain + translucent water can't deform) and ONLY on GREEN vertices (`Color.g -
+  max(Color.r,Color.b) > 0` ⇒ biome-tinted grass/ferns/leaves; glass panes/bars are white-tinted and stay
+  rigid — dimension-independent, cannot disturb Backrooms glass). Amplitude ramps with `fract(worldY)`
+  (roots planted); absolute world XZ (`CameraBlockPos+CameraOffset`) anchors the gust phase; `GameTime`
+  drives a two-frequency gust. Always-on for foliage (not config-gated — a custom core-shader uniform is
+  the risky 26.2 bit, avoided).
+  - **Reusable feasibility finding (verified against the 26.2 jar before writing it):** terrain uses ONE
+    universal `block.vsh` (solid/cutout/translucent differ only by the `ALPHA_CUTOUT` define in
+    `block.fsh`), and `Globals` (GameTime, CameraBlockPos, CameraOffset) is a first-class
+    `BUILT_IN_UNIFORMS` block in `net.minecraft.client.renderer.BindGroupLayouts` that
+    `com.mojang.blaze3d.opengl.GlProgram.setupBindGroupLayouts` binds for ANY shader declaring it (reflects
+    active UBO blocks via `glGetActiveUniformBlockName`→`glUniformBlockBinding`). So `#moj_import
+    <minecraft:globals.glsl>` in a terrain override just works — GameTime/camera are live during chunk
+    draws. Confirmed in-client: no `CompilationException`; pixel-diff of two 6s-apart field frames showed
+    ~4% large-diff pixels in the grass band vs ~1% sky / ~0.6% static-UI = real blade motion, not grain.
+
+### 20.4 Files changed this session (on top of §19's uncommitted tree)
+- `assets/spb-revamped/shaders/post/backrooms_scene.fsh` — `spbWater` rebuild + new `spbPoolLight` +
+  poolrooms branch wiring (deband→water→poolLight→cone).
+- `com/sp/render/post/BackroomsPostEffects.java` — poolrooms `ambientFloor = PoolroomsDayCycle.getLightColor()`.
+- `com/sp/world/generation/chunk_generator/InfGrassChunkGenerator.java` — dense layered grass placement.
+- NEW `assets/minecraft/shaders/core/block.vsh` — foliage wind (grass sway).
+
+### 20.5 Still to do / knobs
+- **User's macOS playtest is the real acceptance test** (verified on the Windows dev GPU only; the
+  shader-fails-to-compile fallbacks still apply — chain off ⇒ vanilla lighting; `block.vsh` is a plain
+  GL 3.3 shader, and if it ever failed only foliage would be affected).
+- Tuning: water palette/reflection/specular in `spbWater`; poolrooms directional strength in
+  `spbPoolLight`; grass density ratios in `fillFromNoise`; wind amplitude/period in `block.vsh`
+  (`amp = 0.09*...`, `t = GameTime*2000`).
+- Uncommitted (project SOP — no commit/push without the user asking); the tree also still holds §19's work.
+
+## 21. Playtest round: fog glitch, poolrooms polish, HD grass, unbreakable field (2026-07-07, session 3)
+
+User ran the §19/§20 jar and reported five issues; all fixed on `port/mc-26.2` (uncommitted, layered on
+§19/§20's uncommitted work), `gradlew build` green, and the render-side changes were **live-verified via
+the §18.4 harness** (dedicated server + `runClient` quickplay + RCON tour + file-flag screenshots) — the
+scene/vhs/smooth-lightmap shaders all COMPILE with zero `CompilationException` and render correctly.
+
+### 21.1 Level 1 "purple/green/blue glitch while moving, worse jumping, with the fog on"
+Root cause (not the fog itself): the **VHS pass's colored artifacts** — chromatic-aberration edge fringing
++ the YUV chroma tape-noise — are invisible against textured scenes but pop against Level 1's flat grey
+knee fog and shimmer as edges sweep during motion. Fix in `shaders/post/backrooms_vhs.fsh`: a `chromaDamp`
+= `mix(1.0, 0.2, fogPresence)` where `fogPresence = max(step(0.5, SpbFogColor.w), SpbState.y)` — i.e.
+wherever a level runs distance fog OR the Level 1 knee fog, both the CA and the chroma tape-noise are cut
+to 20%. Also trimmed base CA `0.003→0.0022` and slowed the chroma-noise scroll (`3000/5000 → 1500/2500`)
+from a per-frame strobe to coherent tape drift. Monochrome luma grain + the bright sparkle are untouched
+(they were never the color glitch). The vhs pass already had `SpbDynamics`, so no JSON change.
+
+### 21.2 Poolrooms "blocky lighting → smooth like the other levels"
+Poolrooms stays sky-lit (NOT the §19 fixture-fullbright path — that would erase the Darkrooms), so it kept
+the vanilla 15-step lightmap banding. The §20 `spbDeband` (8 taps, 0.035 luma window) was too tight to
+cross the brightness steps, so bands survived. Replaced with **`spbSmoothLightmap`** (backrooms_scene.fsh):
+a depth-aware bilateral smooth — 3 rings × 6 taps, gated by VIEW-DEPTH similarity (never blurs across a
+geometry edge) with a soft WIDE luma window (0.18) that DOES melt the light steps. Verified: poolrooms
+walls/ceilings now read as a smooth continuous gradient. Applies to all vanilla-lit dims (`SpbLightMeta.z`).
+
+### 21.3 Poolrooms water "still Minecrafty, glitches while moving, see the MC texture"
+The §20 `spbWater` used a HARD detect branch (`N0.y >= 0.72` + teal test) on the jittery depth-derivative
+normal → the effect popped on/off frame-to-frame as the player moved, flashing raw vanilla water. Rebuilt
+with a **soft 0..1 mask** (`up * teal * bright`, keyed mostly on the stable biome teal hue, blended not
+branched) so borderline pixels ease instead of snapping. Clearer body mix (`0.62→0.46`) so the tiled floor
+shows through like the reference; calmer reflection (Fresnel blend `0.42→0.34`, max `0.80→0.70`), specular
+`0.30→0.18`, and a **brightness clamp** `min(water, vec3(0.92,0.98,0.95))` to stop the steep-top-down
+Fresnel+specular+bloom glare that blew the pool to a white/cyan sheet. Verified: refraction shows the tiles,
+teal reads, no on/off popping.
+
+### 21.4 "Add more sky in the poolrooms"
+`PoolroomsChunkGenerator`: biased the sky/dark room pick `noise > 0 → noise > -0.35` (~50%→~65% sky rooms;
+Darkrooms kept, just rarer). **Worldgen ⇒ fresh chunks only.** Confirmed via the harness that the procedural
+sky renders above the rooms (flew into the void above — full sunset sky) and through the openings; the
+in-room ceiling holes are small so a room's own sky patch is modest, and the sky goes dark during the
+poolrooms day-cycle NIGHT band (pre-existing; advance with `execute as @a at @s run backroomsevent sunset`).
+
+### 21.5 Infinite Field "grass is Minecraft grass → make realistic" + "unbreakable"
+- **Realistic (the "pixelated" complaint):** authored **HD 128px** grayscale grass-blade textures overriding
+  vanilla's blocky 16px sprites — `assets/minecraft/textures/block/{short_grass,tall_grass_top,
+  tall_grass_bottom}.png`, drawn as curved tapering Bezier blades on a 4× supersampled canvas (smooth
+  anti-aliased edges) with a vertical value ramp (dark roots→lit tips). Stitched by the existing
+  `atlases/blocks.json` `block/` source; biome-tinted as usual. Generator: scratchpad `gen_grass_hd.py`.
+  These apply to EXISTING grass immediately (texture override). Verified in-field: lush, smooth, real-looking
+  blades up close.
+- `InfGrassChunkGenerator.fillFromNoise`: dropped ferns/large-ferns (they'd stay vanilla-pixelated among the
+  HD grass) → pure short(65%)/tall(32%)/bare(3%) grass for a consistent field. **Density/height ⇒ fresh
+  chunks only** (the HD texture itself does not need regen).
+- **Unbreakable:** `SPBRevamped` registers `PlayerBlockBreakEvents.BEFORE` cancelling breaks of
+  short_grass/tall_grass/fern/large_fern in the `infinite_field` dim only (the ground `ModBlocks.DIRT`
+  already had `destroyTime(-1)`). Server-side ⇒ works on existing saves.
+
+### 21.6 What needs a fresh world vs. immediate
+- **Immediate on existing saves (render/server-side):** Level 1 fog glitch, poolrooms smooth lighting,
+  poolrooms water, HD grass TEXTURE, unbreakable grass.
+- **Fresh/regenerated chunks only (worldgen):** more poolrooms sky rooms, denser/taller field grass (no
+  ferns). Tell the user to delete `world/dimensions/spb-revamped/{poolrooms,infinite_field}` (or start a new
+  world) to get those. Verified this session on freshly-wiped poolrooms + infinite_field.
+- Still the user's macOS playtest for final acceptance (Windows dev GPU only). Day-cycle night makes
+  poolrooms/sky dark — not a bug.
+
+## 22. Follow-up: the "glitches while moving" root cause + real grass sway (2026-07-07, session 3b)
+
+User tested §21 and reported: the fog COLOR glitch was fixed but a **motion glitch** remained in BOTH the
+Level 1 fog AND the poolrooms water, the water still looked "a bit unnatural", and the **grass didn't sway**.
+All fixed on `port/mc-26.2` (uncommitted), `gradlew build` green, and **live-verified via the harness**
+(shaders + core `block.vsh` compile clean; screenshots below).
+
+### 22.1 Shared root cause of "glitches while moving": fract() noise seams
+Both the knee fog (`noise3D`) and the water (`spbWater`) sampled `FogNoiseSampler` with plain **`fract()`**
+to wrap UVs. That sampler is clamp-addressed, so `fract()` draws a HARD SEAM line at every integer UV. The
+seams are anchored in WORLD space, so as the camera moves they sweep across the screen — the "glitch while
+moving" (and "worse jumping" = fast vertical motion). This is the exact bug §18.2 already fixed for the SKY;
+the fog and water were simply never converted. Fix: both now use **`spbMirror()`** (mirror-repeat, continuous
+— no seam) instead of `fract()` (`backrooms_scene.fsh`, `noise3D` + `spbWater` height samples). This is the
+key fix for both symptoms. (Screen-space samplers — SSAO, god rays, deband — never had this; they don't
+sample the world-noise textures.)
+
+### 22.2 Water: also dropped the depth-derivative normal from detection
+The water mask still multiplied an up-facing test (`smoothstep(N0.y)`) built from the depth-derivative normal
+(`cross(dFdx,dFdy)`), which jitters frame-to-frame under camera motion → the effect shimmered. Removed it:
+detection is now the **stable biome teal hue + brightness only** (`teal*bright`). Poolrooms walls are cream so
+hue alone reliably means water. Combined with §22.1 the pool now reads as clean, natural clear water with the
+tiled floor showing through — verified daytime top-down (no blowout, no seams) and eye-level.
+
+### 22.3 Grass sway — was doubly broken, now clearly visible (`block.vsh`)
+Two bugs, not one: (a) amplitude was tiny (0.09), and (b) the height ramp used `fract(worldPos.y)`, which is
+~0 at a FULL-BLOCK-tall blade's TIP (tip sits at an integer world Y) — so the tips, the part that should wave
+most, barely moved. Fix: taper by the **texture V** instead — `tip = 1.0 - UV0.y` (0 at root, 1 at the sprite
+top), `ramp = 0.15 + 0.85*tip*tip`, amplitude up to `0.30` (tips sway ~0.2 block). `GameTime` is
+`(worldGameTime%24000 + partial)/24000` ∈ [0,1) (javap-confirmed on `GlobalSettingsUniform`) so it advances
+smoothly in every dim — the sway was never frozen, just invisible. **Verified**: fixed camera, two frames 2s
+apart, the diff shows clear blade-shaped motion in the grass band (vs uniform grain elsewhere). Still only the
+green-tinted cutout program (glass/bars stay rigid); applies to existing grass (render-side).
+
+### 22.4 Status / knobs
+- Sway amplitude/period: `block.vsh` (`amp = 0.30*...`, `t = GameTime*2200`). Tall-grass 2-tall plants taper
+  per-block so there's a mild mid-height kink at the block seam (thin overlapping sprites hide it); lower the
+  `ramp` base if it ever reads as a tear.
+- Water look: `spbWater` in `backrooms_scene.fsh` (palette/reflection/clamp). Poolrooms has no distance fog so
+  the VHS chromatic-aberration is NOT damped there → a faint red edge on the pool rim; only damped in foggy
+  levels (§21.1). Harmless, but drop base CA further in `backrooms_vhs.fsh` if the user dislikes it.
+- Everything this session is render/shader-side ⇒ applies to existing saves. macOS playtest still the final
+  acceptance (Windows dev GPU only).
+
+## 23. Reference-match poolrooms pass + mod link metadata (2026-07-08)
+
+User gave a reference screenshot of the poolrooms (dark/moody room, bright ceiling skylights, calm
+deep-teal reflective water) and asked to (a) make the pool water smooth/animated with "no breaks", and
+(b) fix the mod's link metadata. All on `port/mc-26.2` (uncommitted, layered on §19-22), `gradlew build`
+green, and **live-verified via the §18.4 harness** (dedicated server + `runClient` quickplay + RCON tour +
+file-flag screenshots — server world's poolrooms day cycle was advanced to daytime via
+`execute as @a at @s run backroomsevent sunset`, persists server-side).
+
+### 23.1 Mod link metadata (`fabric.mod.json`)
+- Removed `contact.YouTube` (was SpacePotato's channel) and the whole `custom.modmenu.links` block (it held
+  "My Youtube" + "Join the Discord!").
+- Added `contact.homepage` = `https://modrinth.com/mod/backrooms-ff-continued` and `contact.issues` =
+  `https://github.com/realarbird/Backrooms-FF-Continued/issues` (ModMenu renders these as Homepage/Issues
+  buttons). The `MathStuff.java` YouTube URL is a code-comment tutorial link, left as-is.
+
+### 23.2 "No breaks" root cause + the fix (this is the important bit)
+The old water was **post-process only** (`spbWater` painted over vanilla block water, keyed on a teal-hue
+*and brightness* mask). Wherever detection dropped out — dark/deep water, water reflecting the dark ceiling —
+it snapped back to raw blocky vanilla water. That boundary was the visible "break". Two-part fix:
+1. **Seamless flowing surface at the source** — extended the existing `assets/minecraft/shaders/core/block.vsh`
+   (the grass-sway override) with a gentle water swell in the `#else` (non-cutout) branch, gated to
+   biome-teal vertices (`min(Color.g,Color.b) - Color.r`). Wave is a continuous function of WORLD xz so
+   adjacent water blocks agree at shared edges → one connected undulating sheet, no seams. Glass/other
+   translucent (white-tinted) and solid terrain are untouched. Amplitude ±0.09 block, ~4s cycle
+   (`GameTime*2000`). **Same feasibility basis as the grass sway (§20.3): water is translucent terrain on
+   the universal `block.vsh`, and `globals.glsl` GameTime/camera bind for it.**
+2. **`spbWater` rebuild** (`backrooms_scene.fsh`) — dropped the brightness gate (hue alone now, so the whole
+   surface is one continuous treated sheet, no internal snap), removed the streaky caustic web + sharp
+   pinpoint specular (they read as breaks), deepened/calmed the teal body (`shallow (0.14,0.52,0.44)` →
+   `deep (0.015,0.16,0.15)`, body mix 0.58), kept a smooth broad Fresnel reflection of the procedural sky
+   (the skylight mirror, blend 0.40), soft broad glint only, moody clamp `min(...,(0.80,0.90,0.86))`.
+
+### 23.3 Low-key/moody poolrooms grade (matched the reference mood)
+The reference is dark with the skylights as the only bright points; the old grade was the opposite — washed
+and orange. In `BackroomsPostEffects.onFrameStart` poolrooms branch: `tint 1.05/1.01/0.94 → 0.99/1.00/0.98`
+(kills the permanent orange cast — colour now follows the day cycle naturally, neutral at midday / warm at
+golden hour), `lift 0.02 → 0.0` (no washed haze; blacks go dark), `sCurve 0.24 → 0.32` (skylights pop out of
+the dark), `exposure 1.15 → 0.92` + `bloom 0.5 → 0.32` (stops the bright tile deck blowing to pure white),
+`rayStrength 0.55 → 0.22` (softer shafts — don't streak the now-glassy water or blow the sunset sky into a
+beam). `spbPoolLight` overhead-skylight term added (`+0.20*max(N.y,0)`) so light pools on the floor/water
+from above.
+
+### 23.4 Verified + what's day-cycle/room dependent (watch-items)
+Screenshot-confirmed on the Windows dev client: water reads as a smooth calm deep-teal pool with the deck a
+proper tan (not blown), moody low-key walls, no surface breaks, shaders compile clean (block.vsh + scene).
+Caveats for the next session / the user's macOS test:
+- **The look tracks the poolrooms day cycle.** Walls are neutral-cream near midday, warm at golden hour, and
+  the procedural sky goes saturated-magenta + god-ray-blown at sunset in OPEN-topped rooms. The reference is
+  an enclosed room at ~midday. The spawn area (16.5,106,16.5) is a large open-topped sky room — good for the
+  water, not for the reference's dark-ceiling-skylight-grid composition (never located an enclosed
+  skylight-grid room this session; worth finding to fully match the reference framing).
+- The sunset procedural-sky blowout (magenta, harsh mirror-folds when open sky fills the view) is a
+  pre-existing rough spot (§18.5) made obvious here; taming god rays helped but the sky palette itself is
+  still hot at dusk — a candidate for a future desaturate/soften pass if the user dislikes it.
+- Knobs: water in `spbWater`; wave amp/period in `block.vsh` (`0.035`, `GameTime*2000`); poolrooms
+  exposure/tint/sCurve/bloom/rays in `BackroomsPostEffects`. All render-side ⇒ apply to existing saves.
+
+## 24. Skinwalker capture: missing-texture (magenta) + hard crash — GeckoLib 4→5 resource-root miss (2026-07-08, back on macOS)
+
+**Symptoms (user, running the shipped jar in Lunar Client on macOS/M4, MC 26.2):** when the skinwalker
+captures the player, the entity renders as the vanilla missing-texture magenta/black checkerboard cube, and
+the game crashes a few seconds into the capture. Crash report
+`~/Library/Application Support/minecraft/crash-reports/crash-2026-07-08_11.03.38-client.txt`:
+`java.lang.IllegalArgumentException: Bone not found: base_leg1` at
+`GeoModelAccessor.getBone` ← `IKLegComponent.tickClient` ← `SkinWalkerRenderer.extractRenderState:146`
+(the `if (trueForm)` IK tick).
+
+**Root cause (single, explains BOTH symptoms).** The port kept GeckoLib-4 asset locations/identifiers.
+GeckoLib 5 (`5.5.x`) changed the convention and its resource scanner (`GeckoLibResources`) now scans **only**
+`assets/<ns>/geckolib/models` and `assets/<ns>/geckolib/animations` — the legacy `assets/<ns>/geo/` and
+`assets/<ns>/animations/` roots are **not scanned at all**. Our files lived in the legacy roots and our
+`getModelResource(...)` returned full paths like `spb-revamped:geo/entity/skin_walker_default.geo.json`.
+Result: `BakedModelCache.getModel(...)` found nothing, logged `Unable to find model: …` +
+`Superfluous prefix or suffix … Should be 'spb-revamped:geo/entity/skin_walker_default'`, and returned the
+**MISSINGNO** baked model (→ the magenta cube). Because the baked model was the missingno fallback, the
+true-form IK tick's `GeoModelAccessor.getBone("base_leg1")` came up empty. The IK code is *written* to
+tolerate that (`if (model.getBone(...).isEmpty()) return;`), but `GeoModelAccessor.getBone` first calls
+`PrAnCommonClass.throwInDevOnly(...)`, and **`PrAnCommonClass.isDev` defaulted to `true`** and was only ever
+flipped *to* true in `SPBRevamped` (`if (isDevelopmentEnvironment())`) — never cleared for production. So in
+the shipped/Lunar build every "bone not found" hard-crashed instead of skipping. (Note: the default
+`skin_walker_default` model was *already* MISSINGNO ~90 s before the crash, at 11:02:09 in the Lunar log —
+the disguise-phase skinwalker was rendering untextured too; the crash just happened once true form ran the IK
+path.) Evidence for GeckoLib's convention came straight from the 5.5.2 jar bytecode
+(`GeckoLibResources.MODELS_PATH="geckolib/models"`, `stripPrefixAndSuffix`, and `DefaultedGeoModel` building
+`geckolib/models/<subtype>/<name>` keyed as `<subtype>/<name>`).
+
+**Fix.**
+1. **Moved the GeckoLib assets** (`git mv`, history preserved):
+   `assets/spb-revamped/geo/entity/*.geo.json` → `assets/spb-revamped/geckolib/models/entity/`,
+   `assets/spb-revamped/animations/entity/*.animation.json` → `assets/spb-revamped/geckolib/animations/entity/`.
+   Legacy `geo/` + `animations/` dirs removed.
+2. **Updated every GeckoLib identifier** to the bare `"<subtype>/<name>"` key (no `geo/`/`animations/`
+   prefix, no `.geo.json`/`.animation.json` suffix): `SkinWalkerRenderer` (slim/default/final),
+   `SkinWalkerModel` (model + animation → `entity/skinwalker`), `WalkerModel` (`entity/walker`),
+   `GasPumpItemModel` (`blocks/staircase` + `staircase` — those staircase assets still don't exist, a
+   pre-existing gap, now just correctly-formatted). **Textures are unchanged** — GeckoLib 5 still uses the
+   full `textures/…png` path (`textures/<subtype>/<name>.png`), and the log had zero texture errors.
+3. **`PrAnCommonClass.isDev` now defaults to `false`** (defense-in-depth). Dev env still flips it true via
+   `SPBRevamped`, so dev keeps the strict throw; production now honours the IK code's graceful
+   `getBone(...).isEmpty()` guards instead of hard-crashing. This is what `throwInDevOnly` was always meant to do.
+
+**Verified.** `./gradlew build` clean (Java 25 toolchain — must run gradle with `JAVA_HOME` = a JDK 25, e.g.
+`/opt/homebrew/Cellar/openjdk/25.0.1/...`; the default `jdk-24` gives "release version 25 not supported").
+Ran the dev client (`runClient`): GeckoLib now logs **`Loaded 5 models and 1 animations from resources`**
+(pre-fix it loaded 0 of ours), with **zero** `Unable to find model` / `Bone not found` / `Superfluous …`
+lines. The true-form geo `skin_walker_final_default` contains `base_leg1..4` + `seg*_leg*`, so the IK tick
+now resolves them. New jar (clean geckolib/ layout, no stale legacy entries) built and **deployed to
+`~/.lunarclient/profiles/26/mods/fabric-26.2/backrooms-ff-continued-2.0.0.jar`** (old jar backed up as
+`*.bak-precheckerfix`).
+
+**Still to confirm (user, in-game — the one thing logs can't show):** trigger an actual capture
+(`/skinwalker <you>` as gamemaster, or natural spawn) and watch the full reveal → **true form**: the walker
+should render with the stolen player-skin body + spider legs (no magenta) and **not crash**. Dev-client note:
+dev runs with `isDev=true`, so the RCON harness (§18.4: server up first, then `runClient` auto-connects via
+`quickplay.init.gradle`, `/skinwalker @a` over RCON at `:25575` pw `probe123`) is a *strict* crash test if a
+fuller playtest is wanted next session — this session verified resource loading, not a live capture render.
+
+## 25. Poolrooms water: scrapped the post-process overlay for a real HD block texture (2026-07-08)
+
+**User report:** "the water looks bad and glitches weirdly when moving," on ALL platforms (Mac *and*
+Windows), and it still shows Minecraft's blocky 16×16 texture. Directive: scrap MC's default water, give it
+a **new 128×128, animated, smooth** texture with waves that **does not glitch when moving**.
+
+**Root cause (the whole §19–§23 approach was the bug).** Every prior water pass produced the look with a
+**screen-space post-process** shader `spbWater` in `backrooms_scene.fsh` that detected water by pixel colour
+(the teal biome `water_color` `0x3FC6A0`) and repainted those pixels. Colour-based detection is inherently
+unstable under camera motion — lighting/reflection shifts the hue, the mask flickers on/off frame-to-frame,
+and the raw vanilla 16×16 water flashes through. That is the "glitches while moving," and because the
+detection is cross-platform, so is the glitch. It was re-patched four times (§21.3/§22.2/§23.2) and never
+cured; the underlying block texture was never replaced, so every detection dropout fell back to blocky
+vanilla water. (All prior "verified" screenshots were the Windows dev GPU, not the user's Mac.)
+
+**Fix — move the water look OUT of screen space and INTO the block atlas** (same proven pattern as §21.5's
+HD grass). A real MC animated texture lives in the atlas and is camera-independent, so it *cannot* flicker.
+Design doc: `docs/superpowers/specs/2026-07-08-poolrooms-water-texture-rewrite-design.md`.
+
+1. **New HD water textures** in `assets/minecraft/textures/block/` (override vanilla via the existing
+   `atlases/blocks.json` `block/` directory source — the fluid renderer fetches `block/water_still` &
+   `block/water_flow` from the block atlas):
+   - `water_still.png` (+`.mcmeta`) — **128×128 per frame, 32 frames** (PNG 128×4096), `frametime 3` +
+     `interpolate:true` (~4.8 s calm loop).
+   - `water_flow.png` (+`.mcmeta`) — 128px HD flow (pool rim / side faces), ripples biased along +V.
+   - `water_overlay.png` — 128×128 static (faces seen through water).
+   - **Grayscale + semi-transparent** (alpha ≈ 0.72, mean 184): the biome `water_color` tints it teal in the
+     poolrooms and blue elsewhere (one texture, correct everywhere); floor shows through. Built from
+     continuous sine fields → **smooth** (mean per-frame change 0.9/255), **spatially tileable** (integer
+     wavenumbers → adjacent blocks share edges, seam ≈ 1/255, no grid line), **temporally seamless** (integer
+     cycles → loop-wrap step == interior step, no pop). Look = "calm reflective pool" (user's pick).
+   - Generator: `docs/superpowers/specs/gen_water_hd.py` (PIL/numpy; run `python gen_water_hd.py <outdir>`;
+     it also emits `preview_*` images for eyeballing before shipping). Knobs: `spec_str` (highlight
+     strength), `a_base` (opacity), the `STILL_WAVES`/`FLOW_WAVES` wavenumber tables, `FRAMES`, `frametime`.
+2. **Waves — two glitch-proof mechanisms only:** the baked texture ripple (screen-stable) + the **kept**
+   geometry swell in `assets/minecraft/shaders/core/block.vsh` `#else` branch (±0.09 block, world-XZ phase →
+   seamless across blocks; it was never the glitch source per §22.1).
+3. **Deleted the overlay** in `backrooms_scene.fsh`: removed the `spbWater(...)` call and the whole `spbWater`
+   function (replaced with a "REMOVED / do not reintroduce screen-space hue detection" note). **Kept**
+   `spbPoolLight` (smooth directional sky-lighting on floor+water — a lighting multiply, not a detection
+   mask) and the biome teal tint. `getSky`/`spbMirror`/`FogNoiseSampler` stay (still used by sky/fog).
+
+**Verified.** `./gradlew build` green (Java 25). Textures validated offline (dims/frames/mcmeta/alpha/tile-
+seam/loop-wrap all pass; previews screenshot-inspected → calm reflective teal pool, no seams, floor visible).
+New jar **deployed to both runtimes**: Lunar (`~/.lunarclient/profiles/26/mods/fabric-26.2/`) and Modrinth
+(`.../ModrinthApp/profiles/mc backrooms/mods/`). Render/texture-side only ⇒ applies to existing saves; no
+worldgen regen. **Not yet confirmed by a live capture** — GLSL post-shaders + the block atlas only
+compile/stitch at runtime and the assistant can't run the client (no display, §4). The one remaining check is
+the user in the poolrooms (spawn 16.5,106,16.5; `/backroomsevent sunset` for daytime): **move the camera and
+confirm no flicker / no blocky fallback**, smooth animated teal water. If it reads too flat, bump `spec_str`
+in the generator and rebuild — do NOT bring back a screen-space detection pass.

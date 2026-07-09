@@ -24,6 +24,7 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.system.MemoryStack;
@@ -59,8 +60,20 @@ public final class BackroomsPostEffects {
     /** std140 size of the SpbDynamics block: 2 * mat4 (64) + 7 * vec4 (16). */
     private static final int DYNAMICS_SIZE = 2 * 64 + 7 * 16;
 
+    /** Capacity of the SpbLights arrays — keep in sync with backrooms_scene.fsh and backrooms.json. */
+    public static final int MAX_POINT_LIGHTS = 64;
+    public static final int MAX_SPOTLIGHTS = 8;
+
+    /** std140 size of the SpbLights block: 2 header vec4 + 3*8 spot vec4 + 2*64 point vec4. */
+    private static final int LIGHTS_SIZE = (2 + 3 * MAX_SPOTLIGHTS + 2 * MAX_POINT_LIGHTS) * 16;
+
     /** Matches the shader's LDR bloom combine; the Veil chain's HDR bloom had no single knob. */
     private static final float BLOOM_STRENGTH = 0.35f;
+
+    // Flashlight cone (restores the Veil AreaLight spot feel): ~9 deg hot core, ~24 deg falloff.
+    private static final float FLASH_COS_INNER = 0.988f;
+    private static final float FLASH_COS_OUTER = 0.914f;
+    private static final float FLASH_RANGE = 28.0f;
 
     private BackroomsPostEffects() {
     }
@@ -75,6 +88,7 @@ public final class BackroomsPostEffects {
     public static void onDisconnect(Minecraft client) {
         chainActiveThisFrame = false;
         BackroomsHudOverlay.postShaderActive = false;
+        SpbLightGatherer.deferredLightingActive = false;
     }
 
     /**
@@ -103,6 +117,7 @@ public final class BackroomsPostEffects {
         if (!active) {
             chainActiveThisFrame = false;
             BackroomsHudOverlay.postShaderActive = false;
+            SpbLightGatherer.deferredLightingActive = false;
             return;
         }
 
@@ -110,8 +125,10 @@ public final class BackroomsPostEffects {
         if (chain == null) {
             // Shader failed to compile/parse on this system — fall back to the Phase-6c HUD
             // approximation (grain/scanlines) so the player still gets the camcorder feel.
+            // The relight lightmap force drops with it, restoring vanilla block lighting.
             chainActiveThisFrame = false;
             BackroomsHudOverlay.postShaderActive = false;
+            SpbLightGatherer.deferredLightingActive = false;
             return;
         }
         chainActiveThisFrame = true;
@@ -228,16 +245,53 @@ public final class BackroomsPostEffects {
             sunsetTimer = PoolroomsDayCycle.getDayTime(client.level);
             float sunAngle = (float) Math.toRadians(PoolroomsDayCycle.getSunAngle());
             sunDir.set((float) Math.cos(sunAngle), (float) Math.sin(sunAngle), 0.05f).normalize();
-            tint.set(1.05f, 1.01f, 0.94f); // warm sunlit water
-            saturation = 1.12f;
-            sCurve = 0.24f;
-            lift = 0.02f;
-            aoStrength = 0.55f;
-            bloomStrength = 0.5f;
-            // Volumetric-light stand-in; off during the night band of the day cycle.
+            // Low-key / moody like the reference: a dark room where the ceiling skylights are the
+            // light, NOT a bright warm haze. The old look ran exposure 1.15 + a 0.02 black-lift +
+            // a warm 1.05/1.01/0.94 tint, which washed the walls orange and lifted every shadow into
+            // a flat haze. Now: neutral cream tint (no orange), zero black-lift so shadows go properly
+            // dark, more S-curve so the skylights pop out of that dark, and a lower exposure.
+            tint.set(0.99f, 1.00f, 0.98f); // neutral cream, no warm cast
+            saturation = 1.12f;            // push the vivid cyan pool water (video reference); walls are near-neutral so unaffected
+            sCurve = 0.32f;                // crush shadows -> moody; skylights read as the bright points
+            lift = 0.0f;                   // no haze: blacks stay black
+            aoStrength = 0.6f;
+            bloomStrength = 0.32f;         // skylights still glow, walls/deck no longer bloom-wash white
+            // Volumetric-light stand-in; off during the night band of the day cycle. Softer still so
+            // the shafts don't streak the (now glassy) water and don't blow the sunset sky into a beam.
             boolean night = sunsetTimer > 0.32f && sunsetTimer < 0.68f;
-            rayStrength = (night || !ConfigStuff.enableVolumetricLight) ? 0.0f : 0.55f;
-            exposure = 1.15f;
+            rayStrength = (night || !ConfigStuff.enableVolumetricLight) ? 0.0f : 0.22f;
+            exposure = 0.92f;              // low-key exposure — keeps the bright tile deck off pure white
+        }
+
+        // ---- Per-pixel relight (the restored deferred-lighting look) ----
+        // In the fixture-lit levels the vanilla lightmap is forced fullbright (see
+        // BackroomsFullbrightLightmap) and ALL lighting happens in backrooms_scene.fsh:
+        // ambient floor + gathered fixture point lights + flashlight cones. The per-level
+        // grades below assume that relight, so exposure is retuned when it is active.
+        boolean deferred = ConfigStuff.enableSmoothLighting && SpbLightGatherer.isDeferredDimension(dim);
+        SpbLightGatherer.deferredLightingActive = deferred;
+
+        Vector3f ambientFloor = new Vector3f();
+        if (deferred) {
+            if (dim == BackroomsLevels.LEVEL0_WORLD_KEY) {
+                ambientFloor.set(0.10f, 0.088f, 0.060f); // faint warm bounce off the yellow walls
+                exposure = 0.95f;
+            } else if (dim == BackroomsLevels.LEVEL1_WORLD_KEY) {
+                ambientFloor.set(0.070f, 0.078f, 0.090f); // cold concrete
+                exposure = 0.85f;
+            } else if (dim == BackroomsLevels.LEVEL2_WORLD_KEY) {
+                ambientFloor.set(0.042f, 0.046f, 0.056f); // near-black service corridors
+                exposure = 0.95f;
+            } else if (dim == BackroomsLevels.LEVEL324_WORLD_KEY) {
+                ambientFloor.set(0.060f, 0.072f, 0.095f); // overcast night street
+                exposure = 0.95f;
+            }
+        } else if (dim == BackroomsLevels.POOLROOMS_WORLD_KEY) {
+            // Poolrooms is sky-lit (glass pool_sky openings), so it keeps the vanilla lightmap's
+            // spatial variation (bright sky rooms vs the dark maze rooms) — SpbAmbient here is not
+            // an ambient floor but the day-cycle sun/sky light COLOUR the shader's spbPoolLight()
+            // uses to shape that preserved light per pixel (SpbAmbient.w=1.0 gates it).
+            ambientFloor.set(PoolroomsDayCycle.getLightColor());
         }
 
         // ---- Sun screen position for the god-ray march (only when rays are on) ----
@@ -260,7 +314,10 @@ public final class BackroomsPostEffects {
         float glitchTime = 0.0f;
         PlayerComponent playerComponent = InitializeComponents.PLAYER.get(client.player);
         if (playerComponent != null) {
-            glitchTime = Math.max(0.0f, Math.min(1.0f, playerComponent.getGlitchTimer()));
+            // The level-2 warp reuses the same barrel-distortion glitch pass as the smiler/teleport
+            // glitch, so drive glitchTime with whichever is stronger.
+            float g = Math.max(playerComponent.getGlitchTimer(), playerComponent.getWarpTimer());
+            glitchTime = Math.max(0.0f, Math.min(1.0f, g));
         }
 
         float distortion = ConfigStuff.VHSDistortionMultiplier;
@@ -281,14 +338,111 @@ public final class BackroomsPostEffects {
                     .putVec4(sunU, sunV, sunOnScreen, exposure)
                     .get();
 
-            writeDynamics(chain, data);
+            writeBlock(chain, "SpbDynamics", data);
+        }
+
+        writeLights(chain, client, cam, deferred, ambientFloor,
+                dim == BackroomsLevels.POOLROOMS_WORLD_KEY ? 1.0f : 0.0f, invViewRot);
+    }
+
+    /**
+     * Builds and uploads the SpbLights block (scene pass only): camera-relative fixture point
+     * lights from {@link SpbLightGatherer} plus one spotlight cone per flashlight-carrying player.
+     * Order/types must match the SpbLights block in backrooms_scene.fsh and the default value
+     * list in post_effect/backrooms.json.
+     */
+    private static void writeLights(PostChain chain, Minecraft client, CameraRenderState cam,
+                                    boolean deferred, Vector3f ambientFloor, float waterFx,
+                                    Matrix4f invViewRot) {
+        Vec3 camPos = cam.pos != null ? cam.pos : Vec3.ZERO;
+
+        java.util.List<SpbLightGatherer.PointLight> points = SpbLightGatherer.getLights();
+        int pointCount = Math.min(points.size(), MAX_POINT_LIGHTS);
+
+        // Spotlights: local player's cone comes off the CAMERA (stays glued to screen center,
+        // follows the shake/roll the CameraMixin applies); other players' cones off their eyes.
+        float[] spots = new float[MAX_SPOTLIGHTS * 12];
+        int spotCount = 0;
+        float partialTick = client.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+
+        PlayerComponent localComponent = InitializeComponents.PLAYER.get(client.player);
+        if (localComponent != null && localComponent.isFlashLightOn() && !client.player.isSpectator()) {
+            Vector3f forward = invViewRot.transformDirection(new Vector3f(0.0f, 0.0f, -1.0f)).normalize();
+            spotCount = putSpot(spots, spotCount, 0.0f, 0.0f, 0.0f, forward.x, forward.y, forward.z);
+        }
+        for (net.minecraft.client.player.AbstractClientPlayer other : client.level.players()) {
+            if (spotCount >= MAX_SPOTLIGHTS) {
+                break;
+            }
+            if (other == client.player || other.isSpectator()) {
+                continue;
+            }
+            PlayerComponent component = InitializeComponents.PLAYER.get(other);
+            if (component == null || !component.isFlashLightOn()) {
+                continue;
+            }
+            Vec3 eye = other.getEyePosition(partialTick);
+            if (camPos.distanceToSqr(eye) > 96.0 * 96.0) {
+                continue;
+            }
+            Vec3 look = other.getViewVector(partialTick);
+            spotCount = putSpot(spots, spotCount,
+                    (float) (eye.x - camPos.x), (float) (eye.y - camPos.y), (float) (eye.z - camPos.z),
+                    (float) look.x, (float) look.y, (float) look.z);
+        }
+
+        float deband = ConfigStuff.enableSmoothLighting ? 1.0f : 0.0f;
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            Std140Builder builder = Std140Builder.onStack(stack, LIGHTS_SIZE);
+            builder.putVec4(pointCount, spotCount, deband, deferred ? 1.0f : 0.0f);
+            builder.putVec4(ambientFloor.x, ambientFloor.y, ambientFloor.z, waterFx);
+            for (int i = 0; i < MAX_SPOTLIGHTS; i++) {
+                builder.putVec4(spots[i * 12], spots[i * 12 + 1], spots[i * 12 + 2], FLASH_COS_INNER);
+            }
+            for (int i = 0; i < MAX_SPOTLIGHTS; i++) {
+                builder.putVec4(spots[i * 12 + 3], spots[i * 12 + 4], spots[i * 12 + 5], FLASH_COS_OUTER);
+            }
+            for (int i = 0; i < MAX_SPOTLIGHTS; i++) {
+                builder.putVec4(1.65f, 1.55f, 1.36f, FLASH_RANGE); // warm halogen, premultiplied
+            }
+            for (int i = 0; i < MAX_POINT_LIGHTS; i++) {
+                if (i < pointCount) {
+                    SpbLightGatherer.PointLight light = points.get(i);
+                    builder.putVec4((float) (light.x() - camPos.x), (float) (light.y() - camPos.y),
+                            (float) (light.z() - camPos.z), light.radius());
+                } else {
+                    builder.putVec4(0.0f, 0.0f, 0.0f, 1.0f);
+                }
+            }
+            for (int i = 0; i < MAX_POINT_LIGHTS; i++) {
+                if (i < pointCount) {
+                    SpbLightGatherer.PointLight light = points.get(i);
+                    builder.putVec4(light.r(), light.g(), light.b(), 0.0f);
+                } else {
+                    builder.putVec4(0.0f, 0.0f, 0.0f, 0.0f);
+                }
+            }
+
+            writeBlock(chain, "SpbLights", builder.get());
         }
     }
 
-    private static void writeDynamics(PostChain chain, ByteBuffer data) {
+    private static int putSpot(float[] spots, int index, float x, float y, float z,
+                               float dx, float dy, float dz) {
+        spots[index * 12] = x;
+        spots[index * 12 + 1] = y;
+        spots[index * 12 + 2] = z;
+        spots[index * 12 + 3] = dx;
+        spots[index * 12 + 4] = dy;
+        spots[index * 12 + 5] = dz;
+        return index + 1;
+    }
+
+    private static void writeBlock(PostChain chain, String blockName, ByteBuffer data) {
         for (PostPass pass : ((PostChainAccessor) chain).spbRevamped$getPasses()) {
             Map<String, GpuBuffer> uniforms = ((PostPassAccessor) pass).spbRevamped$getCustomUniforms();
-            GpuBuffer buffer = uniforms.get("SpbDynamics");
+            GpuBuffer buffer = uniforms.get(blockName);
             if (buffer == null) {
                 continue;
             }
@@ -297,10 +451,10 @@ public final class BackroomsPostEffects {
                 // First frame after (re)load: replace the pass's baked read-only buffer with a
                 // writable one. The pass closes whatever is in the map on chain teardown.
                 GpuBuffer writable = RenderSystem.getDevice().createBuffer(
-                        () -> "spb-revamped backrooms post dynamics",
+                        () -> "spb-revamped backrooms post " + blockName,
                         GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST,
                         data);
-                uniforms.put("SpbDynamics", writable);
+                uniforms.put(blockName, writable);
                 buffer.close();
             } else {
                 RenderSystem.getDevice().createCommandEncoder().writeToBuffer(buffer.slice(), data);

@@ -109,6 +109,12 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     public int glitchTick;
     public boolean shouldInflictGlitchDamage;
 
+    // Level-2 warp intensity [0..1], ramped client-side in ClientWrapper (like glitchTick/glitchTimer).
+    // Drives BOTH the barrel-distortion glitch shader (max'd with glitchTimer) and the camera tumble
+    // in CameraRoll. Transient/client-derived — not persisted to NBT.
+    public float warpTimer;
+    public int warpTick;
+
     public BackroomsLevel.LevelTransition currentTransition = null;
 
     public PlayerComponent(Player player){
@@ -149,6 +155,9 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
         this.glitchTimer = 0.0f;
         this.shouldGlitch = false;
         this.glitchTick = 0;
+
+        this.warpTimer = 0.0f;
+        this.warpTick = 0;
 
         this.teleportingTimer = -1;
     }
@@ -323,6 +332,10 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
 
     public float getGlitchTimer() {
         return glitchTimer;
+    }
+
+    public float getWarpTimer() {
+        return warpTimer;
     }
 
     public boolean shouldGlitch() {

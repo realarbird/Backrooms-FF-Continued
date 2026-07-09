@@ -17,9 +17,12 @@ import com.geckolib.renderer.base.GeoRenderState;
  */
 public class SkinWalkerModel extends GeoModel<SkinWalkerEntity> {
 	private final Identifier PLACEHOLDER_TEXTURE = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/entity/skinwalker/placeholder.png");
-	private final Identifier DEFAULT_MODEL = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "geo/entity/skin_walker_default.geo.json");
+	// PORT: delta (GeckoLib 4 -> 5). Model/animation identifiers are now the bare "<subtype>/<name>" key
+	// (no geo//animations/ prefix, no .geo.json/.animation.json suffix); GeckoLib 5 resolves them under
+	// assets/<ns>/geckolib/models and .../geckolib/animations. See SkinWalkerRenderer for the full note.
+	private final Identifier DEFAULT_MODEL = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "entity/skin_walker_default");
 
-	private final Identifier ANIMATION = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "animations/entity/skinwalker.animation.json");
+	private final Identifier ANIMATION = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "entity/skinwalker");
 
 	@Override
 	public Identifier getModelResource(GeoRenderState renderState) {

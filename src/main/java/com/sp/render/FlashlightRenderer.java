@@ -54,6 +54,14 @@ public class FlashlightRenderer {
      * Self-only now: only the local player projects a flashlight light block.
      */
     public void renderFlashlightForEveryPlayer(float partialTicks) {
+        // While the post chain relights the scene per pixel, the flashlight is a smooth shader
+        // spotlight (backrooms_scene.fsh) — a vanilla light block would just re-add the blocky
+        // per-block falloff this path exists to remove.
+        if (com.sp.render.post.SpbLightGatherer.deferredLightingActive) {
+            clearLightBlock(client.level);
+            return;
+        }
+
         // If LambDynamicLights handles dynamic lighting, defer to it entirely.
         if (lambDynLightsPresent) {
             return;

@@ -9,6 +9,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.core.Holder;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
@@ -135,13 +137,45 @@ public final class InfGrassChunkGenerator extends BackroomsChunkGenerator {
     @Override
     public CompletableFuture<ChunkAccess> fillFromNoise(Blender blender, RandomState randomState, StructureManager structureManager, ChunkAccess chunk) {
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
+        BlockState shortGrass = Blocks.SHORT_GRASS.defaultBlockState();
+        BlockState tallGrassLower = Blocks.TALL_GRASS.defaultBlockState()
+                .setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.LOWER);
+        BlockState tallGrassUpper = Blocks.TALL_GRASS.defaultBlockState()
+                .setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.UPPER);
+
         for(int k = 0; k < 16; ++k) {
             for(int l = 0; l < 16; ++l) {
                 chunk.setBlockState(mutable.set(k, 30, l), ModBlocks.DIRT.defaultBlockState());
+
+                // Dense field grass (the original drew GPU-instanced blades — dropped with Veil; a
+                // swaying meadow of short/tall grass stands in, animated by the wind hook in the
+                // block core shader, and drawn with the mod's high-res grass textures so it reads
+                // as real grass rather than blocky Minecraft sprites). Position-hashed so
+                // regeneration is deterministic. Only short/tall GRASS is used (no ferns) so the
+                // whole field stays visually consistent with those HD blade textures.
+                int wx = chunk.getPos().getMinBlockX() + k;
+                int wz = chunk.getPos().getMinBlockZ() + l;
+                float rand = hash01(wx, wz);
+                if (rand < 0.65f) {
+                    chunk.setBlockState(mutable.set(k, 31, l), shortGrass);
+                } else if (rand < 0.97f) {
+                    chunk.setBlockState(mutable.set(k, 31, l), tallGrassLower);
+                    chunk.setBlockState(mutable.set(k, 32, l), tallGrassUpper);
+                }
+                // remaining ~3% left bare — natural thin patches
             }
         }
 
         return CompletableFuture.completedFuture(chunk);
+    }
+
+    /** Deterministic per-column hash in [0,1) for grass placement. */
+    private static float hash01(int x, int z) {
+        long h = x * 341873128712L + z * 132897987541L;
+        h = (h ^ (h >>> 33)) * 0xFF51AFD7ED558CCDL;
+        h = (h ^ (h >>> 33)) * 0xC4CEB9FE1A85EC53L;
+        h ^= (h >>> 33);
+        return (float) ((h >>> 11) * 0x1.0p-53);
     }
 
 

@@ -84,6 +84,13 @@ public class Level2BackroomsLevel extends BackroomsLevel {
     }
 
     public void setWarping(boolean warping) {
+        if (isWarping != warping) {
+            // Flag the level dirty so WorldEvents syncs the new state to clients (writeToNbt ->
+            // client readFromNbt). Without this the client's isWarping goes stale in multiplayer, so
+            // the warp ambience sound AND the warp glitch/tilt visual (which both read isWarping
+            // client-side) would never fire for anyone but the integrated-server host.
+            this.justChanged();
+        }
         isWarping = warping;
     }
 

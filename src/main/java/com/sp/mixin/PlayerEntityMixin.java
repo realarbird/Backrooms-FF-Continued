@@ -37,6 +37,16 @@ public abstract class PlayerEntityMixin extends Entity {
         }
     }
 
+    // The Backrooms have no food: exhaustion (sprinting, jumping, healing, the hunger effect —
+    // every vanilla drain funnels through this method) is cancelled while the player is in any
+    // Backrooms dimension, so the hunger bar never depletes there. Eating still restores as normal.
+    @Inject(method = "causeFoodExhaustion", at = @At("HEAD"), cancellable = true)
+    private void noHungerInBackrooms(float exhaustion, CallbackInfo ci) {
+        if (BackroomsLevels.isInBackrooms(this.level().dimension())) {
+            ci.cancel();
+        }
+    }
+
     // Potential fix for: https://github.com/SpacePotatoee/MinecraftFoundFootage/issues/85
     // IDK tho. I am just throwing shit at the wall to see what sticks.
     @Inject(method = "die", at = @At("HEAD"))

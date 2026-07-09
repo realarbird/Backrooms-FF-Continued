@@ -278,6 +278,9 @@ public class SPBRevampedClient implements ClientModInitializer {
                 float partialTicks = client.getDeltaTracker().getGameTimeDeltaPartialTick(true);
                 flashlightRenderer.renderFlashlightForEveryPlayer(partialTicks);
 
+                // Fixture scan for the per-pixel relight (positions are static; per-tick is plenty).
+                com.sp.render.post.SpbLightGatherer.tick(client);
+
                 PlayerComponent localComponent = InitializeComponents.PLAYER.get(playerClient);
 
                 // Feed the Mac-safe VHS HUD overlay (Phase 6c) its state.

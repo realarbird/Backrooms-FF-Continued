@@ -60,9 +60,14 @@ import java.util.List;
  * </ul>
  */
 public class SkinWalkerRenderer extends GeoEntityRenderer<SkinWalkerEntity, SkinWalkerRenderState> {
-    private static final Identifier SLIM_MODEL = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "geo/entity/skin_walker_slim.geo.json");
-    private static final Identifier DEFAULT_MODEL = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "geo/entity/skin_walker_default.geo.json");
-    private static final Identifier FINAL_MODEL = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "geo/entity/skin_walker_final_default.geo.json");
+    // PORT: delta (GeckoLib 4 -> 5). GeckoLib 5 only scans assets/<ns>/geckolib/models and
+    // assets/<ns>/geckolib/animations; the legacy geo/ + animations/ roots are gone. Model identifiers
+    // are now the bare "<subtype>/<name>" key (no geo/ prefix, no .geo.json suffix). Files moved to
+    // assets/spb-revamped/geckolib/models/entity/. Passing the old full path made GeckoLib log
+    // "Unable to find model" + return MISSINGNO (magenta), which then crashed the true-form IK tick.
+    private static final Identifier SLIM_MODEL = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "entity/skin_walker_slim");
+    private static final Identifier DEFAULT_MODEL = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "entity/skin_walker_default");
+    private static final Identifier FINAL_MODEL = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "entity/skin_walker_final_default");
     private static final Identifier PLACEHOLDER_TEXTURE = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/entity/skinwalker/placeholder.png");
 
     private static final Identifier SPIDER_LEGS_TEXTURE = Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "textures/entity/skinwalker/skinwalker_legs_texture.png");

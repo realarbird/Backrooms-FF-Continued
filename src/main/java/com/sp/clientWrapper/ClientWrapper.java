@@ -175,6 +175,23 @@ public class ClientWrapper {
                 }
             }
 
+            //Level-2 warp visual (see the found-footage reference video): while the periodic warp event
+            //is active (Level2BackroomsLevel.isWarping) OR during the exit-teleport into the poolrooms,
+            //ramp warpTimer to full. It drives BOTH the barrel-distortion/chromatic-aberration glitch
+            //shader (max'd with glitchTimer in BackroomsPostEffects) and the camera tumble (CameraRoll) —
+            //the disorienting "warp/tilt like the video" effect, at full intensity while warping.
+            boolean warpActive = false;
+            if (BackroomsLevels.getLevel(playerComponent.player.level())
+                    .orElse(BackroomsLevels.OVERWORLD_REPRESENTING_BACKROOMS_LEVEL) instanceof Level2BackroomsLevel level2) {
+                warpActive = level2.isWarping() || playerComponent.isTeleportingToPoolrooms();
+            }
+            if (warpActive) {
+                playerComponent.warpTick = Math.min(playerComponent.warpTick + 2, 40); // ramp in over ~1s (20 ticks)
+            } else {
+                playerComponent.warpTick = Math.max(playerComponent.warpTick - 2, 0); // ramp out over ~1s
+            }
+            playerComponent.warpTimer = playerComponent.warpTick / 40.0f;
+
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

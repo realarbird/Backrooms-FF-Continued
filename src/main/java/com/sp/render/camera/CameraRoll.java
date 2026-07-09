@@ -1,6 +1,8 @@
 package com.sp.render.camera;
 
 import com.sp.SPBRevampedClient;
+import com.sp.cca_stuff.InitializeComponents;
+import com.sp.cca_stuff.PlayerComponent;
 import com.sp.compat.modmenu.ConfigStuff;
 import com.sp.util.MathStuff;
 import net.minecraft.client.Minecraft;
@@ -42,6 +44,26 @@ public class CameraRoll {
 
             prevYaw = yaw;
         }
-        return spinRoll + strafeRoll + SPBRevampedClient.getCameraShake().getCameraZRot();
+        return spinRoll + strafeRoll + warpRoll(player, tickDelta) + SPBRevampedClient.getCameraShake().getCameraZRot();
+    }
+
+    /**
+     * Level-2 warp camera tumble (reference: SpacePotato's found-footage video). While the warp is
+     * active {@code warpTimer} ramps 0..1 (client-side, in ClientWrapper); scale a big, disorienting
+     * multi-frequency roll by it so the view tumbles like the video's fisheye warp, then settles as the
+     * warp ends. Full-intensity amplitude per the requested look (~±35°, peaks to ~±50°). World game
+     * time (always advancing) drives the oscillation.
+     */
+    private static float warpRoll(Player player, float tickDelta) {
+        if (player == null) {
+            return 0.0f;
+        }
+        PlayerComponent pc = InitializeComponents.PLAYER.get(player);
+        if (pc == null || pc.getWarpTimer() <= 0.0f) {
+            return 0.0f;
+        }
+        double t = player.level().getGameTime() + tickDelta;
+        double tumble = Math.sin(t * 0.28) * 26.0 + Math.sin(t * 0.093) * 16.0 + Math.sin(t * 0.5) * 8.0;
+        return pc.getWarpTimer() * (float) tumble;
     }
 }

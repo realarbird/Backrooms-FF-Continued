@@ -10,25 +10,1703 @@
             "vertex_shader": "minecraft:core/screenquad",
             "fragment_shader": "spb-revamped:post/backrooms_scene",
             "inputs": [
-                { "sampler_name": "In", "target": "minecraft:main" },
-                { "sampler_name": "InDepth", "target": "minecraft:main", "use_depth_buffer": true },
-                { "sampler_name": "FogNoise", "location": "spb-revamped:textures/shaders/super_noise.png", "width": 256, "height": 256, "bilinear": true },
-                { "sampler_name": "CloudNoise1", "location": "spb-revamped:textures/shaders/puddle_noise.png", "width": 2000, "height": 2000, "bilinear": true },
-                { "sampler_name": "CloudNoise2", "location": "spb-revamped:textures/shaders/clouds2.png", "width": 512, "height": 512, "bilinear": true },
-                { "sampler_name": "Stars", "location": "spb-revamped:textures/shaders/stars.png", "width": 1000, "height": 1000, "bilinear": true }
+                {
+                    "sampler_name": "In",
+                    "target": "minecraft:main"
+                },
+                {
+                    "sampler_name": "InDepth",
+                    "target": "minecraft:main",
+                    "use_depth_buffer": true
+                },
+                {
+                    "sampler_name": "FogNoise",
+                    "location": "spb-revamped:textures/shaders/super_noise.png",
+                    "width": 256,
+                    "height": 256,
+                    "bilinear": true
+                },
+                {
+                    "sampler_name": "CloudNoise1",
+                    "location": "spb-revamped:textures/shaders/puddle_noise.png",
+                    "width": 2000,
+                    "height": 2000,
+                    "bilinear": true
+                },
+                {
+                    "sampler_name": "CloudNoise2",
+                    "location": "spb-revamped:textures/shaders/clouds2.png",
+                    "width": 512,
+                    "height": 512,
+                    "bilinear": true
+                },
+                {
+                    "sampler_name": "Stars",
+                    "location": "spb-revamped:textures/shaders/stars.png",
+                    "width": 1000,
+                    "height": 1000,
+                    "bilinear": true
+                }
             ],
             "output": "scene",
             "uniforms": {
                 "SpbDynamics": [
-                    { "name": "SpbInvProjMat", "type": "matrix4x4", "value": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
-                    { "name": "SpbInvViewRotMat", "type": "matrix4x4", "value": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
-                    { "name": "SpbFogColor", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
-                    { "name": "SpbFogShape", "type": "vec4", "value": [ 0.0, 90.0, 0.03, 0.0 ] },
-                    { "name": "SpbState", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.35 ] },
-                    { "name": "SpbSunDir", "type": "vec4", "value": [ 0.0, 1.0, 0.0, 0.35 ] },
-                    { "name": "SpbGradeA", "type": "vec4", "value": [ 1.0, 1.0, 1.0, 1.0 ] },
-                    { "name": "SpbGradeB", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
-                    { "name": "SpbSunScreen", "type": "vec4", "value": [ 0.5, 0.5, 0.0, 0.0 ] }
+                    {
+                        "name": "SpbInvProjMat",
+                        "type": "matrix4x4",
+                        "value": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbInvViewRotMat",
+                        "type": "matrix4x4",
+                        "value": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbFogColor",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbFogShape",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            90.0,
+                            0.03,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbState",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.35
+                        ]
+                    },
+                    {
+                        "name": "SpbSunDir",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.35
+                        ]
+                    },
+                    {
+                        "name": "SpbGradeA",
+                        "type": "vec4",
+                        "value": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbGradeB",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSunScreen",
+                        "type": "vec4",
+                        "value": [
+                            0.5,
+                            0.5,
+                            0.0,
+                            0.0
+                        ]
+                    }
+                ],
+                "SpbLights": [
+                    {
+                        "name": "SpbLightMeta",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbAmbient",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotPos0",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotPos1",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotPos2",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotPos3",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotPos4",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotPos5",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotPos6",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotPos7",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotDir0",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotDir1",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotDir2",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotDir3",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotDir4",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotDir5",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotDir6",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotDir7",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotColor0",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotColor1",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotColor2",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotColor3",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotColor4",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotColor5",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotColor6",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSpotColor7",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos0",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos1",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos2",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos3",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos4",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos5",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos6",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos7",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos8",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos9",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos10",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos11",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos12",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos13",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos14",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos15",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos16",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos17",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos18",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos19",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos20",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos21",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos22",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos23",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos24",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos25",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos26",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos27",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos28",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos29",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos30",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos31",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos32",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos33",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos34",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos35",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos36",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos37",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos38",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos39",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos40",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos41",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos42",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos43",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos44",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos45",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos46",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos47",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos48",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos49",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos50",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos51",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos52",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos53",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos54",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos55",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos56",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos57",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos58",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos59",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos60",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos61",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos62",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightPos63",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor0",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor1",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor2",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor3",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor4",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor5",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor6",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor7",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor8",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor9",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor10",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor11",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor12",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor13",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor14",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor15",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor16",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor17",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor18",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor19",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor20",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor21",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor22",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor23",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor24",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor25",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor26",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor27",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor28",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor29",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor30",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor31",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor32",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor33",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor34",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor35",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor36",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor37",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor38",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor39",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor40",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor41",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor42",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor43",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor44",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor45",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor46",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor47",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor48",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor49",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor50",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor51",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor52",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor53",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor54",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor55",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor56",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor57",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor58",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor59",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor60",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor61",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor62",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbLightColor63",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    }
                 ]
             }
         },
@@ -36,7 +1714,10 @@
             "vertex_shader": "minecraft:core/screenquad",
             "fragment_shader": "spb-revamped:post/backrooms_bright",
             "inputs": [
-                { "sampler_name": "In", "target": "scene" }
+                {
+                    "sampler_name": "In",
+                    "target": "scene"
+                }
             ],
             "output": "bright"
         },
@@ -44,13 +1725,28 @@
             "vertex_shader": "minecraft:core/screenquad",
             "fragment_shader": "minecraft:post/box_blur",
             "inputs": [
-                { "sampler_name": "In", "target": "bright", "bilinear": true }
+                {
+                    "sampler_name": "In",
+                    "target": "bright",
+                    "bilinear": true
+                }
             ],
             "output": "temp",
             "uniforms": {
                 "BlurConfig": [
-                    { "name": "BlurDir", "type": "vec2", "value": [ 1.0, 0.0 ] },
-                    { "name": "Radius", "type": "float", "value": 12.0 }
+                    {
+                        "name": "BlurDir",
+                        "type": "vec2",
+                        "value": [
+                            1.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "Radius",
+                        "type": "float",
+                        "value": 12.0
+                    }
                 ]
             }
         },
@@ -58,13 +1754,28 @@
             "vertex_shader": "minecraft:core/screenquad",
             "fragment_shader": "minecraft:post/box_blur",
             "inputs": [
-                { "sampler_name": "In", "target": "temp", "bilinear": true }
+                {
+                    "sampler_name": "In",
+                    "target": "temp",
+                    "bilinear": true
+                }
             ],
             "output": "bright",
             "uniforms": {
                 "BlurConfig": [
-                    { "name": "BlurDir", "type": "vec2", "value": [ 0.0, 1.0 ] },
-                    { "name": "Radius", "type": "float", "value": 12.0 }
+                    {
+                        "name": "BlurDir",
+                        "type": "vec2",
+                        "value": [
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "Radius",
+                        "type": "float",
+                        "value": 12.0
+                    }
                 ]
             }
         },
@@ -72,13 +1783,28 @@
             "vertex_shader": "minecraft:core/screenquad",
             "fragment_shader": "minecraft:post/box_blur",
             "inputs": [
-                { "sampler_name": "In", "target": "bright", "bilinear": true }
+                {
+                    "sampler_name": "In",
+                    "target": "bright",
+                    "bilinear": true
+                }
             ],
             "output": "temp",
             "uniforms": {
                 "BlurConfig": [
-                    { "name": "BlurDir", "type": "vec2", "value": [ 1.0, 0.0 ] },
-                    { "name": "Radius", "type": "float", "value": 24.0 }
+                    {
+                        "name": "BlurDir",
+                        "type": "vec2",
+                        "value": [
+                            1.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "Radius",
+                        "type": "float",
+                        "value": 24.0
+                    }
                 ]
             }
         },
@@ -86,13 +1812,28 @@
             "vertex_shader": "minecraft:core/screenquad",
             "fragment_shader": "minecraft:post/box_blur",
             "inputs": [
-                { "sampler_name": "In", "target": "temp", "bilinear": true }
+                {
+                    "sampler_name": "In",
+                    "target": "temp",
+                    "bilinear": true
+                }
             ],
             "output": "bright",
             "uniforms": {
                 "BlurConfig": [
-                    { "name": "BlurDir", "type": "vec2", "value": [ 0.0, 1.0 ] },
-                    { "name": "Radius", "type": "float", "value": 24.0 }
+                    {
+                        "name": "BlurDir",
+                        "type": "vec2",
+                        "value": [
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "Radius",
+                        "type": "float",
+                        "value": 24.0
+                    }
                 ]
             }
         },
@@ -100,22 +1841,140 @@
             "vertex_shader": "minecraft:core/screenquad",
             "fragment_shader": "spb-revamped:post/backrooms_vhs",
             "inputs": [
-                { "sampler_name": "In", "target": "scene" },
-                { "sampler_name": "Bloom", "target": "bright", "bilinear": true },
-                { "sampler_name": "VhsNoise", "location": "spb-revamped:textures/shaders/vhs_noise.png", "width": 256, "height": 256, "bilinear": true }
+                {
+                    "sampler_name": "In",
+                    "target": "scene"
+                },
+                {
+                    "sampler_name": "Bloom",
+                    "target": "bright",
+                    "bilinear": true
+                },
+                {
+                    "sampler_name": "VhsNoise",
+                    "location": "spb-revamped:textures/shaders/vhs_noise.png",
+                    "width": 256,
+                    "height": 256,
+                    "bilinear": true
+                }
             ],
             "output": "vhsout",
             "uniforms": {
                 "SpbDynamics": [
-                    { "name": "SpbInvProjMat", "type": "matrix4x4", "value": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
-                    { "name": "SpbInvViewRotMat", "type": "matrix4x4", "value": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
-                    { "name": "SpbFogColor", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
-                    { "name": "SpbFogShape", "type": "vec4", "value": [ 0.0, 90.0, 0.03, 0.0 ] },
-                    { "name": "SpbState", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.35 ] },
-                    { "name": "SpbSunDir", "type": "vec4", "value": [ 0.0, 1.0, 0.0, 0.35 ] },
-                    { "name": "SpbGradeA", "type": "vec4", "value": [ 1.0, 1.0, 1.0, 1.0 ] },
-                    { "name": "SpbGradeB", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
-                    { "name": "SpbSunScreen", "type": "vec4", "value": [ 0.5, 0.5, 0.0, 0.0 ] }
+                    {
+                        "name": "SpbInvProjMat",
+                        "type": "matrix4x4",
+                        "value": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbInvViewRotMat",
+                        "type": "matrix4x4",
+                        "value": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbFogColor",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbFogShape",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            90.0,
+                            0.03,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbState",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.35
+                        ]
+                    },
+                    {
+                        "name": "SpbSunDir",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.35
+                        ]
+                    },
+                    {
+                        "name": "SpbGradeA",
+                        "type": "vec4",
+                        "value": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbGradeB",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSunScreen",
+                        "type": "vec4",
+                        "value": [
+                            0.5,
+                            0.5,
+                            0.0,
+                            0.0
+                        ]
+                    }
                 ]
             }
         },
@@ -123,20 +1982,128 @@
             "vertex_shader": "minecraft:core/screenquad",
             "fragment_shader": "spb-revamped:post/backrooms_glitch",
             "inputs": [
-                { "sampler_name": "In", "target": "vhsout" }
+                {
+                    "sampler_name": "In",
+                    "target": "vhsout"
+                }
             ],
             "output": "minecraft:main",
             "uniforms": {
                 "SpbDynamics": [
-                    { "name": "SpbInvProjMat", "type": "matrix4x4", "value": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
-                    { "name": "SpbInvViewRotMat", "type": "matrix4x4", "value": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
-                    { "name": "SpbFogColor", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
-                    { "name": "SpbFogShape", "type": "vec4", "value": [ 0.0, 90.0, 0.03, 0.0 ] },
-                    { "name": "SpbState", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.35 ] },
-                    { "name": "SpbSunDir", "type": "vec4", "value": [ 0.0, 1.0, 0.0, 0.35 ] },
-                    { "name": "SpbGradeA", "type": "vec4", "value": [ 1.0, 1.0, 1.0, 1.0 ] },
-                    { "name": "SpbGradeB", "type": "vec4", "value": [ 0.0, 0.0, 0.0, 0.0 ] },
-                    { "name": "SpbSunScreen", "type": "vec4", "value": [ 0.5, 0.5, 0.0, 0.0 ] }
+                    {
+                        "name": "SpbInvProjMat",
+                        "type": "matrix4x4",
+                        "value": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbInvViewRotMat",
+                        "type": "matrix4x4",
+                        "value": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbFogColor",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbFogShape",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            90.0,
+                            0.03,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbState",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.35
+                        ]
+                    },
+                    {
+                        "name": "SpbSunDir",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.35
+                        ]
+                    },
+                    {
+                        "name": "SpbGradeA",
+                        "type": "vec4",
+                        "value": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ]
+                    },
+                    {
+                        "name": "SpbGradeB",
+                        "type": "vec4",
+                        "value": [
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    {
+                        "name": "SpbSunScreen",
+                        "type": "vec4",
+                        "value": [
+                            0.5,
+                            0.5,
+                            0.0,
+                            0.0
+                        ]
+                    }
                 ]
             }
         }

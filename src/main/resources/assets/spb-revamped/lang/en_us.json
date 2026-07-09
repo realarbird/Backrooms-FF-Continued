@@ -116,6 +116,8 @@
   "spb-revamped.midnightconfig.enableVhsEffectInTheBackrooms.tooltip": "This is not recommended to disable as it will heavily impact game feel and the atmosphere. It's also broken. \nONLY USE THIS IF YOUR PC CAN'T HANDLE THE MOD AT ALL",
   "spb-revamped.midnightconfig.VHSDistortionMultiplier": "VHS Distortion Multiplier",
   "spb-revamped.midnightconfig.enableBloom": "Enable Bloom",
+  "spb-revamped.midnightconfig.enableSmoothLighting": "Smooth Lighting (Per-Pixel)",
+  "spb-revamped.midnightconfig.enableSmoothLighting.tooltip": "Replaces the per-block vanilla lighting in the dark Backrooms levels with smooth per-pixel light from the light fixtures and the flashlight. Turn off to fall back to vanilla block lighting.",
   "spb-revamped.midnightconfig.enableLevelFog": "Enable Level Fog",
   "spb-revamped.midnightconfig.enableLevelFog.tooltip": "Per-level distance fog and sky rendered by the Backrooms shader chain (Level 0 haze, Infinite Field / Level 324 horizon fog). Level 1's knee-deep fog has its own toggle below.",
   "spb-revamped.midnightconfig.lookRollMultiplier": "Look Roll Multiplier",

@@ -123,11 +123,15 @@ public final class PoolroomsChunkGenerator extends BackroomsChunkGenerator {
 
             if (server != null) {
                 double noise = this.noiseSampler(world).noise((x) * 0.002, 0, (z) * 0.002);
-                boolean shouldSky = noise > 0;
+                // Biased toward the glass-ceilinged "sky" variant so the player sees a lot more open
+                // sky as they explore (the enclosed "dark"/Darkrooms rooms are kept, just rarer).
+                // Threshold -0.35 (was 0) lifts sky rooms from ~50% to ~65%. Worldgen only affects
+                // freshly generated chunks — an existing poolrooms save won't change.
+                boolean shouldSky = noise > -0.35;
 
                 this.generateMegaRooms(world, mutable, shouldSky, x - 32, z - 32);
                 PoolroomsMazeGenerator poolroomsMazeGenerator = new PoolroomsMazeGenerator(8, 10, 10, x, z, "poolrooms/" + (shouldSky ? "sky" : "dark"));
-                poolroomsMazeGenerator.setup(world, noise > 0, true, false);
+                poolroomsMazeGenerator.setup(world, shouldSky, true, false);
             }
         }
 

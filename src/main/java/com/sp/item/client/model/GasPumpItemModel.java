@@ -14,9 +14,12 @@ import com.geckolib.renderer.base.GeoRenderState;
 // return fixed resources so they ignore the argument. getAnimationResource is still keyed on the
 // animatable. Resource paths preserved verbatim from 1.20.1.
 public class GasPumpItemModel extends GeoModel<GasPumpItem> {
+    // PORT: delta (GeckoLib 4 -> 5). Bare "<subtype>/<name>" keys (GeckoLib 5 scans geckolib/models +
+    // geckolib/animations only). NOTE: the staircase geo/animation assets are not present in resources
+    // (pre-existing gap carried over from 1.20.1); this model would resolve to MISSINGNO if ever rendered.
     @Override
     public Identifier getModelResource(GeoRenderState renderState) {
-        return Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "geo/blocks/staircase.geo.json");
+        return Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "blocks/staircase");
     }
 
     @Override
@@ -26,6 +29,6 @@ public class GasPumpItemModel extends GeoModel<GasPumpItem> {
 
     @Override
     public Identifier getAnimationResource(GasPumpItem animatable) {
-        return Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "animations/staircase.animation.json");
+        return Identifier.fromNamespaceAndPath(SPBRevamped.MOD_ID, "staircase");
     }
 }

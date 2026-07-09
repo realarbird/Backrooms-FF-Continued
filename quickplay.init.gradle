@@ -1,0 +1,9 @@
+// Appends a quickplay arg to runClient so the dev client connects straight to the local
+// dedicated server (no title-screen clicking). Loom's RunGameTask is a JavaExec.
+gradle.taskGraph.whenReady {
+    gradle.taskGraph.allTasks.each { t ->
+        if (t.name == 'runClient') {
+            t.args(['--quickPlayMultiplayer', '127.0.0.1:25565'])
+        }
+    }
+}

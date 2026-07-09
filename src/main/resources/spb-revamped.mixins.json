@@ -36,6 +36,7 @@
     "cutscene.ClientPlayerInteractionManagerMixin",
     "cutscene.MinecraftClientMixin",
     "hudandresolution.DontRenderHandMixin",
+    "lightmap.BackroomsFullbrightLightmap",
     "lightmap.PoolroomsSkylightColor",
     "rain.LightningSkyFlashClientMixin",
     "render.GameRendererPostFxMixin",
