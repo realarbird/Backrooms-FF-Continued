@@ -1,5 +1,6 @@
 package com.sp.render;
 
+import com.sp.SPBRevampedClient;
 import com.sp.cca_stuff.PlayerComponent;
 import com.sp.init.ModSounds;
 import com.sp.render.gui.BackroomsHudOverlay;
@@ -70,8 +71,10 @@ public class SkinwalkerJumpscare {
             started = false;
             startTime = 0L;
 
-            // PORT: phase6e — SPBRevampedClient is not yet ported; re-enable this sync once it compiles.
-            // SPBRevampedClient.sendComponentSyncPacket(component.isBeingCaptured(), "beingCaptured");
+            // Tell the server the jumpscare is over. While this sync was commented out the server kept
+            // isBeingCaptured=true, so every later component sync (sprint stamina, flashlight, release,
+            // relog) re-sent it and the face replayed over and over (issues #1, #2).
+            SPBRevampedClient.sendComponentSyncPacket(component.isBeingCaptured(), "beingCaptured");
 
             reset();
         }

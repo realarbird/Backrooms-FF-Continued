@@ -211,7 +211,9 @@ public class ClientWrapper {
             // Skinwalker jumpscare timeline — drives the creepy-face overlay flags on BackroomsHudOverlay
             // while the player is being captured. PORT FIX: doJumpscare() existed but was never called, so
             // the timeline never ran and a capture just showed the black-screen with no face.
-            if (playerComponent.isBeingCaptured()) {
+            // The server sets both capture flags together, so a lone isBeingCaptured is a stale leftover
+            // (e.g. from a save made before the jumpscare's end was synced) and must not replay the face.
+            if (playerComponent.isBeingCaptured() && playerComponent.hasBeenCaptured()) {
                 SkinwalkerJumpscare.doJumpscare(client, playerComponent);
             } else if (BackroomsHudOverlay.jumpscare) {
                 // Capture ended early (e.g. interrupted) — clear any lingering jumpscare flags.

@@ -409,6 +409,13 @@ public class PlayerComponent implements AutoSyncedComponent, ClientTickingCompon
     public void serverTick() {
         getPrevSettings();
 
+        //*A capture is over once hasBeenCaptured is cleared (release, death or /skinwalker release).
+        //*Drop a leftover isBeingCaptured so later syncs can't replay the jumpscare on the client.
+        if (this.isBeingCaptured && !this.hasBeenCaptured) {
+            this.isBeingCaptured = false;
+            this.sync();
+        }
+
         //*Update Stamina
         updateStamina();
 
