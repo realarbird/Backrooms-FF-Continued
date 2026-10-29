@@ -208,7 +208,13 @@ public class BackroomsHudOverlay implements HudElement {
         graphics.text(font, battery, w - bw - margin, h - font.lineHeight - margin, 0xFFFFFFFF, true);
     }
 
-    /** Draws the skinwalker jumpscare faces / escape text as full-screen blits when their flags are set. */
+    /**
+     * Draws the skinwalker jumpscare faces / escape text as full-screen blits when their flags are set.
+     *
+     * <p>These PNGs are stored upside down: the original sampled them in the VHS post shader, whose texture
+     * coordinates start at the bottom-left. The GUI's origin is top-left, so v runs 1 → 0 here to draw them
+     * upright like the original did.</p>
+     */
     private void drawJumpscare(GuiGraphicsExtractor graphics, int w, int h) {
         if (!jumpscare) {
             return;
@@ -217,10 +223,10 @@ public class BackroomsHudOverlay implements HudElement {
             // Late stage: jitter the face by the synced random offset for an unstable look.
             int dx = (int) ((faceRandX - 0.5f) * 16.0f);
             int dy = (int) ((faceRandY - 0.5f) * 16.0f);
-            graphics.blit(CREEPY_FACE_2, dx, dy, w, h, 0.0f, 1.0f, 0.0f, 1.0f);
-            graphics.blit(YOU_CANT_ESCAPE, 0, 0, w, h, 0.0f, 1.0f, 0.0f, 1.0f);
+            graphics.blit(CREEPY_FACE_2, dx, dy, w, h, 0.0f, 1.0f, 1.0f, 0.0f);
+            graphics.blit(YOU_CANT_ESCAPE, 0, 0, w, h, 0.0f, 1.0f, 1.0f, 0.0f);
         } else if (creepyFace1) {
-            graphics.blit(CREEPY_FACE_1, 0, 0, w, h, 0.0f, 1.0f, 0.0f, 1.0f);
+            graphics.blit(CREEPY_FACE_1, 0, 0, w, h, 0.0f, 1.0f, 1.0f, 0.0f);
         }
     }
 
