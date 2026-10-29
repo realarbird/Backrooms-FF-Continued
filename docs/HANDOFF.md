@@ -1373,8 +1373,11 @@ the release paths only clear `hasBeenCaptured`.
    are stored upside down because the original sampled them in the VHS post shader (bottom-left texture
    origin); the HUD blit is top-left, so the port showed them upside down (see the #1 screenshot).
 
-**Not build-verified in that session** (cloud container without access to the Fabric maven / Mojang). The
-code changes are a re-enabled existing call, two boolean conditions and swapped UV literals on an existing
-`blit` overload. To check live: two players on a server (capture needs >1 player, or `/skinwalker <player>`),
-let the jumpscare finish, then sprint / toggle flashlight / relog — the face must not come back, and it should
-render upright.
+**Verified.** `./gradlew build` green (Temurin 25.0.5) in a Linux cloud container. The UV flip was checked
+against the 26.2 bytecode: `GuiGraphicsExtractor.blit(id, x0, y0, x1, y1, u0, u1, v0, v1)` →
+`BlitRenderState`, whose top-left vertex `(x0, y0)` samples `(u0, v0)`, so `v0=1, v1=0` is a vertical flip.
+(If Maven Central answers 429 there, route it through
+`https://maven-central.storage-download.googleapis.com/maven2/` with a local `--init-script`; Gradle won't
+fall through to the mod repos on a 429.) **Not yet playtested** (no display). To check live: two players on
+a server (capture needs >1 player, or `/skinwalker <player>`), let the jumpscare finish, then sprint / toggle
+flashlight / relog. The face must not come back, and it should render upright.
