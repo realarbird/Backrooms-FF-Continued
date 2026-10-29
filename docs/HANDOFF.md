@@ -1345,3 +1345,36 @@ compile/stitch at runtime and the assistant can't run the client (no display, §
 the user in the poolrooms (spawn 16.5,106,16.5; `/backroomsevent sunset` for daytime): **move the camera and
 confirm no flicker / no blocky fallback**, smooth animated teal water. If it reads too flat, bump `spec_str`
 in the generator and rebuild — do NOT bring back a screen-space detection pass.
+
+## 26. Skinwalker jumpscare face replays over and over in multiplayer (GitHub issues #1, #2)
+
+**User reports:** "me and my friend are playing on a server and we keep getting faced repeatedly … its
+ruining the gameplay" (#1, screenshot = `creepy_face1.png`, upside down) and "when my friend runs it makes it
+show [the face]" (#2).
+
+**Root cause.** The capture jumpscare is client-driven: the server sets `isBeingCaptured` + `hasBeenCaptured`
+and syncs; the client plays the 14 s timeline (`SkinwalkerJumpscare`), then clears `isBeingCaptured` locally
+and is supposed to report that back with the `"beingCaptured"` C2S sync. That send was left commented out
+("SPBRevampedClient is not yet ported"), so the server's `isBeingCaptured` stayed `true` forever (and was saved
+to NBT). `PlayerComponent` syncs its whole NBT, so every later sync re-sent `true` and §14.6's `reset()`
+re-armed the timeline from 0: sprinting (stamina `syncWith` every 20 points, the "when my friend runs" report),
+flashlight toggles, the release sequence, teleport timers, relogging. Nothing on the server ever cleared it —
+the release paths only clear `hasBeenCaptured`.
+
+**Fix.**
+1. `SkinwalkerJumpscare` — re-enabled `SPBRevampedClient.sendComponentSyncPacket(..., "beingCaptured")` at the
+   end of the timeline (the original's behaviour; `SyncServerComponent` already handled it).
+2. `PlayerComponent.serverTick` — self-heal: `isBeingCaptured && !hasBeenCaptured` means the capture is over
+   (release / death / `/skinwalker release`), so clear it and sync. Also repairs players whose saves already
+   carry the stuck flag.
+3. `ClientWrapper` — only run the jumpscare while **both** flags are set (the server always sets them
+   together), so a stale flag in the join sync can't start the scream before the server-side heal lands.
+4. `BackroomsHudOverlay.drawJumpscare` — draw the faces + `you_cant_escape.png` with v flipped (1→0). The PNGs
+   are stored upside down because the original sampled them in the VHS post shader (bottom-left texture
+   origin); the HUD blit is top-left, so the port showed them upside down (see the #1 screenshot).
+
+**Not build-verified in that session** (cloud container without access to the Fabric maven / Mojang). The
+code changes are a re-enabled existing call, two boolean conditions and swapped UV literals on an existing
+`blit` overload. To check live: two players on a server (capture needs >1 player, or `/skinwalker <player>`),
+let the jumpscare finish, then sprint / toggle flashlight / relog — the face must not come back, and it should
+render upright.
